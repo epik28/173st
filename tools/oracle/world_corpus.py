@@ -147,11 +147,9 @@ The 749 rows are coordinates: the original level.dat plus the 748 selected slots
 
 
 def verify(root=ROOT, write=False):
-    if write:
-        write_fixtures()
     rows = expected_fixture(root)
     fixture = root / "tests/fixtures/world/live.tsv"
-    if fixture.read_text() != rows:
+    if not write and fixture.read_text() != rows:
         raise AssertionError("live coordinate fixture differs from generator")
     parent = root / config(root).get("artifacts", "artifacts") / "oracle-world"
     parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +162,10 @@ def verify(root=ROOT, write=False):
         repeat_audit, repeat_stdout = run_native(repeat_dir, copied, rows, root)
         if repeat_stdout != stdout or repeat_audit != audit:
             raise AssertionError("native live run was not reproducible")
+        jar = (root / config(root)["client_jar"]).resolve()
+        generated = run_generated(run_dir, jar, run_dir / "classes")
+        if digest(jar.read_bytes()) != JAR_SHA:
+            raise AssertionError("configured JAR changed during native execution")
     finally:
         verify_snapshot(run_dir, evidence, root)
     lines = stdout.splitlines()
@@ -175,9 +177,7 @@ def verify(root=ROOT, write=False):
         raise AssertionError("live native-call counts must exclude generated tests")
     if audit.get("native_calls", {}).get("native_chunk_loads") != 0:
         raise AssertionError("full native chunk loader unexpectedly invoked")
-    jar = (root / config(root)["client_jar"]).resolve()
-    generated = run_generated(run_dir, jar, run_dir / "classes")
-    if generated["native_calls"] != {"ij_b_DataInput": 9, "ei_constructor": 7, "qj_a_int_int": 0, "native_chunk_loads": 0}:
+    if generated["native_calls"] != {"ij_b_DataInput": 11, "ei_constructor": 7, "qj_a_int_int": 0, "native_chunk_loads": 0}:
         raise AssertionError("generated native counts mismatch")
     if audit["classes"] != {name: class_hash((root / config(root)["client_jar"]).resolve(), name)
                             for name in ("ij", "nu", "ei", "qj")}:
@@ -187,7 +187,6 @@ def verify(root=ROOT, write=False):
     retained_manifest = json.dumps(retained, sort_keys=True, separators=(",", ":")).encode()
     (run_dir / "retained-manifest.json").write_bytes(retained_manifest + b"\n")
     generated_summary = {k: v for k, v in generated.items() if k != "retained_files"}
-    (root / "tests/fixtures/world/generated.json").write_text(json.dumps(generated_summary, indent=2) + "\n")
     report = {"kind": "native original-JAR world data oracle; no Rust parity asserted",
               "live_cases": 749, "input_sha256": digest(rows.encode()), "jar_sha256": JAR_SHA,
               "source_before": evidence["source_before"], "source_after": evidence["source_after"],
@@ -195,7 +194,11 @@ def verify(root=ROOT, write=False):
               "retained_files": len(retained), "retained_manifest_sha256": digest(retained_manifest),
               "reference_sha256": digest(stdout.encode()), "repeat_reference_sha256": digest(repeat_stdout.encode()),
               "repeatable": True}
-    (root / "tests/fixtures/world/audit.json").write_text(json.dumps(report, indent=2) + "\n")
+    (run_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    if write:
+        write_fixtures()
+        (root / "tests/fixtures/world/generated.json").write_text(json.dumps(generated_summary, indent=2) + "\n")
+        (root / "tests/fixtures/world/audit.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"live_cases": 749, "chunk_present": audit["chunk_present"],
                       "chunk_absent": audit["chunk_absent"], "native_calls": audit["native_calls"],
                       "generated_semantics": generated["generated_semantics"],

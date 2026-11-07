@@ -2,9 +2,27 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
-    "WORLD-LOAD-001-C01": {"state":"pending","summary":"","checks":[]},
-    "WORLD-LOAD-001-C02": {"state":"pending","summary":"","checks":[]},
-    "WORLD-LOAD-001-C03": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-C01": {
+      "state": "done",
+      "summary": "Добавлены оригинальный WorldOracle на ij/nu/ei/qj, пять-file snapshot и 749 координатных live cases. На копиях выполнено два идентичных запуска: 704 present + 44 absent; native calls отдельно зафиксированы как qj=748, ij=705, ei=1, native_chunk_loads=0. Отдельный generated self-test проверил defaults, wrong types, границы, unknown/list data и strict chunk errors; Rust parity не выполнялась.",
+      "checks": [
+        "python3 tools/oracle/world_corpus.py --write → PASS: 749 rows; native qj=748/ij=705/ei=1; 704 present + 44 absent; generated cases in separate process; source/copy hashes unchanged; repeat output/audit identical SHA f2e08c13997bb6fab03170dfbcec1fb3bd619e9079b792cf324fd853bd12fcc2",
+        "python3 tools/oracle/world_corpus.py → PASS: повторный native run; tracked audit/generated fixtures unchanged; run artifacts/oracle-world/run-lzwoftww",
+        "python3 -m unittest discover -s tests/python -p test_world_corpus.py -v → PASS: 4 tests for five-file copy/markers, source/copy hashes, symlink/traversal and corpus/audit",
+        "python3 tools/check.py → PASS: 64 Python + 58 Rust all-targets; fmt/check/clippy/doc",
+        "git diff --check → PASS"
+      ]
+    },
+    "WORLD-LOAD-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "WORLD-LOAD-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "RNG-001-C01": {
       "state": "done",
       "summary": "Java-адаптер вызывает настоящий java.util.Random, проверяет TSV и сохраняет порядок. Rust↔Java ещё не сравнивались.",
@@ -108,8 +126,27 @@
         "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main 2c5cb4a; git diff --exit-code main HEAD → 0; python3 tools/tasks.py next codex → complete"
       ]
     },
-    "NBT-001-C01": {"state": "done", "summary": "Найден и вызван оригинальный Beta 1.7.3 NBT API: obfuscated ij/nu. Подготовлен wire corpus из 5200 валидных compound cases и отдельные invalid cases; TAG_Int_Array (11) сохранён как явно помеченное wire-only свидетельство, поскольку оригинальный factory поддерживает только 0..10. Rust parity ещё не выполнена.", "checks": ["python3 tools/oracle/nbt_corpus.py → PASS: 5200 cases, 11 original tag types, отдельный wire-only TAG_Int_Array и 4 invalid cases", "javac -cp ../.local/minecraft/client-b1.7.3.jar -d artifacts/oracle-nbt-check/classes tools/oracle/src/NbtOracle.java → PASS", "java -cp artifacts/oracle-nbt-check/classes:../.local/minecraft/client-b1.7.3.jar NbtOracle ../.local/minecraft/client-b1.7.3.jar < tests/fixtures/nbt/corpus.tsv → PASS: 5200 round-trips; original classes ij/nu; JAR SHA-256 af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c", "invalid.tsv через тот же оригинальный adapter → ненулевой код и stderr", "git diff --check → PASS"]},
-    "NBT-001-C02": {"state": "done", "summary": "Добавлена группа nbt в live runner: original ij/nu Java adapter, exact raw round-trip bytes и consumed length, сохранённые hashes/logs/statuses, строгий not_implemented при отсутствии Rust probe. Предыдущие rng/rng-extended/chunk сохранены.", "checks": ["python3 tools/check.py → PASS: 37 Python, 31 Rust all-targets, fmt/check/clippy/doc", "python3 tools/parity/run.py nbt --strict → not_implemented exit 1: Java adapter реально выполнил 5200 cases; report artifacts/parity/nbt/run-mfmj868x/report.json", "python3 tools/parity/run.py rng --strict → PASS 96/96", "git diff --check → PASS"]},
+    "NBT-001-C01": {
+      "state": "done",
+      "summary": "Найден и вызван оригинальный Beta 1.7.3 NBT API: obfuscated ij/nu. Подготовлен wire corpus из 5200 валидных compound cases и отдельные invalid cases; TAG_Int_Array (11) сохранён как явно помеченное wire-only свидетельство, поскольку оригинальный factory поддерживает только 0..10. Rust parity ещё не выполнена.",
+      "checks": [
+        "python3 tools/oracle/nbt_corpus.py → PASS: 5200 cases, 11 original tag types, отдельный wire-only TAG_Int_Array и 4 invalid cases",
+        "javac -cp ../.local/minecraft/client-b1.7.3.jar -d artifacts/oracle-nbt-check/classes tools/oracle/src/NbtOracle.java → PASS",
+        "java -cp artifacts/oracle-nbt-check/classes:../.local/minecraft/client-b1.7.3.jar NbtOracle ../.local/minecraft/client-b1.7.3.jar < tests/fixtures/nbt/corpus.tsv → PASS: 5200 round-trips; original classes ij/nu; JAR SHA-256 af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+        "invalid.tsv через тот же оригинальный adapter → ненулевой код и stderr",
+        "git diff --check → PASS"
+      ]
+    },
+    "NBT-001-C02": {
+      "state": "done",
+      "summary": "Добавлена группа nbt в live runner: original ij/nu Java adapter, exact raw round-trip bytes и consumed length, сохранённые hashes/logs/statuses, строгий not_implemented при отсутствии Rust probe. Предыдущие rng/rng-extended/chunk сохранены.",
+      "checks": [
+        "python3 tools/check.py → PASS: 37 Python, 31 Rust all-targets, fmt/check/clippy/doc",
+        "python3 tools/parity/run.py nbt --strict → not_implemented exit 1: Java adapter реально выполнил 5200 cases; report artifacts/parity/nbt/run-mfmj868x/report.json",
+        "python3 tools/parity/run.py rng --strict → PASS 96/96",
+        "git diff --check → PASS"
+      ]
+    },
     "NBT-001-C03": {
       "state": "done",
       "summary": "Принят NBT-001 в документированной общей области оригинального Beta API: agy 541d719e83e32ad13e9448e102c8cc1ed16bcf40; чистая проверенная ревизия 93ed4fe8356d9c30cfa9013bca111d61e75f0ebf. NBT 5250/5250 и все прежние live-группы PASS; 86 protocol/wire/safety executions и пять синтетических мутаций PASS. IntArray, native differences и Rust limits проверены отдельно; загрузка мира не заявляется. Коммит приёмки — содержащий эту запись коммит, переносимый в main fast-forward.",
