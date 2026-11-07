@@ -3,4 +3,5 @@
 //! This initial crate establishes the workspace boundary. Game behavior and Java
 //! compatibility will be added in small, independently verified tasks.
 
+pub mod chunk;
 pub mod java_random;
