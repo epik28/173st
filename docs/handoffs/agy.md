@@ -17,6 +17,14 @@
 - Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 8 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 33 library + 22 example tests и doc tests PASS; `git diff --check` → PASS.
 - Внешние файлы, сохранение Prism, JAR, oracle/runner и общий контракт не трогались. Model ID: **gpt-6-luna low**; заимствований нет, стоимость/токены недоступны.
 
+### A01 follow-up — repeated gzip boundaries and large zlib output
+
+- Удалён промежуточный `BufReader` и пересчёт относительных Cursor offsets: `Cursor<&[u8]>` напрямую реализует `BufRead`, поэтому каждый concatenated gzip member читается с текущего абсолютного offset, включая trailing garbage policy.
+- Zlib low-level loop использует `FlushDecompress::None` с bounded output chunks и завершается только на `Status::StreamEnd`; no-progress/error отвергает незавершённый stream. Это поддерживает valid output больше 8192 байт.
+- Добавлены regression cases: три gzip members, первые два encoded ровно в 8191 byte; 25,000-byte zlib output с точным output limit и limit+1; trailing gzip `0x1f` (garbage accepted) и incomplete magic `0x1f 0x8b` (decompression error). Ранее добавленные exhaustive truncation/checksum случаи остаются включены.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 10 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 35 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
+- Изменены только `region.rs`, собственный agy status и handoff. Model ID: **gpt-6-luna low**; зависимости, oracle, runner, общий контракт, save/JAR не изменялись.
+
 ## REGION-001-A02 — Rust region probe
 
 - Добавлен `crates/beta-core/examples/region_probe.rs`. CLI принимает только `INPUT_COPY_DIR PAYLOAD_DIR`, требует обычный `.region-input-copy` marker, разделяет input/payload каталоги и читает только regular region files непосредственно в canonical input directory. TSV проверяет число полей, уникальный ASCII case ID, координаты i32 и точное имя региона `r.<floor(x/32)>.<floor(z/32)>.mcr`; запрещает абсолютные/traversal пути и symlink region files.
