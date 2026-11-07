@@ -1,5 +1,14 @@
 # Отчёт Gemini / agy
 
+## REGION-001-A01 — read-only Rust McRegion reader
+
+- Реализован borrowed `beta_core::region::RegionFile`: проверяет выравнивание и заголовок, все location records, длины, границы и перекрытия до выдачи reader. Добавлены metadata записей, ошибки для локальных x/z вне диапазона, `region_coord/local_coord` для отрицательных координат и границ i32.
+- Реализована bounded распаковка gzip (несколько members и допустимый trailing garbage по C01) и zlib. Ограничен суммарный распакованный output; ошибки потоков и неподдерживаемые compression IDs различаются. Регион не копируется целиком и входные bytes не изменяются.
+- Синтетические тесты покрывают zlib NBT payload/metadata, gzip multiple members + trailing bytes, malformed header/location/length, overlap, unsupported compression, decompression failure, output cap и координатные границы. Prism save, JAR и внешние artifacts не открывались и не менялись; live parity не заявляется.
+- Изменены: `crates/beta-core/src/region.rs`, `crates/beta-core/src/lib.rs`, `docs/tasks/status/agy.json`, этот handoff.
+- Проверки: `cargo test --all-targets --locked --offline` → 30 library + 18 example tests PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy/workspace tests/doc tests PASS; `git diff --check` → PASS.
+- Model ID: **gpt-6-luna low**. Заимствований нет; контракт C01 использован как входные требования. Стоимость/токены недоступны.
+
 ## NBT-001 — приёмка в main и завершение очереди agy
 
 - Прочитаны закоммиченные контракт, статус C03 и handoff Codex. Приёмка находится
