@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 import subprocess
 
-from run import compare_outputs, expected_keys, parse_fixture, sha256
+from run import (compare_outputs, expected_keys, parse_fixture, sha256,
+                 extended_keys, parse_extended_fixture)
 
 
 def main():
@@ -24,7 +25,10 @@ def main():
                       (actual, "rust_output_sha256")):
         if sha256(data) != report[key]:
             raise SystemExit(f"saved bytes do not match {key}")
-    keys = expected_keys(parse_fixture(input_data))
+    extended = report["suite"] == "rng-extended"
+    parse = parse_extended_fixture if extended else parse_fixture
+    make_keys = extended_keys if extended else expected_keys
+    keys = make_keys(parse(input_data))
     if compare_outputs(reference, actual, keys)["mismatch_count"]:
         raise SystemExit("saved outputs no longer match")
     lines = actual.splitlines(keepends=True)
@@ -47,8 +51,10 @@ def main():
         json.dumps(sensitivity, ensure_ascii=False, indent=2) + "\n")
     print(f"PASS: saved hashes and outputs verified; one synthetic mutation detected: {directory}")
     if args.protocol:
-        commands = {"java": ["java", "-cp", str(directory / "classes"), "RandomOracle"],
-                    "rust": [str(directory / "rng_probe")]}
+        class_name = "RandomExtendedOracle" if extended else "RandomOracle"
+        example = "rng_extended_probe" if extended else "rng_probe"
+        commands = {"java": ["java", "-cp", str(directory / "classes"), class_name],
+                    "rust": [str(directory / example)]}
         invalid = [
             b" \n", b"\t\n", b"x\t9223372036854775808\t1\n",
             b"x\t-9223372036854775809\t1\n", b"x\tNaN\t1\n", b"x\t0\t0\n",
@@ -57,17 +63,39 @@ def main():
             "é\t0\t1\n".encode(), b"x\t0\t1\nx\t1\t1\n",
             b"x\t0\n", b"x\t0\t1\textra\n",
         ]
+        valid_inputs = [b"\n", b"# comment\n"]
+        if extended:
+            invalid = [b" \n", b"\t\n", b"x\t0\tunknown\n", b"x\t0\t\n",
+                       b"x\t0\tint;\n", b"x\t0\t;int\n", b"x\t0\tint;;int\n", b"x\t0\tint \n",
+                       b"x\t9223372036854775808\tint\n", b"x\t0\tseed:-9223372036854775809\n",
+                       b"x\t0\tbound:2147483648\n", b"x\t0\tbound:abc\n", b"x\t0\tseed:1:2\n",
+                       b"x\t0\tint\nx\t1\tint\n", b"bad id\t0\tint\n",
+                       b"x\t0\t" + b";".join([b"int"]*100001) + b"\n",
+                       b"x\t0\t" + b";".join([b"int"]*50001) + b"\ny\t0\t" + b";".join([b"int"]*50000) + b"\n"]
+            tail = b"int;long;float;double;boolean;bound:17"
+            valid_inputs.extend([
+                b"control\t42\t" + tail + b"\ninvalid\t42\tbound:0;bound:-1;" + tail + b"\n",
+                b"fresh\t-9223372036854775808\t" + tail + b"\nreseed\t1\tlong;seed:-9223372036854775808;" + tail + b"\n",
+                b"maximum\t0\t" + b";".join([b"int"]*100000) + b"\n"])
         results, failures = [], []
-        for data, valid in [(value, False) for value in invalid] + [(b"\n", True), (b"# comment\n", True)]:
+        for data, valid in [(value, False) for value in invalid] + [(value, True) for value in valid_inputs]:
+            valid_outputs = {}
             for side, command in commands.items():
-                process = subprocess.run(command, input=data, capture_output=True, timeout=10)
+                process = subprocess.run(command, input=data, capture_output=True, timeout=20)
                 passed = (process.returncode == 0) if valid else (process.returncode != 0 and bool(process.stderr))
-                result = {"side": side, "input_hex": data.hex(), "expected_valid": valid,
-                          "returncode": process.returncode, "stdout": process.stdout.decode("utf-8", "replace"),
+                if valid:
+                    valid_outputs[side] = process.stdout
+                    case_keys = make_keys(parse(data)) if data.strip() and not data.startswith(b"#") else []
+                    passed = passed and not compare_outputs(process.stdout, process.stdout, case_keys)["mismatch_count"]
+                result = {"side": side, "input_hex": data[:512].hex(), "input_sha256": sha256(data),
+                          "expected_valid": valid, "returncode": process.returncode,
+                          "stdout_sha256": sha256(process.stdout), "stdout_preview": process.stdout[:512].decode("utf-8", "replace"),
                           "stderr": process.stderr.decode("utf-8", "replace"), "accepted": passed}
                 results.append(result)
                 if not passed:
                     failures.append(result)
+            if valid and valid_outputs["java"] != valid_outputs["rust"]:
+                failures.append({"side": "comparison", "input_hex": data[:512].hex(), "returncode": "outputs differ"})
         review = {"kind": "live TSV protocol validation; separate from RNG output comparison",
                   "live_report": str(args.report.resolve()), "results": results, "failures": failures}
         (directory / "protocol-review.json").write_text(json.dumps(review, ensure_ascii=False, indent=2) + "\n")

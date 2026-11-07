@@ -24,3 +24,11 @@
 
 Методика и статусы: [parity-testing.md](../../docs/parity-testing.md).
 `tools/check.py` проверяет workspace и не заменяет этот runner.
+
+RNG-002: `python3 tools/parity/run.py rng-extended --strict` использует
+`RandomExtendedOracle` и `rng_extended_probe`, сохраняет точные IEEE-биты
+float/double и общее состояние цепочки. Проверка сохранённого отчёта/протокола:
+`python3 tools/parity/verify_report.py <rng-extended-report.json> --protocol`.
+Она проверяет синтаксис, лимиты, invalid_bound/reseed и подмену копии результата.
+Стандартный `tools/check.py` теперь выполняет all-targets (включая example-тесты)
+и отдельный cargo test --doc.

@@ -219,3 +219,27 @@ pending в общем коммите подготовки, а не отмече�
   и synthetic-no-rejection.tsv. `git diff --check` → PASS.
 - Заимствований/помощи agy в Java нет; Rust↔Java по RNG-002 ещё не сравнивались.
   Следующий шаг: RNG-002-C02, расширить runner и стандартный запуск example-тестов.
+
+## RNG-002-C02 — done
+
+- Старт `6fb5a6d`; итог — коммит с этим разделом.
+- Изменены run.py/verify_report.py/README в tools/parity, tools/check.py,
+  tests/python/test_rng_extended.py, собственные status/handoff. Rust и fixture не менялись.
+- Общий runner сохранён: добавлена rng-extended с типами/порядком/количеством записей,
+  raw IEEE-битами и аргументами bound/reseed. Метаданные и тайм-ауты общие для групп.
+- `python3 tools/check.py` → PASS: 31 Python-тест, 11 Rust-тестов (включая examples),
+  fmt/check/clippy и отдельный --doc. Тесты процесса/timeout/ошибок используют общий
+  механизм runner; новые синтетические тесты проверяют типы, лимиты и порчу состояния.
+- `python3 tools/parity/run.py rng --strict` → PASS 96/96,
+  `artifacts/parity/rng/run-v37op4wi/report.json`.
+- `python3 tools/parity/run.py rng-extended --strict` → not_implemented, exit 1;
+  Java выполнена (13227 записей), probe отсутствует в текущем checkout.
+  Отчёт `artifacts/parity/rng-extended/run-e1c9a148/report.json` — не parity pass.
+- Точная команда для C03: `python3 tools/parity/verify_report.py <report.json> --protocol`.
+  Для rng-extended она проверяет неизвестные/пустые операции, аргументы/ID/whitespace,
+  лимиты на строку/весь вход, валидный invalid_bound/reseed и максимальные 100000 операций;
+  сравнивает выходы обеих сторон. Синтетическая подмена сохраняется отдельно.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng/run-v37op4wi/report.json --protocol`
+  → PASS: хеши, подмена и 36 live-проверок прежней группы.
+- `git diff --check` → PASS. Следующий шаг: очередь C03; agy A01 уже закоммичен,
+  A02 ещё pending. Codex Rust-код не правил, эталоны не ослаблял.

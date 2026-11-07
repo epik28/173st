@@ -43,9 +43,15 @@
       ]
     },
     "RNG-002-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлена группа rng-extended, точные типизированные записи и IEEE-биты, проверка сохранённого отчёта/протокола. Старый rng сохранён. check.py запускает all-targets и doc. Rust extended probe ещё не интегрирован.",
+      "checks": [
+        "python3 tools/check.py → PASS: 31 Python-тест, 11 Rust-тестов включая example, fmt/check/clippy и отдельный doc",
+        "python3 tools/parity/run.py rng --strict → PASS 96/96; artifacts/parity/rng/run-v37op4wi/report.json",
+        "python3 tools/parity/run.py rng-extended --strict → not_implemented, exit 1, Java реально выдала 13227 записей; artifacts/parity/rng-extended/run-e1c9a148/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/rng/run-v37op4wi/report.json --protocol → PASS: хеши, подмена и 36 live-проверок",
+        "git diff --check → PASS"
+      ]
     },
     "RNG-002-C03": {
       "state": "pending",
