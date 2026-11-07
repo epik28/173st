@@ -10,6 +10,7 @@
 - NBT C03 live-run 5200 cases выявил несоответствие в compound writer: оригинальный `nu` использует `java.util.HashMap` и пишет элементы в порядке `values()` iterator. Reader Rust ранее отвергал duplicate names.
 - `javap -private -c ... nu` подтвердил HashMap storage/iteration; прямой вызов NbtOracle на duplicate-name compound показал `HashMap.put` semantics: duplicate принимается, последнее значение заменяет предыдущее.
 - Reader теперь применяет last-value-wins, writer моделирует Java `String.hashCode`, HashMap capacity/resize, bucket iteration order и дубли. Изменение остаётся внутри NBT-001-A01.
+- `Tag::Float/Double` при чтении сохраняют raw bits; writer повторяет `DataOutput.writeFloat/writeDouble` и canonicalizes noncanonical NaN payload в Java quiet-NaN bit pattern.
 
 ### Изменённые файлы
 - `crates/beta-core/src/nbt.rs`
@@ -22,7 +23,7 @@
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
 - `git diff --check` → без ошибок.
 - Первое live-сравнение после получения Codex C01/C02 запущено на чистом SHA `9db415e` (merge snapshot C02 + agy `c325bff`): `python3 tools/parity/run.py nbt --strict` → FAIL, 5200/5200 mismatches; отчёт `artifacts/parity/nbt/run-znl4a74r/report.json`. Сырые Java/Rust выходы и первый mismatch сохранены; comparator/oracle не менялись.
-- После исправления `cargo test --all-targets --locked --offline` → 43 tests PASS; `python3 tools/check.py` → 37 Python tests и все Rust quality checks PASS. Исправленный код ещё нужно закоммитить и повторно проверить live parity.
+- После исправления `cargo test --all-targets --locked --offline` → 43 tests PASS; `python3 tools/check.py` → 37 Python tests и все Rust quality checks PASS. Изменения NaN пока не были проверены повторным live parity.
 
 ### Следующий шаг
 - Закоммитить исправление, повторить NBT parity на чистой ревизии и убедиться, что обе стороны дают точные round-trip bytes и consumed lengths; затем вернуть A01 `done`.

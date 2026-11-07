@@ -419,8 +419,24 @@ impl Writer {
             Tag::Short(v) => self.append(&v.to_be_bytes())?,
             Tag::Int(v) => self.append(&v.to_be_bytes())?,
             Tag::Long(v) => self.append(&v.to_be_bytes())?,
-            Tag::Float(v) => self.append(&v.to_bits().to_be_bytes())?,
-            Tag::Double(v) => self.append(&v.to_bits().to_be_bytes())?,
+            // Java DataOutput.writeFloat/writeDouble use floatToIntBits /
+            // doubleToLongBits, which canonicalize every NaN payload.
+            Tag::Float(v) => {
+                let bits = if v.is_nan() {
+                    f32::NAN.to_bits()
+                } else {
+                    v.to_bits()
+                };
+                self.append(&bits.to_be_bytes())?;
+            }
+            Tag::Double(v) => {
+                let bits = if v.is_nan() {
+                    f64::NAN.to_bits()
+                } else {
+                    v.to_bits()
+                };
+                self.append(&bits.to_be_bytes())?;
+            }
             Tag::ByteArray(values) => {
                 self.write_length(values.len())?;
                 for chunk in values.chunks(8192) {
@@ -661,7 +677,7 @@ mod tests {
     #[test]
     fn accepts_empty_root_compound_and_exact_numeric_bits() {
         round_trip(named(Tag::Compound(vec![])));
-        for bits in [0x8000_0000, 0x7f80_0000, 0x7fc0_0123] {
+        for bits in [0x8000_0000, 0x7f80_0000] {
             let bytes =
                 write_named(&named(Tag::Float(f32::from_bits(bits))), Limits::default()).unwrap();
             let (parsed, _) = read_named(&bytes, Limits::default()).unwrap();
@@ -670,6 +686,28 @@ mod tests {
             };
             assert_eq!(value.to_bits(), bits);
         }
+
+        let float_nan = [5, 0, 0, 0x7f, 0xc0, 0x01, 0x23];
+        let (parsed, _) = read_named(&float_nan, Limits::default()).unwrap();
+        let Tag::Float(value) = parsed.value else {
+            panic!("expected float")
+        };
+        assert_eq!(value.to_bits(), 0x7fc0_0123);
+        assert_eq!(
+            write_named(&parsed, Limits::default()).unwrap(),
+            [5, 0, 0, 0x7f, 0xc0, 0, 0]
+        );
+
+        let double_nan = [6, 0, 0, 0x7f, 0xf8, 0, 0, 0, 0, 0, 1];
+        let (parsed, _) = read_named(&double_nan, Limits::default()).unwrap();
+        let Tag::Double(value) = parsed.value else {
+            panic!("expected double")
+        };
+        assert_eq!(value.to_bits(), 0x7ff8_0000_0000_0001);
+        assert_eq!(
+            write_named(&parsed, Limits::default()).unwrap(),
+            [6, 0, 0, 0x7f, 0xf8, 0, 0, 0, 0, 0, 0]
+        );
     }
 
     #[test]

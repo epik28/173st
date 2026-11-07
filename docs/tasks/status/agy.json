@@ -65,10 +65,11 @@
     },
     "NBT-001-A01": {
       "state": "in_progress",
-      "summary": "NBT-001-C03 live-запуск на snapshot agy c325bff выявил mismatch 5200/5200: оригинальный nu writer сериализует compound по порядку Java HashMap, Rust сохранял wire order. Javap подтвердил HashMap; оригинальный адаптер подтвердил, что дубликаты имён принимаются и последнее значение заменяет предыдущее. Исправляю reader/writer внутри контракта.",
+      "summary": "NBT-001-C03 live-запуск на snapshot agy c325bff выявил mismatches в compound order и NaN payload. `nu` сериализует по Java HashMap values() order и принимает duplicate names с last-value-wins; `DataOutput.writeFloat/Double` канонизирует NaN. HashMap/duplicate поведение исправлено; оставшаяся проверка NaN canonicalization и повторный live-run выполняются внутри A01.",
       "checks": [
         "python3 tools/parity/run.py nbt --strict → FAIL на SHA c325bff: 5200/5200 mismatch, первый case-00000 показывает Java HashMap order; report artifacts/parity/nbt/run-znl4a74r/report.json",
         "javap -private -c -classpath ../.local/minecraft/client-b1.7.3.jar nu → оригинал хранит compound в java.util.HashMap и пишет values() iteration",
+        "NBT parity после HashMap исправления на e8cc558 → FAIL, 473/5200 mismatch, все проверенные исходы показывают отличия NaN payload; report artifacts/parity/nbt/run-jun4698t/report.json",
         "NbtOracle на валидном duplicate-name compound → exit 0; duplicate key заменён последним значением",
         "cargo test --all-targets --locked --offline → 43 теста PASS после исправления; python3 tools/check.py → 37 Python tests, fmt/check/clippy/all-targets/doc PASS"
       ]

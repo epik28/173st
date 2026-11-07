@@ -155,11 +155,11 @@ mod tests {
     }
 
     #[test]
-    fn preserves_float_bits_and_consumed_length() {
-        // Named root Float("f") with a noncanonical NaN payload.
+    fn canonicalizes_nan_payload_and_preserves_consumed_length() {
+        // Java DataOutput.writeFloat canonicalizes NaN payloads.
         let (result, output) = process(b"float\t050001667fc01234\n");
         assert!(result.is_ok());
-        assert_eq!(output, "float\t0\t050001667fc01234\t8\n");
+        assert_eq!(output, "float\t0\t050001667fc00000\t8\n");
     }
 
     #[test]
