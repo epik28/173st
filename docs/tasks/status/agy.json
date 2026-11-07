@@ -87,7 +87,25 @@
         "git diff --check → без ошибок"
       ]
     },
-    "REGION-001-A01": {"state": "pending", "summary": "", "checks": []},
-    "REGION-001-A02": {"state": "pending", "summary": "", "checks": []}
+    "REGION-001-A01": {
+      "state": "done",
+      "summary": "Реализован read-only beta_core::region API: borrowed RegionFile, полная проверка заголовка/location/length/sector bounds/overlap, timestamp, bounded gzip/zlib декодирование и negative coordinates. Follow-up исправления требуют StreamEnd для zlib, корректно читают gzip members и повторяют native policy: malformed/incomplete следующий gzip header после валидного member считается trailing garbage, а ошибка после полного header отвергается.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core region::tests:: → 11 region tests PASS; exhaustive valid-stream truncations/checksum trailer mutations, gzip trailing partial header and next-member broken body/trailer, 3-member boundaries, large zlib exact/over output caps",
+        "cargo fmt --all -- --check → PASS; cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "cargo test --all-targets --locked --offline → 36 library + 22 example tests PASS",
+        "git diff --check → PASS"
+      ]
+    },
+    "REGION-001-A02": {
+      "state": "done",
+      "summary": "Добавлен region_probe по REGION-001: принимает только copied input с marker и basename региона по координатам; запрещает traversal/absolute/symlink paths и output/input overlap. Выдаёт deterministic present/absent TSV с metadata и SHA-256, сохраняет present NBT через create_new без перезаписи.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example region_probe → 4 passed",
+        "cargo test --all-targets --locked --offline → 30 library + 22 example tests passed",
+        "python3 tools/check.py → 51 Python tests, fmt/check/clippy/workspace/doc PASS",
+        "synthetic CLI smoke → valid present/absent exit 0, ordered TSV, empty stderr; invalid path exit 1, empty stdout, stderr diagnostic; repeated run output/payload matched and input stayed unchanged"
+      ]
+    }
   }
 }

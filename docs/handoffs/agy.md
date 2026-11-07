@@ -1,5 +1,48 @@
 # Отчёт Gemini / agy
 
+## REGION-001-A01 — read-only Rust McRegion reader
+
+- Реализован borrowed `beta_core::region::RegionFile`: проверяет выравнивание и заголовок, все location records, длины, границы и перекрытия до выдачи reader. Добавлены metadata записей, ошибки для локальных x/z вне диапазона, `region_coord/local_coord` для отрицательных координат и границ i32.
+- Реализована bounded распаковка gzip (несколько members и допустимый trailing garbage по C01) и zlib. Ограничен суммарный распакованный output; ошибки потоков и неподдерживаемые compression IDs различаются. Регион не копируется целиком и входные bytes не изменяются.
+- Синтетические тесты покрывают zlib NBT payload/metadata, gzip multiple members + trailing bytes, malformed header/location/length, overlap, unsupported compression, decompression failure, output cap и координатные границы. Prism save, JAR и внешние artifacts не открывались и не менялись; live parity не заявляется.
+- Изменены: `crates/beta-core/src/region.rs`, `crates/beta-core/src/lib.rs`, `docs/tasks/status/agy.json`, этот handoff.
+- Проверки: `cargo test --all-targets --locked --offline` → 30 library + 18 example tests PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy/workspace tests/doc tests PASS; `git diff --check` → PASS.
+- Model ID: **gpt-6-luna low**. Заимствований нет; контракт C01 использован как входные требования. Стоимость/токены недоступны.
+
+### A01 follow-up — stream completion regressions
+
+- Follow-up проверка воспроизвела: flate2 read zlib decoder принимал пустой input как пустой успешный output. Zlib reader заменён на bounded `Decompress` loop, который требует `Status::StreamEnd`; incomplete/truncated streams и checksum errors дают `Decompression`, bytes после полного stream остаются допустимы по C01.
+- Gzip member detection исправлена для случая, когда первый byte следующего `1f 8b` magic остаётся последним byte внутреннего 8192-byte BufReader buffer: теперь проверяется следующий byte и reader восстанавливается на точном начале member.
+- Regression test перебирает все усечения валидных gzip/zlib streams (включая удаление 1–4 последних trailer bytes), повреждает каждый байт gzip (CRC32 + ISIZE) и zlib (Adler32) trailers, проверяет пустые inputs, допустимый zlib trailing garbage и concatenated gzip member с границей ровно 8191 bytes.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 8 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 33 library + 22 example tests и doc tests PASS; `git diff --check` → PASS.
+- Внешние файлы, сохранение Prism, JAR, oracle/runner и общий контракт не трогались. Model ID: **gpt-6-luna low**; заимствований нет, стоимость/токены недоступны.
+
+### A01 follow-up — repeated gzip boundaries and large zlib output
+
+- Удалён промежуточный `BufReader` и пересчёт относительных Cursor offsets: `Cursor<&[u8]>` напрямую реализует `BufRead`, поэтому каждый concatenated gzip member читается с текущего абсолютного offset, включая trailing garbage policy.
+- Zlib low-level loop использует `FlushDecompress::None` с bounded output chunks и завершается только на `Status::StreamEnd`; no-progress/error отвергает незавершённый stream. Это поддерживает valid output больше 8192 байт.
+- Добавлены regression cases: три gzip members, первые два encoded ровно в 8191 byte; 25,000-byte zlib output с точным output limit и limit+1; trailing gzip `0x1f` (garbage accepted) и incomplete magic `0x1f 0x8b` (decompression error). Ранее добавленные exhaustive truncation/checksum случаи остаются включены.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 10 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 35 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
+- Изменены только `region.rs`, собственный agy status и handoff. Model ID: **gpt-6-luna low**; зависимости, oracle, runner, общий контракт, save/JAR не изменялись.
+
+### A01 follow-up — native gzip partial-header behavior
+
+- Учтено фактическое наблюдение Codex original `qj`: после успешного member trailing `0x1f 0x8b` без полного header также игнорируется; полный следующий header с truncation/corrupt body или trailer остаётся ошибкой.
+- `GzDecoder::new` eagerly парсит header. Когда `header()` отсутствует, первый member даёт `Decompression`, а после валидного member хвост трактуется как garbage; при полном header `read_bounded` читает body/trailer и сохраняет отказ при checksum/EOF errors.
+- Добавлены tests на empty/invalid/partial first headers, trailing partial magic после valid member, full-header truncated и corrupt second-member trailer; все прежние gzip/zlib regression cases остаются.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 11 PASS; `cargo fmt --all -- --check` → PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `cargo test --all-targets --locked --offline` → 36 library + 22 example tests PASS.
+- Model ID: **gpt-6-luna low**. Только `region.rs` и собственные status/handoff; dependency/oracle/runner/contract/save/JAR не менялись.
+
+## REGION-001-A02 — Rust region probe
+
+- Добавлен `crates/beta-core/examples/region_probe.rs`. CLI принимает только `INPUT_COPY_DIR PAYLOAD_DIR`, требует обычный `.region-input-copy` marker, разделяет input/payload каталоги и читает только regular region files непосредственно в canonical input directory. TSV проверяет число полей, уникальный ASCII case ID, координаты i32 и точное имя региона `r.<floor(x/32)>.<floor(z/32)>.mcr`; запрещает абсолютные/traversal пути и symlink region files.
+- Для каждой строки сохраняется порядок и печатается `present|absent` с timestamp/compression/length/SHA-256; каждый present NBT payload создаётся через `create_new`, absent файл не создаёт. Диагностика CLI идёт только в stderr с ненулевым кодом.
+- Тесты probe покрывают правильный TSV, present/absent, payload hash/bytes, bad IDs/paths/coordinate syntax/range, duplicate ID, marker/dir guards, запрет перезаписи и повторяемость на неизменном синтетическом input. Live save/JAR parity не запускались; Codex C02 runner ещё не интегрирован. Все тесты выполнялись на созданных временных копиях.
+- Изменены: `crates/beta-core/examples/region_probe.rs`, `docs/tasks/status/agy.json`, этот handoff.
+- Проверки: `cargo test --locked --offline -p beta-core --example region_probe` → 4 PASS; `cargo test --all-targets --locked --offline` → 30 library + 22 example tests PASS; `python3 tools/check.py` → 51 Python tests и fmt/check/clippy/workspace/doc PASS.
+- CLI smoke на синтетической copied input: валидный present/absent stdin → exit 0, точные 2 строки TSV в порядке входа, stderr пуст; неправильное имя/путь → exit 1, stdout пуст, diagnostics stderr. Повторный запуск с отдельной payload directory дал тот же stdout и байты payload; input не изменился.
+- Model ID: **gpt-6-luna low**. Заимствований нет. Сохранение Prism, JAR и C02/C03 ветка не трогались. Стоимость/токены недоступны.
+
 ## NBT-001 — приёмка в main и завершение очереди agy
 
 - Прочитаны закоммиченные контракт, статус C03 и handoff Codex. Приёмка находится
