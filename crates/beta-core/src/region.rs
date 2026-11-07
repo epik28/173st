@@ -205,7 +205,7 @@ fn read_u32(bytes: &[u8], at: usize) -> Option<u32> {
     Some(u32::from_be_bytes(bytes.get(at..end)?.try_into().ok()?))
 }
 
-fn decompress(id: u8, input: &[u8], limit: usize) -> Result<Vec<u8>, RegionError> {
+pub(crate) fn decompress(id: u8, input: &[u8], limit: usize) -> Result<Vec<u8>, RegionError> {
     let mut output = Vec::with_capacity(limit.min(8192));
     let result = match id {
         1 => read_gzip_members(input, &mut output, limit),
