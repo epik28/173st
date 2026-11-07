@@ -68,3 +68,10 @@ payload остаётся в `java-payloads/` и `rust-payloads/`. Источни
 источников/копий и синтетически меняет payload для проверки чувствительности.
 Fixture с 704 занятыми и 44 пустыми слотами отделён от синтетических malformed
 region tests; последние проверяют safe Rust reader, а не расширяют native parity.
+
+`python3 tools/parity/region_edges.py <region-report.json>` запускает обе стороны
+на 37 generated cases: 23 C01 wire cases, 10 coordinate boundaries и четыре gzip
+tail/header/trailer cases. Сохраняет отдельный `edge-review-*/review.json` с 74
+executions, stdout/stderr и проверкой неизменности inputs. Overlap и oversized
+record отдельно отмечаются как native differences: Java принимает, safe Rust
+отвергает. Эти результаты не увеличивают счётчик 704 настоящих чанков.

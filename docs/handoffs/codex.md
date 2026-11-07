@@ -1,5 +1,72 @@
 # Отчёт Codex
 
+## REGION-001-C03 — принят, внутренние агенты и интеграция
+
+- Исполнители: `gpt-6-luna low`, отдельные роли Rust/runner, отдельные worktree.
+  Координатор Codex принял управление после подтверждения пользователя, что
+  прежний внешний диалог остановлен. Пользователь явно разрешил внутреннее
+  делегирование; инструкции и стартовая памятка обновлены. Метрики токенов/стоимости
+  исполнителей недоступны. Оригинал остаётся Java qj из закреплённого JAR,
+  одинаковая модель исполнителей не заменяет независимость native reference.
+- Snapshot agy: `4f6c41c6a1edef399ac4bfa001f6be13d5089158`.
+  Snapshot C02: `e388657`; проверенная чистая объединённая ревизия:
+  `1e076324e992412d396a15da72f808facb00632f`. Все пять live-отчётов
+  относятся к ней и имеют `rust_dirty=false`. Коммит приёмки содержит эту запись
+  и переносится в main fast-forward; сам SHA не вписывается в собственный коммит.
+- Ревью координатора выявило неполную проверку завершения zlib, gzip buffer
+  boundary, неверный FlushDecompress::Finish для больших выходов и частичный
+  following gzip header. Исполнитель исправил Rust отдельными коммитами;
+  прямых правок движка координатором нет. Нюанс following header измерен настоящим
+  qj: `artifacts/region-native-edge/run-x_devjhd/results.json`; первоначальная
+  ошибочно построенная проба `run-6sf586vr` завершалась wrapper alignment guard
+  и не использовалась как native evidence. Повторяемые проверки теперь в region_edges.
+- Координатор reviewed C02, запросил binary/copy/TSV/audit tampering checks;
+  отдельно добавил повторяемый protocol review, проверку JAR в error paths и
+  generated edge acceptance. Эталон и допуски не ослаблялись.
+
+### Фактические проверки на объединённой ревизии
+
+- `python3 tools/check.py` → PASS: 60 Python, 58 Rust all-targets (36 lib,
+  22 examples), fmt/check/clippy `-D warnings`, doc. Отдельно повторять тот же
+  cargo all-targets набор после этой проверки не потребовалось.
+- `python3 tools/parity/run.py rng --strict` → 96/96 PASS;
+  `artifacts/parity/rng/run-k0gadkkv/report.json`.
+- `python3 tools/parity/run.py rng-extended --strict` → 13227/13227 PASS;
+  `artifacts/parity/rng-extended/run-19hbifxk/report.json`.
+- `python3 tools/parity/run.py chunk --strict` → 4182/4182 PASS;
+  `artifacts/parity/chunk/run-x5vuuna9/report.json`.
+- `python3 tools/parity/run.py nbt --strict` → 5250/5250 PASS;
+  `artifacts/parity/nbt/run-gdk50ebx/report.json`.
+- `python3 tools/parity/run.py region --strict` → 748/748 PASS,
+  704 present + 44 absent, mismatch_count=0;
+  `artifacts/parity/region/run-pq6ftpqm/report.json`.
+- `python3 tools/parity/verify_report.py artifacts/parity/region/run-pq6ftpqm/report.json --protocol`
+  → native audit/source/copy/JAR/class/binary/log/payload hashes PASS,
+  16 TSV executions PASS. Повторный вызов на том же отчёте PASS.
+- `python3 tools/parity/region_edges.py artifacts/parity/region/run-pq6ftpqm/report.json`
+  → 37 separately labelled synthetic cases/74 reader executions PASS;
+  `artifacts/parity/region/run-pq6ftpqm/edge-review-aer9hznw/review.json`.
+  23 C01 wire cases, 10 coordinate boundaries и четыре дополнительных gzip
+  header/trailer cases. Native overlap/oversized-length отличаются от safe Rust
+  и не выдаются за равную parity. Все generated copies неизменны.
+- Шесть metadata mutations через полный verify_region отвергнуты:
+  binary hash, native count, payload length, process failure, source/copy hashes;
+  `artifacts/parity/region/run-pq6ftpqm/report-mutation-review.json`.
+- Изолированный test root без Rust source probe выполнил original Java 748 reads,
+  вернул `not_implemented`, strict exit 1. Неверный JAR hash и process timeout
+  дали `error`, copy/source verification не пропущена;
+  `artifacts/region-error-review/run-sjwzzg38/review.json`.
+- Четыре source SHA до/после и две input copies совпали с закреплёнными,
+  JAR неизменён. `git diff --check` PASS. Бинарники/миры/декомпиляция не добавлены.
+
+### Область и дальнейшая работа
+
+Принято read-only извлечение raw NBT payload из McRegion. Семантическая загрузка
+мира, level.dat, сохранение и рендер не заявляются. Очередь текущих 25 карточек
+завершена; следующий плановый WORLD-LOAD-001 требует отдельного контракта.
+Постоянный фоновый наблюдатель после завершения диалога не работает; в этом запуске
+координатор дождался сообщений обоих агентов и выполнил приёмку.
+
 ## REGION-001-C01 — done, dependency и native corpus готовы для agy
 
 - Исходная ревизия: `312a41e88bec2d68d3e31b2d6e58907bafa16173` (main и обе роли).

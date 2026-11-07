@@ -147,6 +147,22 @@
         "git diff --check → PASS"
       ]
     },
-    "REGION-001-C03": {"state": "pending", "summary": "", "checks": []}
+    "REGION-001-C03": {
+      "state": "done",
+      "summary": "REGION-001 принят: Rust snapshot agy 4f6c41c6a1edef399ac4bfa001f6be13d5089158 и C02 e388657; чистая объединённая проверенная ревизия 1e076324e992412d396a15da72f808facb00632f. 704 present + 44 absent точно совпали с оригинальным qj, прежние четыре группы PASS. 37 synthetic cases/74 executions, 16 TSV executions, шесть report mutations и error paths проверены отдельно. Хеши исходного мира и копий сохранены. Этот коммит приёмки переносится в main fast-forward; полная загрузка/запись мира не заявляется.",
+      "checks": [
+        "python3 tools/check.py → PASS: 60 Python + 58 Rust all-targets (36 library, 22 examples), fmt/check/clippy/doc",
+        "python3 tools/parity/run.py rng --strict → PASS 96/96; artifacts/parity/rng/run-k0gadkkv/report.json",
+        "python3 tools/parity/run.py rng-extended --strict → PASS 13227/13227; artifacts/parity/rng-extended/run-19hbifxk/report.json",
+        "python3 tools/parity/run.py chunk --strict → PASS 4182/4182; artifacts/parity/chunk/run-x5vuuna9/report.json",
+        "python3 tools/parity/run.py nbt --strict → PASS 5250/5250; artifacts/parity/nbt/run-gdk50ebx/report.json",
+        "python3 tools/parity/run.py region --strict → PASS 748/748, 704 present/44 absent, mismatch_count=0; artifacts/parity/region/run-pq6ftpqm/report.json; все пять отчётов rust_dirty=false и rust_revision=1e076324e992412d396a15da72f808facb00632f",
+        "python3 tools/parity/verify_report.py artifacts/parity/region/run-pq6ftpqm/report.json --protocol → PASS: hashes/native audit/payloads, 16 executions; повторная проверка того же отчёта PASS",
+        "python3 tools/parity/region_edges.py artifacts/parity/region/run-pq6ftpqm/report.json → PASS: 37 synthetic cases/74 reader executions; artifacts/parity/region/run-pq6ftpqm/edge-review-aer9hznw/review.json",
+        "Шесть подмен report metadata отвергнуты полным verify_region; artifacts/parity/region/run-pq6ftpqm/report-mutation-review.json",
+        "Изолированный root без Rust probe: original Java 748 reads, not_implemented, strict exit 1; wrong JAR и timeout дают error; artifacts/region-error-review/run-sjwzzg38/review.json",
+        "git diff --check → PASS; четыре закреплённых source SHA и обе input copies неизменны"
+      ]
+    }
   }
 }

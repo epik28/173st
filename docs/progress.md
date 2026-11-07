@@ -2,8 +2,9 @@
 
 ## Текущее состояние
 
-- **RNG-001, RNG-002, CHUNK-001 и NBT-001 приняты**; REGION-001 открыт.
-  Коммит приёмки NBT — `2930029` в `main`.
+- **RNG-001, RNG-002, CHUNK-001, NBT-001 и REGION-001 приняты**.
+  Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
+  коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
 - RNG-002: 13227 смешанных операций, общее состояние, reseed, rejection sampling,
   raw IEEE-биты float/double.
@@ -11,13 +12,28 @@
 - NBT-001: 5250 live round-trips оригинальных ij/nu, точные raw bytes,
   canonical tree и consumed length; 86 дополнительных protocol/wire/safety
   executions и пять синтетических мутаций проверены отдельно.
-- Весь Rust-код — agy. Codex подготовил независимые Java-адаптеры, корпусы,
-  runner, тесты и приёмку. Прямых правок Rust от Codex нет.
+- REGION-001: 704 occupied + 44 absent slot точно совпали с оригинальным qj;
+  37 synthetic cases/74 reader executions проверены отдельно от live parity.
+- Rust принадлежит роли agy. Текущий REGION реализован внутренним агентом
+  `gpt-6-luna low`, runner C02 — другим агентом той же модели. Координатор
+  Codex выполнил ревью, запросил исправления Rust и принял объединённый результат;
+  прямых правок Rust координатором нет. Предыдущие handoff сохраняют историю моделей.
 - JAR/ресурсы/дизассемблированный код и пользовательский мир в Git не включены.
   Проверки читают копии; работа с `.mcr` остаётся read-only. C01 закрепляет
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+REGION-001: snapshot agy `4f6c41c6a1edef399ac4bfa001f6be13d5089158`,
+C02 `e388657`, объединённая ревизия `1e076324e992412d396a15da72f808facb00632f`.
+60 Python + 58 Rust tests, fmt/check/clippy/doc PASS. Все пять live-групп
+PASS на этой чистой ревизии: RNG 96, extended 13227, chunk 4182, NBT 5250,
+region 748. Region report: `artifacts/parity/region/run-pq6ftpqm/report.json`.
+16 TSV executions, шесть report mutations, missing-probe/wrong-JAR/timeout
+paths и 37 synthetic cases проверены отдельно. Исходные четыре `.mcr`, JAR
+и обе копии входов неизменны. Подробные пути — `docs/handoffs/codex.md`.
+
+## Предыдущая приёмка NBT-001
 
 Snapshot agy: `541d719e83e32ad13e9448e102c8cc1ed16bcf40`.
 Чистая проверенная объединённая ревизия:
@@ -54,7 +70,8 @@ NBT parity относится к общей области оригинальн�
 сохранены. Java DataOutput нормализует NaN; входные биты остаются в evidence.
 Root-End/trailing-byte/TSV guards принадлежат адаптеру, не оригиналу.
 
-Игровая логика, загрузка настоящего сохранения, графика и производительность
-игры ещё не проверялись. REGION-001 открыт как следующий контракт для read-only
-McRegion и 704 непустых chunk slots из четырёх файлов сохранения. WORLD-LOAD-001
-и VIEW-001 остаются планом до отдельной приёмки REGION-001.
+Игровая логика, полная загрузка настоящего сохранения, графика и производительность
+игры ещё не проверялись. REGION-001 извлекает сырые NBT payload из read-only
+McRegion; семантическая загрузка level.dat/чанков ещё не реализована.
+Следующий плановый пакет — WORLD-LOAD-001, затем VIEW-001; контракта и новых
+карточек пока нет. Координатор запускает внутренних агентов по `docs/workflow.md`.

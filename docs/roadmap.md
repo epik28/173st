@@ -5,8 +5,9 @@
 и приёмкой, который готовит Codex перед началом соответствующего пакета.
 Наличие пункта в этом документе не означает готовность функции.
 
-RNG-001, RNG-002, CHUNK-001 и NBT-001 приняты в `main`. Текущий пакет —
-[REGION-001](tasks/REGION-001.md), пять карточек для чтения настоящего McRegion.
+RNG-001, RNG-002, CHUNK-001, NBT-001 и [REGION-001](tasks/REGION-001.md)
+приняты в `main`. Очередь завершена; следующий плановый пакет WORLD-LOAD-001
+нуждается в отдельном контракте и карточках.
 
 ## Общий цикл каждого пакета
 
@@ -40,7 +41,7 @@ JAVA-001 и MATH-001 закрывают зависимости конкретн�
 | --- | --- | --- | --- |
 | 1.1 CHUNK-001 — принят | Координаты, массивы 16×128×16, ID и три nibble-массива | Границы, отрицательные координаты, порядок байтов и оригинальный nibble-класс | 4182 операции совпали; нет порчи соседнего nibble |
 | 1.2 NBT-001 — принят | Теги 0–11, big-endian, modified UTF-8, строгие лимиты | 5250 live cases с настоящими `ij`/`nu`, отдельно wire extensions и отличия native | NBT parity в согласованной общей области; исходный оригинал и расхождения описаны |
-| 1.3 REGION-001 — в очереди | Read-only McRegion `.mcr`, header/sectors, bounded zlib и raw NBT payload | Native reader Beta 1.7.3 и 704 непустых chunk slots из локального сохранения | Совпали наличие, timestamp, compression и raw chunk bytes; источник не изменён |
+| 1.3 REGION-001 — принят | Read-only McRegion `.mcr`, header/sectors, bounded gzip/zlib и raw NBT payload | Native qj: 704 occupied + 44 absent; 37 отдельно помеченных synthetic cases | Совпали наличие, timestamp, compression и raw chunk bytes; источник не изменён |
 | 1.4 WORLD-LOAD-001 — план | `level.dat`, spawn, время, seed, измерение, состояние игрока и tile entities | Снимок данных исходного сохранения и перечень неподдержанных тегов | Headless загрузчик выдаёт проверяемую сводку участка; исходный мир не меняется |
 
 NBT и Region сначала читают данные. Запись вводится отдельно после проверки
