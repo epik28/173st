@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cooperative single-checkout session lock; not a security boundary."""
+"""Cooperative lock for one worktree; different worktrees can run concurrently."""
 
 import argparse
 from datetime import datetime, timezone
@@ -25,7 +25,7 @@ def git(*arguments: str) -> str:
 
 def require_clean() -> None:
     if git("status", "--porcelain", "--untracked-files=normal"):
-        raise RuntimeError("Working tree is dirty. Commit your task before switching or releasing it.")
+        raise RuntimeError("Working tree is dirty. Commit your task before starting or finishing a session.")
 
 
 def main() -> int:
@@ -40,18 +40,23 @@ def main() -> int:
         metadata = {
             "agent": args.agent,
             "branch": BRANCHES[args.agent],
+            "worktree": str(ROOT),
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
             descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         except FileExistsError:
-            raise RuntimeError("Project is occupied. Use 'status'; do not switch branches or edit files.")
+            raise RuntimeError("This worktree is occupied. Other worktrees can run independently.")
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                require_clean()
+                branch = git("branch", "--show-current")
+                allowed = (BRANCHES[args.agent], "main") if args.agent == "codex" else (BRANCHES[args.agent],)
+                if branch not in allowed:
+                    raise RuntimeError("Wrong worktree or branch for this role; no branch was switched.")
+                metadata["branch"] = branch
                 json.dump(metadata, stream)
                 stream.write("\n")
-            require_clean()
-            git("switch", metadata["branch"])
         except BaseException:
             lock.unlink(missing_ok=True)
             raise

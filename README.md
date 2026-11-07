@@ -13,7 +13,7 @@ python3 tools/doctor.py
 python3 tools/check.py
 ```
 
-Проверки включают защиту передачи общей папки между агентами и сборку каркаса.
+Проверки включают изоляцию параллельных сессий в Git worktree и сборку каркаса.
 Тестов игровых механик и сравнений с Minecraft пока нет.
 
 Нужны Git, Python 3.11+, Rust 1.95+ с rustfmt и clippy. Для Java-эталонов нужны
@@ -35,11 +35,13 @@ python3 tools/check.py
 - [Первая задача RNG-001](docs/tasks/RNG-001.md).
 - [Источники](docs/references.md).
 
-Codex начинает с `AGENTS.md`, Gemini/Antigravity — с `GEMINI.md`.
-Оба открывают одну папку проекта и работают по очереди в своих ветках.
+Codex открывает `/home/andrew/173st/codex` и начинает с `AGENTS.md`.
+Gemini/Antigravity открывает `/home/andrew/173st/agy` и начинает с `GEMINI.md`.
+Оба работают одновременно в отдельных worktree и своих ветках по общему контракту.
 Перед изменениями: `python3 tools/agent_session.py start codex` либо `start agy`.
 После коммита: `python3 tools/agent_session.py finish codex` либо `finish agy`.
-Статус занятости: `python3 tools/agent_session.py status`.
+Статус локальной сессии: `python3 tools/agent_session.py status`.
+Занятие одного worktree не блокирует второй. Команда не переключает ветки автоматически.
 
 ## Исходные ресурсы
 

@@ -1,45 +1,53 @@
-# Начало работы: 173st
+# Старт двух агентов: 173st
 
-Открыть проект `/home/andrew/173st` в Codex и в Antigravity.
-Рабочая папка одна; изменения выполняются по очереди в отдельных ветках.
-Репозиторий: <https://github.com/epik28/173st>.
+Открыть одновременно:
 
-## Первая очередь Codex
+- Codex: `/home/andrew/173st/codex`, ветка `codex/verification`.
+- Gemini / Antigravity: `/home/andrew/173st/agy`, ветка `agy/development`.
 
-> Прочитай AGENTS.md и указанные в нём документы. Займи сессию командой
-> `python3 tools/agent_session.py start codex`. Реализуй Java-эталон и runner RNG-001
-> по контракту. Rust-код делает Gemini. Выполни доступные проверки, оставь handoff,
-> сделай коммит и заверши сессию командой `python3 tools/agent_session.py finish codex`.
+Это два worktree одного репозитория. Каждый работает в своей папке; ждать очередь
+другого агента не требуется. Репозиторий: <https://github.com/epik28/173st>.
 
-## Первая очередь Gemini / agy
+## Запрос Codex
 
-> Прочитай GEMINI.md и указанные в нём документы. Займи сессию командой
-> `python3 tools/agent_session.py start agy`. Реализуй Rust JavaRandom и rng_probe
-> по контракту RNG-001. Java-эталон и runner делает Codex. Не меняй эталоны.
-> Выполни доступные проверки, оставь handoff, сделай коммит и заверши сессию
-> командой `python3 tools/agent_session.py finish agy`.
+> Прочитай AGENTS.md, общие требования, workflow, progress и задачу RNG-001.
+> Выполни `python3 tools/agent_session.py start codex`.
+> Реализуй настоящий Java-эталон, runner и проверки компаратора по контракту.
+> Rust RNG и rng_probe одновременно реализует Gemini в другом worktree; их не пиши.
+> Пока Rust-часть отсутствует в твоей ветке, явно сообщай, что сравнение не выполнено.
+> Проверь свою часть, запиши handoff, сделай коммит, заверши локальную сессию.
+> Сообщи commit SHA. Сравнение полного результата выполним после интеграции обеих частей.
 
-Если занятие сессии отказало, папка уже используется: второй агент ожидает своей очереди.
-Обмен заданиями между приложениями ведётся через пользователя, документы и коммиты;
-автоматический запуск одного приложения другим не настраивался.
+## Запрос Gemini / agy
 
-## Проверки
+> Прочитай GEMINI.md, общие требования, workflow, progress и задачу RNG-001.
+> Выполни `python3 tools/agent_session.py start agy`.
+> Реализуй Rust JavaRandom и rng_probe по контракту RNG-001.
+> Codex одновременно пишет Java-эталон и runner в другом worktree.
+> Не меняй эталоны, runner, общий контракт и зависимости. Не используй незакоммиченные
+> файлы соседнего worktree. Выполни `python3 tools/check.py`, запиши handoff,
+> сделай коммит и заверши локальную сессию. Сообщи commit SHA.
+> Если runner пока отсутствует в твоей ветке, явно укажи, что Rust↔Java ещё не проверено.
+
+## После двух результатов — Codex
+
+> Прочитай оба handoff по их коммитам. Зафиксируй SHA результата Gemini,
+> просмотри diff и интегрируй его в своей папке. Запусти общие проверки и
+> `python3 tools/parity/run.py rng --strict`. При успехе интегрируй в main
+> и обнови прогресс. При ошибке передай Gemini входы и фактическое расхождение.
+
+## Команды внутри каждого worktree
 
 ```bash
 python3 tools/agent_session.py status
 python3 tools/doctor.py
 python3 tools/check.py
 git status --short --branch
-git branch -vv
 ```
 
-Общие требования: [docs/project-requirements.md](docs/project-requirements.md).
-Роли, ветки и интеграция: [docs/workflow.md](docs/workflow.md).
-Состояние проекта: [docs/progress.md](docs/progress.md).
+Документы: [требования](docs/project-requirements.md), [workflow](docs/workflow.md),
+[прогресс](docs/progress.md). Локальные JAR и источники лежат в родительском
+`../.local/`, результаты сборки и проверки — отдельно в каждой папке.
 
-Клиентский JAR из Prism подготовлен в игнорируемом `.local/minecraft/`.
-Игровые механики и runner сравнений ещё предстоит реализовать.
-
-При подготовке чтение GitHub проверено. HTTPS-авторизация для отправки изменений
-в существующем credential store не найдена. Локальная работа веток доступна;
-для push нужно подключить GitHub через credential helper или SSH.
+SSH GitHub проверен для epik28. Подготовленные коммиты пока локальные.
+Реализация игровых механик и сравнительный runner ещё впереди.
