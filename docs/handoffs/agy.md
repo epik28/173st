@@ -9,6 +9,13 @@
 - Проверки: `cargo test --locked --offline -p beta-core world::tests::` → 4 PASS (metadata defaults/types, signed byte conversion, все пять lengths, coordinates, lists/unknown fields/raw player retention, gzip corruption/truncation и compressed/decompressed/NBT caps); `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `python3 tools/check.py` → 64 Python tests и fmt/check/clippy, 40 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
 - Model ID: **gpt-6-luna low**. Заимствований, ручной помощи, новых зависимостей и изменений oracle/runner/контракта нет; стоимость/токены недоступны. Live world parity не запускался (A02 ещё не реализован).
 
+## WORLD-LOAD-001-A02 — checkpoint
+
+- A02 реализацию не начинал. До остановки прочитаны protocol contract и C01 helper; зафиксированы требования: обе copied-input markers, canonicalize retained parent и overlap guard до mkdir, потоковые 5-field TSV строки, точные output widths, один-region cache, raw NBT с `create_new`.
+- Следующие шаги: реализовать `crates/beta-core/examples/world_probe.rs`; выводить поля из `WorldMetadata`/`LoadedChunk` (hash массивов из `data.raw_arrays()`); покрыть TSV/path/symlink/overlap/protocol/retention synthetic cases; выполнить fmt, clippy, relevant tests и `python3 tools/check.py`; закоммитить и завершить A02.
+- Проверки A02 не запускались, probe отсутствует, subprocess/protocol/world parity не заявляются. Статус оставлен `in_progress` по просьбе координатора срочно checkpoint-нуть задачу.
+- Последняя выполненная реализация — отдельный A01 commit `2bf4bcb5c2fbb993dd3e7bd6cb0933a7676a9d77`. Model ID: **gpt-6-luna low**; новых заимствований/ручной помощи/зависимостей нет.
+
 ## REGION-001-A01 — read-only Rust McRegion reader
 
 - Реализован borrowed `beta_core::region::RegionFile`: проверяет выравнивание и заголовок, все location records, длины, границы и перекрытия до выдачи reader. Добавлены metadata записей, ошибки для локальных x/z вне диапазона, `region_coord/local_coord` для отрицательных координат и границ i32.
