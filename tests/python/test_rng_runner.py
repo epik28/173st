@@ -42,7 +42,7 @@ class ComparatorTests(unittest.TestCase):
     def test_fixture_bounds_and_invalid_inputs(self):
         cases = runner.parse_fixture(b"# header\n\na\t-9223372036854775808\t1\nb\t9223372036854775807\t100000\n")
         self.assertEqual(len(cases), 2)
-        for data in (b"", b"a\t0\t0\n", b"a\t0\t100001\n", b"a\t9223372036854775808\t1\n",
+        for data in (b"", b" \n", b"\t\n", b"a\t0\t0\n", b"a\t0\t100001\n", b"a\t9223372036854775808\t1\n",
                      b"a\t0\t1\na\t1\t1\n", b"bad id\t0\t1\n"):
             with self.assertRaises(runner.RunError):
                 runner.parse_fixture(data)

@@ -46,3 +46,62 @@
 - Codex не менял Rust-движок; помощи Gemini в C02 не было. Очередь уже видит
   закоммиченный A01 `236752f79cdcd7cd54a5b2610d6e354814339424`, A02 ещё pending.
 - Следующий шаг: перечитать очередь; C03 после закоммиченного A02, ожидание по TASKS.md.
+
+## RNG-001-C03 — blocked, запрос исправления agy
+
+### Ревизии и вклад
+
+- Исходная Codex: `185b8287a6497023580d18de8b8fad7900ff1dca`.
+- Snapshot agy из `tasks.py next codex`:
+  `ac6ce46c7ac872362c09e2fefc34c39dd79a4331`. Прочитаны handoff, status и diff
+  именно этого коммита через Git; изменения только в разрешённых файлах agy.
+- Интеграция: `git merge --no-ff ac6ce46c7ac872362c09e2fefc34c39dd79a4331`
+  (сообщение merge: `merge: integrate agy RNG implementation and probe for C03 verification`).
+  Получен `c485934358335cf2535300b5293b616ed71e9cae`, конфликтов нет.
+- Итоговый отчёт/блокировка: коммит C03, содержащий этот раздел.
+- C03 изменяет `tools/parity/verify_report.py`, `tools/parity/README.md`,
+  `tests/python/test_rng_runner.py`, собственные status/handoff,
+  `docs/progress.md`, статус `docs/tasks/RNG-001.md`.
+- Gemini реализовал весь Rust RNG и probe. Codex написал Java-эталон,
+  инфраструктуру проверки и выполнил независимую приёмку; Rust-код Codex не правил.
+
+### Фактические результаты
+
+- `python3 tools/check.py` → PASS: 27 Python-тестов, 7 Rust-тестов,
+  fmt/check/clippy с `-D warnings`.
+- `python3 tools/parity/run.py rng --strict` → PASS, exit 0, 96/96 значений,
+  оба процесса exit 0, шесть seed включая min/max i64. Объединённая ревизия
+  `c485934358335cf2535300b5293b616ed71e9cae`, rust_dirty=false.
+- Полный вход, исходные stdout/stderr, бинарник Rust, Java-класс и метаданные:
+  `artifacts/parity/rng/run-lwytrhsv/report.json` и соседние файлы.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng/run-lwytrhsv/report.json --protocol`
+  → exit 1: целостность отчёта и чувствительность компаратора PASS; live-проверка
+  протокола выявила 2 нарушения из 36 запусков (16 неверных входов и 2 допустимых,
+  каждый выполнен обеими сторонами). Это не отменяет совпадение 96 RNG-значений,
+  но блокирует полную приёмку контракта.
+- `comparator-sensitivity.json` явно помечает синтетическую подмену копии выхода;
+  основной live-отчёт не менялся. Изменено ровно одно число — mismatch_count=1,
+  first_mismatch.record=0. `protocol-review.json` содержит настоящие коды/диагностику.
+- `git diff --check` → PASS. В main ничего не интегрировано.
+
+### Конкретный запрос agy для отдельной согласованной карточки
+
+В `crates/beta-core/examples/rng_probe.rs` условие `line.trim().is_empty()`
+пропускает непустые строки с whitespace, хотя контракт разрешает пропускать
+только пустые строки и строки с `#` в начале.
+
+Воспроизведение сохранёнными адаптерами: указанная команда `verify_report.py --protocol`.
+Минимальные входы: байты `20 0a` (`" \n"`) и `09 0a` (`"\t\n"`).
+Ожидание: ненулевой exit и stderr о неправильном TSV (Java: exit 1,
+`RandomOracle: line 1: invalid fields/ID`). Факт Rust: exit 0, stdout/stderr пусты.
+Реально пустая строка `0a` и комментарий `# comment` принимаются обеими сторонами.
+
+Предлагаемая узкая карточка исправления agy (ещё не добавлена в очередь):
+проверять именно пустоту строки, сохранить отклонение пробела/табуляции обычной
+проверкой числа полей, добавить регрессию на оба входа; не менять RNG и fixture.
+Сделать отдельный коммит со своими проверками и handoff. По правилам C03
+карточка должна быть согласована отдельно; чужие статусы/очередь Codex не менял.
+
+После согласованного исправления: взять точный новый SHA agy, интегрировать,
+выполнить check.py, rng --strict и verify_report.py --protocol, обновить C03 и принять
+результат в main. Текущая область проверки — Java API, не игровая Beta.

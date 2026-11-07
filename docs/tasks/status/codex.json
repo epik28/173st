@@ -21,9 +21,14 @@
       ]
     },
     "RNG-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "blocked",
+      "summary": "Интегрирован agy ac6ce46c7ac872362c09e2fefc34c39dd79a4331; merge c485934358335cf2535300b5293b616ed71e9cae. Все 96 значений совпали. При проверке протокола Rust принимает непустые строки hex 200a и 090a (exit 0), Java корректно отклоняет (exit 1 + stderr). Нужна отдельная согласованная карточка исправления agy; main не обновлён. Конкретный запрос в docs/handoffs/codex.md.",
+      "checks": [
+        "python3 tools/check.py → PASS: 27 Python-тестов, 7 Rust-тестов, fmt/check/clippy",
+        "python3 tools/parity/run.py rng --strict → PASS: 6 seed / 96 значений, оба процесса exit 0; artifacts/parity/rng/run-lwytrhsv/report.json; rust_dirty=false",
+        "python3 tools/parity/verify_report.py artifacts/parity/rng/run-lwytrhsv/report.json --protocol → exit 1: хеши и синтетическая подмена проверены; 36 запусков проверки TSV, 2 нарушения Rust (hex 200a, 090a), protocol-review.json",
+        "git diff --check → PASS"
+      ]
     }
   }
 }
