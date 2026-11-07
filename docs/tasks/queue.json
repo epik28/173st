@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "tasks": [
+    {"id":"WORLD-LOAD-001-C01","owner":"codex","title":"Original world metadata oracle, snapshot and corpus","card":"docs/tasks/CODEX.md","depends_on":["REGION-001-C03"]},
+    {"id":"WORLD-LOAD-001-C02","owner":"codex","title":"Headless world parity runner and evidence review","card":"docs/tasks/CODEX.md","depends_on":["WORLD-LOAD-001-C01"]},
+    {"id":"WORLD-LOAD-001-A01","owner":"agy","title":"Read-only typed world metadata and chunk loader","card":"docs/tasks/AGY.md","depends_on":["WORLD-LOAD-001-C01"]},
+    {"id":"WORLD-LOAD-001-A02","owner":"agy","title":"Headless world probe on copied inputs","card":"docs/tasks/AGY.md","depends_on":["WORLD-LOAD-001-A01"]},
+    {"id":"WORLD-LOAD-001-C03","owner":"codex","title":"World data loading integration and acceptance","card":"docs/tasks/CODEX.md","depends_on":["WORLD-LOAD-001-C01","WORLD-LOAD-001-C02","WORLD-LOAD-001-A01","WORLD-LOAD-001-A02"]},
     {
       "id": "RNG-001-C01",
       "owner": "codex",

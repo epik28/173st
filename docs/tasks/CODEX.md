@@ -1,5 +1,37 @@
 # Карточки роли codex
 
+## WORLD-LOAD-001-C01 — native metadata oracle и snapshot
+
+После REGION-001-C03 прочитать [WORLD-LOAD-001](WORLD-LOAD-001.md). Зафиксировать
+оригинальный ei(nu), nu/ij/qj, class/JAR hashes и фактические defaults/type errors.
+Создать WorldOracle с реальными native metadata constructor/NBT/region calls;
+полноценный World/chunk/entity factories не запускать. Подготовить пять-file
+snapshot helper с pinned level.dat/region hashes и markers, 749-row live corpus
+и отдельно synthetic valid/invalid cases. Сохранить raw retained payloads только
+в artifacts, native audit и повторяемость. До A01 согласовать изменения контракта
+с координатором. Файлы: tools/oracle/, tests/fixtures/world/, tests/python/,
+свой status/handoff. Сделать коммит и передать координатору для открытия A01/C02.
+
+## WORLD-LOAD-001-C02 — world runner и report review
+
+После C01 добавить группу `world`, exact typed TSV/array hashes/raw retained bytes,
+пять pinned sources и две независимые input copies. Native metadata constructor,
+NBT field extraction и полноценный World load явно различать в audit/report.
+Создать saved verifier/protocol checks, mutations для scalar/array/payload/audit,
+missing process/JAR/probe/hash, timeout, paths и limits. Не менять Rust/контракт
+или oracle ради pass. Файлы: tools/parity/, tests/python/, свой status/handoff.
+Обычные проверки и live при наличии probe, commit с фактическими результатами.
+
+## WORLD-LOAD-001-C03 — интеграция и приёмка
+
+Координатор берёт точный agy SHA, reviews diff и объединяет с C01/C02. Проверяет
+все критерии контракта: check.py/all-targets, прежние пять strict live suites,
+world strict 749 rows, saved protocol/edge/mutation/error paths и неизменность
+original sources/copies. При дефекте возвращает конкретный repro исполнителю,
+не ослабляя эталон. При успехе обновляет progress/roadmap/контракт/handoff,
+процент готовности всей игры, принимает пакет в main и синхронизирует idle ветки.
+Очередь/world capabilities не расширять за пределы принятого контракта.
+
 Выбирать задачу через `python3 tools/tasks.py next codex` по [TASKS.md](../../TASKS.md).
 Архив: [RNG-001](RNG-001.md). Новые контракты: [RNG-002](RNG-002.md),
 [CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md), [REGION-001](REGION-001.md);

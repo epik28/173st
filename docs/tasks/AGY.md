@@ -1,5 +1,28 @@
 # Карточки роли agy
 
+## WORLD-LOAD-001-A01 — pure read-only world metadata/chunk API
+
+После C01 и получения committed native evidence прочитать
+[WORLD-LOAD-001](WORLD-LOAD-001.md). Реализовать beta_core::world по API/типам/
+лимитам/политике ошибок контракта. Использовать NBT/ChunkData/Region без новых
+dependencies, JVM или файловой системы в core. Сохранять root и original raw NBT,
+включая неизвестные Player/entity/tile fields; не запускать симуляцию и не
+восстанавливать повреждённые массивы. Допустимо pub(crate) существующего bounded
+gzip decoder. Файлы src/ и обычные Rust tests, свой status/handoff. Проверить
+native defaults, malformed tags/lengths/coords, bytes/signs, preservation и limits;
+обычные проверки, затем commit A01 и продолжить A02.
+
+## WORLD-LOAD-001-A02 — headless world probe
+
+После A01 создать examples/world_probe.rs: thin filesystem adapter только marked
+copies, пять-field stdin, exact 21/17-field stdout и original retained NBT bytes
+по контракту. Чанки обрабатывать последовательно, без накопления мира в памяти;
+исключить paths/symlinks/overlap/overwrite. Файлы examples/, необходимый src/,
+свой status/handoff. Проверить реальные subprocess stdout/stderr/exit, synthetic
+valid/invalid preservation/limits, обычные проверки; commit A02 и передать root.
+Oracle, runner, Cargo dependencies и shared contract не менять. Исправления
+по concrete C03 feedback входят в эту же роль без нового разрешения пользователя.
+
 Выбирать задачу через `python3 tools/tasks.py next agy` по [TASKS.md](../../TASKS.md).
 Архивный протокол: [RNG-001](RNG-001.md). Новые: [RNG-002](RNG-002.md),
 [CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md), [REGION-001](REGION-001.md).

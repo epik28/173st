@@ -16,9 +16,9 @@
 | `codex` | `codex/`, `codex/verification` | Java-эталоны, runner, тесты компаратора, интеграция | [CODEX.md](docs/tasks/CODEX.md) |
 | `agy` | `agy/`, `agy/development` | Rust-реализация ядра и probe | [AGY.md](docs/tasks/AGY.md) |
 
-RNG-001, RNG-002, CHUNK-001, NBT-001 и REGION-001 приняты. Последний контракт:
-[REGION-001](docs/tasks/REGION-001.md). Текущая очередь завершена; дальнейшие
-этапы требуют новых контрактов: [roadmap.md](docs/roadmap.md).
+RNG-001, RNG-002, CHUNK-001, NBT-001 и REGION-001 приняты. Текущий контракт:
+[WORLD-LOAD-001](docs/tasks/WORLD-LOAD-001.md); пять новых карточек сохраняют
+историю прежних 25 done tasks. Дальнейшие этапы: [roadmap.md](docs/roadmap.md).
 Машиночитаемая очередь: [queue.json](docs/tasks/queue.json).
 В этот запуск разрешены только перечисленные карточки; это включает исправления
 внутри их контрактов. После их приёмки следующие этапы уточняются отдельными контрактами. Не начинать весь движок одним изменением.

@@ -2,6 +2,8 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
+    "WORLD-LOAD-001-A01": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-A02": {"state":"pending","summary":"","checks":[]},
     "RNG-001-A01": {
       "state": "done",
       "summary": "Реализован JavaRandom (LCG) с начальным преобразованием seed и методом next_int(). Проверены граничные seed (0, 1, -1, 42, min/max i64). Другие методы RNG и внешние зависимости не добавлялись.",

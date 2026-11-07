@@ -2,6 +2,9 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "WORLD-LOAD-001-C01": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-C02": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-C03": {"state":"pending","summary":"","checks":[]},
     "RNG-001-C01": {
       "state": "done",
       "summary": "Java-адаптер вызывает настоящий java.util.Random, проверяет TSV и сохраняет порядок. Rust↔Java ещё не сравнивались.",
