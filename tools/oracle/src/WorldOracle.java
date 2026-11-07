@@ -21,6 +21,11 @@ public final class WorldOracle {
   }
   static String classSha(Class<?> c) throws Exception { try(InputStream in=c.getResourceAsStream("/"+c.getName().replace('.','/')+".class")){if(in==null)throw new IOException("missing class bytes: "+c);return sha(in.readAllBytes());} }
   static Path canonicalOutput(Path p)throws IOException{Path absolute=p.toAbsolutePath().normalize();Path parent=absolute.getParent();if(parent==null)throw new IOException("output requires parent");return parent.toRealPath().resolve(absolute.getFileName()).normalize();}
+  static long inputLimit(String name)throws IOException{
+    if(name.equals("level.dat"))return 16L*1024*1024;
+    if(Set.of("r.-1.-1.mcr","r.-1.0.mcr","r.0.-1.mcr","r.0.0.mcr").contains(name))return 256L*1024*1024;
+    throw new IOException("unexpected input filename: "+name);
+  }
   static byte[] bounded(InputStream in) throws IOException {
     ByteArrayOutputStream out=new ByteArrayOutputStream(); byte[] buf=new byte[8192]; int n;
     while((n=in.read(buf))!=-1){if((long)out.size()+n>LIMIT)throw new IOException("decompressed NBT limit");out.write(buf,0,n);} return out.toByteArray();
@@ -63,6 +68,8 @@ public final class WorldOracle {
   static byte[] encoded(ij tag)throws Exception{ByteArrayOutputStream b=new ByteArrayOutputStream();ij.a(tag,new DataOutputStream(b));return b.toByteArray();}
   static void selfTest(Map<String,Object> audit,Path retained)throws Exception {
     List<String> cases=new ArrayList<>();
+    if(inputLimit("level.dat")!=16L*1024*1024||inputLimit("r.0.0.mcr")!=256L*1024*1024)throw new IOException("per-file input limit regression");
+    boolean unknownFilename=false;try{inputLimit("extra.mcr");}catch(IOException expected){unknownFilename=true;}if(!unknownFilename)throw new IOException("unknown input filename accepted");
     nu missing=new nu();ei e=new ei(missing);eiConstructors++;
     if(e.b()!=0||e.c()!=0||e.j().length()!=0||e.o()||e.h()!=null)throw new IOException("native missing-default selftest");cases.add("missing-scalars-and-player");
     nu byteBool=new nu();byteBool.a("raining",(byte)0x80);byteBool.a("thundering",(byte)-1);ei b=new ei(byteBool);eiConstructors++;if(!b.o()||!b.m())throw new IOException("native nonzero boolean byte selftest");cases.add("nonzero-and-negative-boolean-byte");
@@ -112,7 +119,7 @@ public final class WorldOracle {
     if(Files.isSymbolicLink(input.resolve(".world-input-copy"))||Files.isSymbolicLink(input.resolve(".region-input-copy"))||!Files.readString(input.resolve(".world-input-copy")).equals("WORLD-LOAD-001 copied inputs\n")||!Files.readString(input.resolve(".region-input-copy")).equals("REGION-001 copied inputs\n"))throw new IOException("copy markers missing/unsafe");
     if(retained.startsWith(input)||input.startsWith(retained)||auditPath.startsWith(input)||input.startsWith(auditPath)||retained.startsWith(auditPath)||auditPath.startsWith(retained))throw new IOException("output/input overlap");
     Files.createDirectory(retained);
-    Map<String,String> inputHashes=new TreeMap<>();try(DirectoryStream<Path> ds=Files.newDirectoryStream(input)){for(Path p:ds)if(!Files.isDirectory(p)&&!p.getFileName().toString().startsWith(".")){if(Files.isSymbolicLink(p)||!Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)||!p.toRealPath().getParent().equals(input))throw new IOException("unsafe input path");long size=Files.size(p);if(size>4L*1024*1024)throw new IOException("input file size limit");inputHashes.put(p.getFileName().toString(),sha(Files.readAllBytes(p)));}}
+    Map<String,String> inputHashes=new TreeMap<>();try(DirectoryStream<Path> ds=Files.newDirectoryStream(input)){for(Path p:ds){String name=p.getFileName().toString();if(name.equals(".world-input-copy")||name.equals(".region-input-copy"))continue;long limit=inputLimit(name);if(Files.isSymbolicLink(p)||!Files.isRegularFile(p,LinkOption.NOFOLLOW_LINKS)||!p.toRealPath().getParent().equals(input))throw new IOException("unsafe input path");long size=Files.size(p);if(size>limit)throw new IOException("input file size limit: "+name);inputHashes.put(name,sha(Files.readAllBytes(p)));}}
     if(!inputHashes.keySet().containsAll(List.of("level.dat","r.-1.-1.mcr","r.-1.0.mcr","r.0.-1.mcr","r.0.0.mcr")))throw new IOException("five world inputs required");
     Map<String,Object> audit=new LinkedHashMap<>();audit.put("jar_sha256",JAR_SHA);audit.put("classes",Map.of("ij",classSha(ij.class),"nu",classSha(nu.class),"ei",classSha(ei.class),"qj",classSha(qj.class)));audit.put("code_sources",codeSources(ij.class,nu.class,ei.class,qj.class));audit.put("native_methods",Map.of("nbt_parse","ij.b(DataInput)","metadata_constructor","ei(nu)","region_read","qj.a(int,int)","native_chunk_loads",0));
     Field locations=qj.class.getDeclaredField("d");locations.setAccessible(true);
