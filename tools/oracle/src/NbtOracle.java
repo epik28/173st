@@ -38,7 +38,7 @@ public final class NbtOracle {
       if (f.length != 2 || f[0].isEmpty()) throw new IllegalArgumentException("expected id<TAB>hex");
       byte[] input = hex(f[1]);
       byte[] output = roundTrip(input);
-      System.out.println(f[0] + "\t" + hex(output) + "\t" + input.length);
+      System.out.println(f[0] + "\t0\t" + hex(output) + "\t" + input.length);
       count++;
     }
     System.err.println("cases=" + count + " classes=ij,nu");

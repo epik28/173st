@@ -404,3 +404,11 @@ pending в общем коммите подготовки, а не отмече�
 - `python3 tools/oracle/nbt_corpus.py` → 5200 детерминированных valid cases, original tag ids 0..10, supplementary Unicode/NUL, signed boundaries, IEEE payloads, empty/nested compound/list и arrays; 4 invalid cases. TAG_Int_Array (11) явно вынесен в wire-only, поскольку Beta factory оригинала поддерживает только 0..10.
 - `javac -cp ../.local/minecraft/client-b1.7.3.jar -d artifacts/oracle-nbt-check/classes tools/oracle/src/NbtOracle.java` → PASS. Live adapter на corpus → 5200 round-trips, `cases=5200`, JAR hash подтверждён. Invalid fixture тем же адаптером → ненулевой код и stderr.
 - `git diff --check` → PASS. Rust parity не заявляется; следующий шаг — C02 runner/canonical comparator после появления agy A01/A02 по очереди.
+- NBT-001-C02: `tools/parity/run.py` расширен группой `nbt`, с exact
+  round-trip bytes/consumed-length comparator, сохранением raw logs/hash и
+  strict `not_implemented` при отсутствии `nbt_probe`.
+- `python3 tools/check.py` → PASS (37 Python, 31 Rust, fmt/check/clippy/doc).
+  `python3 tools/parity/run.py nbt --strict` → ожидаемый `not_implemented`
+  exit 1, Java выполнила 5200 случаев: `artifacts/parity/nbt/run-mfmj868x/report.json`.
+- Предыдущая группа `rng` повторно PASS 96/96; следующий шаг — ожидать agy
+  NBT A01/A02 и затем C03 по точному snapshot.

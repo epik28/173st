@@ -155,6 +155,27 @@ def parse_chunk_fixture(data):
         raise RunError("fixture contains no cases")
     return cases
 
+def parse_nbt_fixture(data):
+    cases, ids = [], set()
+    for number, line in enumerate(data.decode("ascii").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 2 or not re.fullmatch(r"[A-Za-z0-9_-]+", fields[0]) or fields[0] in ids:
+            raise RunError(f"NBT fixture line {number}: invalid fields/ID")
+        if not re.fullmatch(r"[0-9a-fA-F]+", fields[1]) or len(fields[1]) % 2:
+            raise RunError(f"NBT fixture line {number}: invalid hex")
+        ids.add(fields[0]); cases.append({"id": fields[0], "data": bytes.fromhex(fields[1])})
+    if not cases: raise RunError("NBT fixture contains no cases")
+    return cases
+
+def valid_nbt_record(line, key):
+    prefix = f"{key[0]}\t{key[1]}\t".encode("ascii")
+    if not line.startswith(prefix) or not line.endswith(b"\n"): return False
+    fields = line[len(prefix):-1].split(b"\t")
+    return (len(fields) == 2 and re.fullmatch(rb"[0-9a-f]+", fields[0])
+            and re.fullmatch(rb"[1-9][0-9]*", fields[1]) is not None)
+
 
 def valid_chunk_record(line, key):
     case_id, index, op, args = key
@@ -199,6 +220,8 @@ def valid_record(line, key):
         if key[2] in {"coord", "index", "get", "set", "byte"}:
             return valid_chunk_record(line, key)
         return valid_extended_record(line, key)
+    if len(key) == 3 and key[2] == "nbt":
+        return valid_nbt_record(line, (key[0], key[1]))
     prefix = f"{key[0]}\t{key[1]}\t".encode("ascii")
     if not line.startswith(prefix) or not line.endswith(b"\n"):
         return False
@@ -254,7 +277,7 @@ def run_process(command, *, cwd, directory, label, timeout, input_data=None):
 def source_snapshot(root):
     paths = {FIXTURE, ORACLE, Path("tools/parity/run.py"), Path("config/local.toml"), Path("Cargo.toml"),
              Path("Cargo.lock"), Path("rust-toolchain.toml")}
-    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv"), ("tests/fixtures/chunk", "*.tsv")):
+    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv"), ("tests/fixtures/chunk", "*.tsv"), ("tests/fixtures/nbt", "*.tsv")):
         paths.update(path.relative_to(root) for path in (root / folder).rglob(pattern))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("*.rs"))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("Cargo.toml"))
@@ -276,12 +299,13 @@ def exit_code(status, strict):
 
 def run_rng(root=ROOT, timeout=60, suite="rng"):
     chunk = suite == "chunk"
+    nbt = suite == "nbt"
     extended = suite == "rng-extended"
-    fixture = Path("tests/fixtures/rng/extended.tsv") if extended else FIXTURE
-    class_name = "RandomExtendedOracle" if extended else "RandomOracle"
-    oracle = Path(f"tools/oracle/src/{class_name}.java") if extended else ORACLE
-    example = "rng_extended_probe" if extended else "rng_probe"
-    probe = Path(f"crates/beta-core/examples/{example}.rs") if extended else PROBE
+    fixture = Path("tests/fixtures/rng/extended.tsv") if extended else (Path("tests/fixtures/nbt/corpus.tsv") if nbt else FIXTURE)
+    class_name = "NbtOracle" if nbt else ("RandomExtendedOracle" if extended else "RandomOracle")
+    oracle = Path(f"tools/oracle/src/{class_name}.java") if (extended or nbt) else ORACLE
+    example = "nbt_probe" if nbt else ("rng_extended_probe" if extended else "rng_probe")
+    probe = Path(f"crates/beta-core/examples/{example}.rs") if (extended or nbt) else PROBE
     if chunk:
         fixture = Path("tests/fixtures/chunk/layout.tsv")
         class_name, example = "ChunkOracle", "chunk_probe"
@@ -334,10 +358,11 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         data = (root / fixture).read_bytes()
         (directory / "input.tsv").write_bytes(data)
         report["input_sha256"] = sha256(data)
-        parse = parse_chunk_fixture if chunk else (parse_extended_fixture if extended else parse_fixture)
+        parse = parse_nbt_fixture if nbt else (parse_chunk_fixture if chunk else (parse_extended_fixture if extended else parse_fixture))
         cases = parse(data)
-        keys = extended_keys(cases) if (chunk or extended) else expected_keys(cases)
-        report.update(case_count=len(cases), value_count=len(keys), seed="not_applicable: no RNG" if chunk else cases)
+        keys = ([(case["id"], index, "nbt") for case in cases for index in [0]] if nbt
+                else (extended_keys(cases) if (chunk or extended) else expected_keys(cases)))
+        report.update(case_count=len(cases), value_count=len(keys), seed="not_applicable: no RNG" if (chunk or nbt) else cases)
         if chunk:
             jar = client_jar(root)
             jar_hash = sha256(jar.read_bytes())
@@ -353,9 +378,13 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         report["toolchain"] = {tool: report["runtime_versions"][tool] for tool in ("rustc", "cargo")}
         classes = directory / "classes"
         classes.mkdir()
-        execute("java-build", ["javac", "-d", str(classes), str(root / oracle)])
+        build_command = ["javac", "-d", str(classes)]
+        if nbt:
+            build_command += ["-cp", str(client_jar(root))]
+        build_command += [str(root / oracle)]
+        execute("java-build", build_command)
         report["adapter_class_sha256"] = sha256((classes / f"{class_name}.class").read_bytes())
-        java_command = ["java", "-cp", str(classes), class_name]
+        java_command = ["java", "-cp", str(classes) + (":" + str(client_jar(root)) if nbt else ""), class_name]
         if chunk:
             metadata = json.loads(execute("java-describe", java_command + ["--describe", str(jar)]))
             if metadata.get("jar_sha256") != jar_hash or metadata.get("class") != "wi":
@@ -365,6 +394,8 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
             audit_path = directory / "reference-invocations.json"
             report["log_paths"]["reference_invocations"] = str(audit_path)
             java_command += [str(jar), str(audit_path)]
+        if nbt:
+            java_command += [str(client_jar(root))]
         reference = execute("java-run", java_command, data)
         if chunk:
             invocations = json.loads(audit_path.read_text())
@@ -420,7 +451,7 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -430,6 +461,7 @@ def main(argv=None):
         print("rng: RNG-001 nextInt; requires java, javac, rustc, cargo and rng_probe")
         print("rng-extended: RNG-002 mixed Random methods; requires Java and rng_extended_probe")
         print("chunk: CHUNK-001 original Beta nibble class; requires configured client JAR and chunk_probe")
+        print("nbt: NBT-001 original Beta ij/nu reader/writer; requires configured client JAR and nbt_probe")
         return 0
     try:
         report, path = run_rng(timeout=args.timeout, suite=args.group)
