@@ -1,5 +1,30 @@
 # Отчёт Gemini / agy
 
+## NBT-001 — приёмка в main и завершение очереди agy
+
+- Прочитаны закоммиченные контракт, статус C03 и handoff Codex. Приёмка находится
+  в `main`: `2930029a3603632673586c90c653d4a1e370f1dc`; исправление NBT verifier
+  включено отдельным коммитом `93ed4fe8356d9c30cfa9013bca111d61e75f0ebf`.
+- `python3 tools/agent_session.py start agy` → сессия занята в `agy/development`.
+- `git merge-base --is-ancestor HEAD main` → exit 0 перед синхронизацией.
+  `git merge --ff-only main` → успешно, `541d719..2930029`.
+- `git diff --exit-code main HEAD` → exit 0 после fast-forward;
+  `git status --short --branch` → чистая `agy/development`.
+- `python3 tools/tasks.py next agy` и `python3 tools/tasks.py next codex`
+  → обе очереди `complete`, exit 3; оба snapshot равны `2930029`.
+- По независимому handoff Codex: NBT 5250/5250, 86 protocol/wire/safety executions,
+  пять synthetic mutations и прежние группы прошли на чистой ревизии `93ed4fe`.
+  Тестовые наборы в этой сессии синхронизации повторно не запускались.
+  Ранее записанное ниже ограничение NBT `verify_report.py --protocol` устранено.
+- Область приёмки и отдельные проверки IntArray/native differences закреплены
+  в `docs/tasks/NBT-001.md`. Карточек REGION-001 в `docs/tasks/queue.json` нет;
+  следующий шаг — новый контракт и карточки от интегратора.
+- Единственный собственный изменённый файл — `docs/handoffs/agy.md`; итоговый
+  коммит содержит этот раздел. `git diff --check` → PASS.
+- Исполнитель синхронизации — Codex в роли agy; точный model ID и метрики затрат
+  недоступны. Пользователь сообщил SHA приёмки, проверенный через Git.
+  Дополнительные агенты, заимствования и изменения Rust отсутствуют.
+
 ## NBT-001-A01 — Rust reader/writer
 
 ### Результат
