@@ -22,14 +22,15 @@
     },
     "RNG-001-C03": {
       "state": "done",
-      "summary": "Повторно проверен и интегрирован snapshot agy 80dee8a5296d0769d29a938b0aea2795d4f0e556; объединённая ревизия 544e9d2c0adb3412939ce203a278d56f97c904f9. Все 96 значений совпали; 36 проверок TSV и защита компаратора от подмены прошли. Блокировка whitespace устранена agy. Приёмка RNG-001 оформлена для включения этого коммита в main.",
+      "summary": "Повторно проверен и интегрирован snapshot agy 80dee8a5296d0769d29a938b0aea2795d4f0e556; объединённая ревизия 544e9d2c0adb3412939ce203a278d56f97c904f9. Все 96 значений совпали; 36 проверок TSV и защита компаратора от подмены прошли. Блокировка whitespace устранена agy. RNG-001 принят в main fast-forward коммитом fa875dd; очередь codex complete.",
       "checks": [
         "python3 tools/doctor.py → PASS: инструменты доступны; игровой серверный JAR не требуется для Java API",
         "python3 tools/check.py → PASS: 27 Python-тестов, 7 Rust-тестов ядра, fmt/check/clippy",
         "cargo test --locked --offline -p beta-core --example rng_probe → PASS: 4 регрессионных теста",
         "python3 tools/parity/run.py rng --strict → PASS, exit 0: 6 seed / 96 значений; оба процесса exit 0; artifacts/parity/rng/run-oajcevsr/report.json; rust_dirty=false",
         "python3 tools/parity/verify_report.py artifacts/parity/rng/run-oajcevsr/report.json --protocol → PASS, exit 0: 36 live-проверок TSV; хеши подтверждены; синтетическая подмена одного значения обнаружена",
-        "git diff --check → PASS"
+        "git diff --check → PASS",
+        "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main принят до fa875dd; git diff --exit-code main codex/verification → 0; python3 tools/tasks.py next codex → complete"
       ]
     }
   }

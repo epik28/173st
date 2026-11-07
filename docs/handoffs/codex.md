@@ -149,11 +149,14 @@
   обнаружена (mismatch_count=1, first_mismatch.record=0), оригиналы не менялись.
 - `git diff --check` → PASS.
 
-Завершение: после коммита приёмки выполнить `git switch main`,
-`git merge --ff-only codex/verification`, вернуться через `git switch codex/verification`,
-подтвердить равенство main и Codex, `python3 tools/tasks.py next codex` → complete,
-затем освободить сессию при чистой рабочей папке. Если main не интегрируется,
-по карточке C03 вернуть blocked и записать причину.
+Интеграция завершена: коммит приёмки `fa875dd937a0c5c6d4cf7dd2f8a232c1a9c6b978`.
+`git switch main` → успешно; `git merge --ff-only codex/verification` → успешно,
+main обновлён с `ae89719` до `fa875dd`. `git switch codex/verification` → успешно.
+`git rev-parse main codex/verification` → одинаковые SHA `fa875dd...`;
+`git diff --exit-code main codex/verification` → exit 0;
+`python3 tools/tasks.py next codex` → complete; `git status --short` → пусто.
+Этот финальный отчёт дополняет коммит приёмки и также включается в main fast-forward.
+Файлы кода после успешных проверок не менялись.
 
 Ограничения: принят только Java RNG API nextInt на фиксированных seed, игровая
 Beta и другие методы RNG не проверялись. Следующий этап без нового контракта
