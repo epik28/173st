@@ -1,0 +1,38 @@
+{
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "classes": {
+    "qj": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6",
+    "ei": "5d01d1dda7be346c57fd00846d2425615186c3ef1c65c06aa0bd0f45aa9f7fef",
+    "nu": "a1a5701ec2180d01ddc604cc8c2e5aff1176b10faf83bdb64d2f1cc8c806ac4a",
+    "ij": "9db862e2ee83e95a2db7a8495594d2c0e0bbe904d96c3f09f167f2b47b72b8d0"
+  },
+  "code_sources": {
+    "ei": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "ij": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "nu": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "qj": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+  },
+  "generated_semantics": {
+    "cases": [
+      "missing-scalars-and-player",
+      "nonzero-and-negative-boolean-byte",
+      "empty-player-compound",
+      "i32-i64-boundaries-and-empty-name",
+      "wrong-long-int-byte-compound-types-cast-fail",
+      "unknown-empty-and-unicode-names",
+      "chunk-signed-bytes-lists-unknown-names-preserved",
+      "empty-entities-byte-list-and-absent-tile-list",
+      "wrong-array-type-length-coordinate-and-missing-Level-errors"
+    ],
+    "wrong_type_class_cast": "PASS",
+    "status": "PASS",
+    "unknown_entity_and_tile_factories": "not_called",
+    "native_chunk_loads": 0
+  },
+  "native_calls": {
+    "qj_a_int_int": 0,
+    "native_chunk_loads": 0,
+    "ij_b_DataInput": 9,
+    "ei_constructor": 7
+  }
+}
