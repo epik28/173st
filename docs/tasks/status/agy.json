@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "role": "agy",
+  "tasks": {
+    "RNG-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "RNG-001-A02": {"state": "pending", "summary": "", "checks": []}
+  }
+}

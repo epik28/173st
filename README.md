@@ -29,6 +29,7 @@ python3 tools/check.py
 ## Документы
 
 - [Общие требования](docs/project-requirements.md).
+- [Самостоятельная очередь задач по ролям](TASKS.md).
 - [Роли Codex и agy, ветки и интеграция](docs/workflow.md).
 - [Проверки соответствия](docs/parity-testing.md).
 - [Текущий прогресс](docs/progress.md).
@@ -38,6 +39,8 @@ python3 tools/check.py
 Codex открывает `/home/andrew/173st/codex` и начинает с `AGENTS.md`.
 Gemini/Antigravity открывает `/home/andrew/173st/agy` и начинает с `GEMINI.md`.
 Оба работают одновременно в отдельных worktree и своих ветках по общему контракту.
+Каждый сам выбирает следующую карточку: `python3 tools/tasks.py next codex`
+или `python3 tools/tasks.py next agy`. Полный порядок — в `TASKS.md`.
 Перед изменениями: `python3 tools/agent_session.py start codex` либо `start agy`.
 После коммита: `python3 tools/agent_session.py finish codex` либо `finish agy`.
 Статус локальной сессии: `python3 tools/agent_session.py status`.
