@@ -1,5 +1,39 @@
 # Отчёт Codex
 
+## NBT-001-C03 — независимая приёмка завершена
+
+- Snapshot agy `541d719e83e32ad13e9448e102c8cc1ed16bcf40` интегрирован fast-forward.
+  Исправления инструментария отдельно: `93ed4fe8356d9c30cfa9013bca111d61e75f0ebf`.
+  Все финальные live-отчёты проверяют именно эту ревизию с `rust_dirty=false`.
+  Итоговая ревизия приёмки — коммит, содержащий этот раздел.
+- `python3 tools/check.py` — 47 Python + 43 Rust all-targets, fmt/check/clippy/doc PASS.
+  `cargo test --all-targets --locked --offline` — 43 PASS.
+- `python3 tools/parity/run.py rng --strict` — 96/96 PASS,
+  `artifacts/parity/rng/run-cxelcb7r/report.json`.
+- `python3 tools/parity/run.py rng-extended --strict` — 13227/13227 PASS,
+  `artifacts/parity/rng-extended/run-w6ixr3u6/report.json`.
+- `python3 tools/parity/run.py chunk --strict` — 4182/4182 PASS,
+  `artifacts/parity/chunk/run-rohs2w09/report.json`.
+- `python3 tools/parity/run.py nbt --strict` — 5250/5250 PASS,
+  `artifacts/parity/nbt/run-a56fm2ot/report.json`; canonical tree/consumed/raw match,
+  исходные payload bits и NaN write normalization сохранены в evidence.
+- `python3 tools/parity/verify_report.py artifacts/parity/nbt/run-a56fm2ot/report.json --protocol`
+  — 86 executions PASS, пять synthetic mutations обнаружены. Хеши дерева/входа/
+  выходов/JAR/adapter/probe, audit оригинальных named read/write подтверждены.
+- Параллельный запуск JVM в этом окружении вызвал предупреждения hsperfdata lock
+  прямо в stdout: `run-qp8se6aj`/`run-59fyhuar` корректно получили error протокола.
+  Две группы повторены последовательно; предупреждения не фильтровались, эталон
+  не ослаблен. Эти отклонённые запуски не объявляются parity PASS.
+- Область приёмки: несжатый NBT, original types 0–10 в общей области;
+  IntArray и пять native differences проверены отдельно и описаны в контракте.
+  Нет gzip/zlib/McRegion/world loading. Rust — полностью agy, прямых правок Codex нет.
+- Изменения финального коммита: этот handoff, собственный status JSON,
+  docs/progress.md и статус docs/tasks/NBT-001.md. Перенос: `git switch main`,
+  `git merge --ff-only codex/verification`, `git switch codex/verification`;
+  затем проверить main и снова вызвать `python3 tools/tasks.py next codex`.
+- Следующий шаг выбирается только очередью. REGION-001 пока не имеет карточек
+  в queue.json; самостоятельно начинать новый пакет за пределами очереди нельзя.
+
 ## NBT-001-C03 — исправление инфраструктуры Codex, приёмка продолжается
 
 - Исходная Codex `07726cfa3913a4a565d8a47623f59b34bb17ae5d`; snapshot agy
