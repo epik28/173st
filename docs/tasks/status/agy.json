@@ -12,11 +12,12 @@
     },
     "RNG-001-A02": {
       "state": "done",
-      "summary": "Реализован probe по контракту RNG-001 в crates/beta-core/examples/rng_probe.rs. Поддерживает TSV stdin/stdout, валидацию case_id, проверку уникальности ID, диапазон count (1..=100000), вывод в LF, диагностику ошибок в stderr с ненулевым кодом выхода.",
+      "summary": "Реализован probe по контракту RNG-001 в crates/beta-core/examples/rng_probe.rs. Исправлена обработка непустых whitespace-строк: пропускаются только строго пустые строки (line.is_empty()) и комментарии (#). Строки из пробела (0x20 0x0a) и табуляции (0x09 0x0a) отклоняются проверкой числа полей с кодом 1 и диагностикой в stderr. Добавлены регрессионные тесты.",
       "checks": [
+        "cargo test --example rng_probe --locked --offline → 4 passed (пустые строки/комментарии пропускаются, пробелы/табуляции отклоняются, fixture-формат валиден)",
+        "python3 tests: 0x20 0x0a (' \\n') и 0x09 0x0a ('\\t\\n') завершаются с кодом 1, сообщение об ошибке в stderr",
+        "python3 tests: 0x0a ('\\n') и '# comment\\n' завершаются с кодом 0, пустой stdout",
         "cargo run --locked --offline -p beta-core --example rng_probe < tests/fixtures/rng/next-int.tsv → 96 строк TSV с LF, совпадает по структуре с fixture",
-        "python3 tests: неверный ввод (bad_fields, bad_id, duplicate_id, bad_seed, zero_count, negative_count, overflow_count) → returncode != 0, диагностика в stderr",
-        "python3 check: повторный запуск fixture выдаёт побайтово идентичный результат (LF, без CR)",
         "python3 tools/check.py → Workspace checks passed"
       ]
     }
