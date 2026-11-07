@@ -35,6 +35,13 @@ members. Both gzip and zlib ignore bytes after a complete stream. Rust retains
 the contract's stricter rejection of overlaps and record lengths that exceed
 the allocated sectors; original qj accepts those two generated cases.
 
+Additional original-qj measurements during C03 distinguish a partial following
+gzip header from a truncated member body: after a complete member the tails
+`1f` and `1f8b` are ignored and preserve the first payload; a complete next header
+followed by a truncated/corrupt trailer fails. This follows the recorded JVM's
+GZIPInputStream behavior, not a hand-written reference decompressor. The first
+member must have a valid header. Regressions preserve this distinction.
+
 ## Dependency provenance
 
 `flate2 =1.1.9`, MIT OR Apache-2.0, `default-features=false`, `rust_backend` only.
