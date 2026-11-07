@@ -25,6 +25,14 @@
 - Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 10 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 35 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
 - Изменены только `region.rs`, собственный agy status и handoff. Model ID: **gpt-6-luna low**; зависимости, oracle, runner, общий контракт, save/JAR не изменялись.
 
+### A01 follow-up — native gzip partial-header behavior
+
+- Учтено фактическое наблюдение Codex original `qj`: после успешного member trailing `0x1f 0x8b` без полного header также игнорируется; полный следующий header с truncation/corrupt body или trailer остаётся ошибкой.
+- `GzDecoder::new` eagerly парсит header. Когда `header()` отсутствует, первый member даёт `Decompression`, а после валидного member хвост трактуется как garbage; при полном header `read_bounded` читает body/trailer и сохраняет отказ при checksum/EOF errors.
+- Добавлены tests на empty/invalid/partial first headers, trailing partial magic после valid member, full-header truncated и corrupt second-member trailer; все прежние gzip/zlib regression cases остаются.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 11 PASS; `cargo fmt --all -- --check` → PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `cargo test --all-targets --locked --offline` → 36 library + 22 example tests PASS.
+- Model ID: **gpt-6-luna low**. Только `region.rs` и собственные status/handoff; dependency/oracle/runner/contract/save/JAR не менялись.
+
 ## REGION-001-A02 — Rust region probe
 
 - Добавлен `crates/beta-core/examples/region_probe.rs`. CLI принимает только `INPUT_COPY_DIR PAYLOAD_DIR`, требует обычный `.region-input-copy` marker, разделяет input/payload каталоги и читает только regular region files непосредственно в canonical input directory. TSV проверяет число полей, уникальный ASCII case ID, координаты i32 и точное имя региона `r.<floor(x/32)>.<floor(z/32)>.mcr`; запрещает абсолютные/traversal пути и symlink region files.

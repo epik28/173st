@@ -281,6 +281,13 @@ fn read_gzip_members(input: &[u8], output: &mut Vec<u8>, limit: usize) -> Result
             .ok_or(RegionError::LimitExceeded)?;
         {
             let mut decoder = GzDecoder::new(&mut source);
+            if decoder.header().is_none() {
+                return if members == 0 {
+                    Err(RegionError::Decompression)
+                } else {
+                    Ok(())
+                };
+            }
             read_bounded(&mut decoder, output, remaining)?;
         }
         members += 1;
@@ -442,15 +449,44 @@ mod tests {
     }
 
     #[test]
-    fn accepts_single_byte_gzip_trailing_garbage_but_rejects_incomplete_magic() {
+    fn accepts_trailing_garbage_including_partial_gzip_header() {
         let mut one_byte_tail = compress_gzip(b"payload");
         one_byte_tail.push(0x1f);
         assert_eq!(decompress(1, &one_byte_tail, 64).unwrap(), b"payload");
 
-        let mut incomplete_member = compress_gzip(b"payload");
-        incomplete_member.extend_from_slice(&[0x1f, 0x8b]);
+        let mut partial_header = compress_gzip(b"payload");
+        partial_header.extend_from_slice(&[0x1f, 0x8b]);
+        assert_eq!(decompress(1, &partial_header, 64).unwrap(), b"payload");
+    }
+
+    #[test]
+    fn rejects_initial_invalid_header_and_full_header_with_broken_body_or_trailer() {
+        assert_eq!(decompress(1, &[], 64), Err(RegionError::Decompression));
         assert_eq!(
-            decompress(1, &incomplete_member, 64),
+            decompress(1, &[0x1f, 0x8b], 64),
+            Err(RegionError::Decompression)
+        );
+        assert_eq!(
+            decompress(1, b"not gzip", 64),
+            Err(RegionError::Decompression)
+        );
+
+        let first = compress_gzip(b"first");
+        let second = compress_gzip(b"second");
+        let mut truncated_trailer = first.clone();
+        truncated_trailer.extend_from_slice(&second[..second.len() - 4]);
+        assert_eq!(
+            decompress(1, &truncated_trailer, 64),
+            Err(RegionError::Decompression)
+        );
+
+        let mut corrupt_trailer = first;
+        let mut damaged_second = second;
+        let last = damaged_second.len() - 1;
+        damaged_second[last] ^= 1;
+        corrupt_trailer.extend(damaged_second);
+        assert_eq!(
+            decompress(1, &corrupt_trailer, 64),
             Err(RegionError::Decompression)
         );
     }

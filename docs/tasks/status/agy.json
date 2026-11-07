@@ -89,10 +89,11 @@
     },
     "REGION-001-A01": {
       "state": "done",
-      "summary": "Реализован read-only beta_core::region API: borrowed RegionFile, полная проверка заголовка/location/length/sector bounds/overlap, timestamp, bounded gzip/zlib декодирование и negative coordinates. Последующая проверка устранила приём пустого/усечённого zlib (требуется StreamEnd) и пропуск gzip member при magic на границе BufReader; trailer checksum валидируется.",
+      "summary": "Реализован read-only beta_core::region API: borrowed RegionFile, полная проверка заголовка/location/length/sector bounds/overlap, timestamp, bounded gzip/zlib декодирование и negative coordinates. Follow-up исправления требуют StreamEnd для zlib, корректно читают gzip members и повторяют native policy: malformed/incomplete следующий gzip header после валидного member считается trailing garbage, а ошибка после полного header отвергается.",
       "checks": [
-        "cargo test --locked --offline -p beta-core region::tests:: → 10 region tests PASS; all truncation prefixes of valid gzip/zlib, empty streams, checksum trailer mutations, three gzip members at repeated 8191-byte boundaries, large zlib output and exact/over output caps",
-        "python3 tools/check.py → 51 Python tests, fmt/check/clippy, 35 library + 22 example tests, doc tests PASS",
+        "cargo test --locked --offline -p beta-core region::tests:: → 11 region tests PASS; exhaustive valid-stream truncations/checksum trailer mutations, gzip trailing partial header and next-member broken body/trailer, 3-member boundaries, large zlib exact/over output caps",
+        "cargo fmt --all -- --check → PASS; cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "cargo test --all-targets --locked --offline → 36 library + 22 example tests PASS",
         "git diff --check → PASS"
       ]
     },
