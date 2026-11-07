@@ -1,0 +1,27 @@
+{
+  "cases": 5200,
+  "sha256": "1370c8a352d0021ce077b3aed1c5e456d52ababd6f0d95b87b76514ae90d6632",
+  "invalid_cases": 4,
+  "types": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "wire_only_types": [
+    11
+  ],
+  "adapter_classes": [
+    "ij",
+    "nu"
+  ],
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "limitation": "Beta 1.7.3 ij factory supports tag ids 0..10; TAG_Int_Array (11) is retained as wire-only evidence and is rejected by the original class."
+}
