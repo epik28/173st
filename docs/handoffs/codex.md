@@ -346,3 +346,38 @@ pending в общем коммите подготовки, а не отмече�
 - `git diff --check` → PASS. Очередь показывает agy CHUNK-001-A01 ready,
   но его snapshot ещё f16d280 (только RNG-002). Следующий шаг C03 после A01/A02;
   ожидание по TASKS.md. Дополнительные агенты не запускались.
+
+## CHUNK-001-C03 — done
+
+- Из очереди получен точный snapshot agy `14b50482bc1fa9ef4850d7983780ceda876bb80a`.
+  Просмотрены diff, status и handoff именно этого коммита: только chunk.rs,
+  chunk_probe.rs, экспорт модуля и собственные файлы agy; новых зависимостей нет.
+- `git merge --no-ff 14b50482bc1fa9ef4850d7983780ceda876bb80a -m 'merge: integrate CHUNK-001 container and TSV probe'`
+  → PASS без конфликтов. Чистая объединённая проверенная ревизия:
+  `6b0bdfc26a5c53934da9980c4a3ed5051b7910bc`.
+- `python3 tools/check.py` → PASS: 37 Python + 31 Rust all-targets,
+  fmt/check/clippy с -D warnings и отдельный doc.
+- `cargo test --all-targets --locked --offline` → 31 PASS, включая from_raw,
+  атомарность set, соседние nibble и пять тестов chunk_probe.
+- `python3 tools/parity/run.py chunk --strict` → PASS, оба процесса exit 0,
+  4182/4182, dirty=false. `artifacts/parity/chunk/run-jvj35_be/report.json`.
+- `python3 tools/parity/run.py rng --strict` → PASS 96/96,
+  `artifacts/parity/rng/run-5_dm3mel/report.json`.
+- `python3 tools/parity/run.py rng-extended --strict` → PASS 13227/13227,
+  `artifacts/parity/rng-extended/run-epqhsc13/report.json`.
+- `python3 tools/parity/verify_report.py artifacts/parity/chunk/run-jvj35_be/report.json --protocol`
+  → PASS: хеши и native audit; отдельные синтетические подмены значения,
+  nibble-order и index обнаружены. 46 настоящих TSV-запусков + missing JAR и
+  ошибка reflection на явно синтетической копии НАШЕЙ обёртки — 48 всего PASS.
+  Исходный JAR, адаптер и live-выходы не менялись.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng/run-5_dm3mel/report.json --protocol`
+  → 36 PASS; аналогично `artifacts/parity/rng-extended/run-epqhsc13/report.json` → 44 PASS.
+- Подлинность nibble-эталона: JAR hash и code source проверены; original wi
+  реально получил constructors=6/get=3606/set=1746/raw reads=1752. Имена и хеши
+  опубликованы в tests/fixtures/chunk/provenance.md; заимствованного Java-кода нет.
+  Наша обёртка отдельно реализует контракт координат/index/ID/безопасных отказов.
+- Изменены собственный status/handoff, docs/progress.md и статус CHUNK-001.md.
+  Итоговая ревизия приёмки — коммит с этим разделом, включаемый в main fast-forward.
+- Вклад: Rust контейнер/probe — agy, Java/research/corpus/runner/review/integration — Codex.
+  Codex Rust-код не правил. Область — контейнер без NBT/world load/render.
+- После main перечитать очередь: ожидается complete; новых этапов не создавать.
