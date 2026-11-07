@@ -42,9 +42,14 @@
       ]
     },
     "CHUNK-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Реализован модуль beta_core::chunk по контракту CHUNK-001: ChunkData, BlockData, ChunkError, split_block_coord, block_index, new, from_raw, get, set, raw_arrays. Проверена изоляция nibble-соседей (чётный в младшие 4 бита, нечётный в старшие), атомарность set при ошибках (координаты проверяются первыми, данные не модифицируются при InvalidNibble), валидация длин массивов и граничные координаты.",
+      "checks": [
+        "cargo test --all-targets --locked --offline → 26 passed (17 в lib.rs, 5 в rng_extended_probe, 4 в rng_probe)",
+        "python3 tools/check.py → Workspace checks passed (32 Python tests, fmt, check, clippy, doc)",
+        "python3 tools/parity/run.py rng --strict → PASS (96 записей совпадают)",
+        "python3 tools/parity/run.py rng-extended --strict → PASS (13227 записей совпадают)"
+      ]
     },
     "CHUNK-001-A02": {
       "state": "pending",
