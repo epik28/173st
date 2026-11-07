@@ -64,14 +64,17 @@
       ]
     },
     "NBT-001-A01": {
-      "state": "in_progress",
-      "summary": "NBT-001-C03 live-запуск на snapshot agy c325bff выявил mismatches в compound order и NaN payload. `nu` сериализует по Java HashMap values() order и принимает duplicate names с last-value-wins; `DataOutput.writeFloat/Double` канонизирует NaN. HashMap/duplicate поведение исправлено; оставшаяся проверка NaN canonicalization и повторный live-run выполняются внутри A01.",
+      "state": "done",
+      "summary": "Реализован beta_core::nbt для wire типов 0–11 с big-endian reader/writer, modified UTF-8, лимитами и raw IEEE-754 bits в модели. Reader повторяет оригинальный nu HashMap.put для duplicate names (last value wins); writer повторяет Java HashMap bucket order и DataOutput NaN canonicalization. gzip/region формат вне объёма.",
       "checks": [
-        "python3 tools/parity/run.py nbt --strict → FAIL на SHA c325bff: 5200/5200 mismatch, первый case-00000 показывает Java HashMap order; report artifacts/parity/nbt/run-znl4a74r/report.json",
+        "python3 tools/parity/run.py nbt --strict → PASS 5200/5200, mismatch_count=0, rust_dirty=false, проверенная ревизия 099f3e5606c9073f3742a40d88d5eb2c1fb37883; report artifacts/parity/nbt/run-9pmeibzy/report.json",
         "javap -private -c -classpath ../.local/minecraft/client-b1.7.3.jar nu → оригинал хранит compound в java.util.HashMap и пишет values() iteration",
-        "NBT parity после HashMap исправления на e8cc558 → FAIL, 473/5200 mismatch, все проверенные исходы показывают отличия NaN payload; report artifacts/parity/nbt/run-jun4698t/report.json",
+        "NBT parity после HashMap исправления на e8cc558 → FAIL, 473/5200 mismatch; first mismatch показал NaN payload; report artifacts/parity/nbt/run-jun4698t/report.json",
         "NbtOracle на валидном duplicate-name compound → exit 0; duplicate key заменён последним значением",
-        "cargo test --all-targets --locked --offline → 43 теста PASS после исправления; python3 tools/check.py → 37 Python tests, fmt/check/clippy/all-targets/doc PASS"
+        "4 записи tests/fixtures/nbt/invalid.tsv отдельно запущены против Rust nbt_probe и original NbtOracle → оба процесса отвергли все 4; Rust stdout пустой, ошибки stderr",
+        "5 синтетических мутаций serialized NBT output (endian, length, tag type, modified UTF-8, payload) → compare_outputs обнаружил каждую; artifacts/parity/nbt/run-9pmeibzy/synthetic-mutations.json",
+        "cargo test --all-targets --locked --offline → 43 теста PASS; python3 tools/check.py → 37 Python tests, fmt/check/clippy/all-targets/doc PASS",
+        "python3 tools/parity/run.py rng --strict → PASS; rng-extended --strict → PASS; chunk --strict → PASS"
       ]
     },
     "NBT-001-A02": {

@@ -23,10 +23,15 @@
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
 - `git diff --check` → без ошибок.
 - Первое live-сравнение после получения Codex C01/C02 запущено на чистом SHA `9db415e` (merge snapshot C02 + agy `c325bff`): `python3 tools/parity/run.py nbt --strict` → FAIL, 5200/5200 mismatches; отчёт `artifacts/parity/nbt/run-znl4a74r/report.json`. Сырые Java/Rust выходы и первый mismatch сохранены; comparator/oracle не менялись.
-- После исправления `cargo test --all-targets --locked --offline` → 43 tests PASS; `python3 tools/check.py` → 37 Python tests и все Rust quality checks PASS. Изменения NaN пока не были проверены повторным live parity.
+- После HashMap исправления на `e8cc558` parity ещё FAIL: 473/5200; первый mismatch — noncanonical NaN payload. После Java DataOutput NaN normalization final live run на чистом SHA `099f3e5` прошёл: `python3 tools/parity/run.py nbt --strict` → PASS, 5200/5200, mismatch 0, `rust_dirty=false`; отчёт `artifacts/parity/nbt/run-9pmeibzy/report.json`.
+- `cargo test --all-targets --locked --offline` → 43 tests PASS; `python3 tools/check.py` → 37 Python tests и все Rust quality checks PASS.
+- `python3 tools/parity/run.py rng --strict` → PASS; `python3 tools/parity/run.py rng-extended --strict` → PASS; `python3 tools/parity/run.py chunk --strict` → PASS.
+- Четыре записи `tests/fixtures/nbt/invalid.tsv` запускались отдельно против Rust `nbt_probe` и original `NbtOracle`: оба процесса отвергли все четыре; stdout Rust пустой, ошибки в stderr.
+- `compare_outputs` обнаружил 5 синтетических изменений скопированного Rust output: endian, length, tag type, modified UTF-8 и payload. Сводка: `artifacts/parity/nbt/run-9pmeibzy/synthetic-mutations.json`; это sensitivity check, не дополнительный live parity.
+- `python3 tools/parity/verify_report.py artifacts/parity/nbt/run-9pmeibzy/report.json --protocol` не поддерживает NBT: пытается разбирать NBT fixture как RNG и завершается `RunError: fixture line 1: invalid fields/ID`. Invalid checks выше выполнены отдельным subprocess driver. Codex C03 должен добавить/выполнить NBT protocol verification; его файлы здесь не менялись.
 
 ### Следующий шаг
-- Закоммитить исправление, повторить NBT parity на чистой ревизии и убедиться, что обе стороны дают точные round-trip bytes и consumed lengths; затем вернуть A01 `done`.
+- A01 исправлен и возвращён в `done`; Rust-side карточки NBT-001 роли agy завершены. Следующий шаг — Codex C03 на зафиксированном snapshot этой ветки.
 
 ## NBT-001-A02 — Rust NBT probe
 
@@ -45,7 +50,7 @@
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
 - `python3 -c '…subprocess…'` запускал `cargo run --quiet --locked --offline -p beta-core --example nbt_probe`: валидный root дал точный stdout `smoke<TAB>0<TAB>0a000000<TAB>4<LF>`; неверный root завершился кодом 1 с пустым stdout и ошибкой в stderr.
 - `git diff --check` → без ошибок.
-- C01/C02 snapshot `07726cfa3913a4a565d8a47623f59b34bb17ae5d` получен обычным merge; первая live parity дала mismatch из-за A01 compound ordering. Этот defect исправляется в A01; итоговый parity ещё не pass.
+- C01/C02 snapshot `07726cfa3913a4a565d8a47623f59b34bb17ae5d` получен обычным merge. Первые parity mismatches обнаружили A01 расхождения в HashMap ordering и NaN normalization; обе поправки включены в чистую ревизию `099f3e5`, на которой 5200/5200 совпали.
 
 ### Следующий шаг
 - Статусы обеих agy карточек NBT-001 выставлены `done`; следующую задачу выбирает очередь. Для NBT parity нужен закоммиченный Codex C01/C02 и интеграция обеих сторон.
