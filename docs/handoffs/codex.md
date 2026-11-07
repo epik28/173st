@@ -316,3 +316,33 @@ pending в общем коммите подготовки, а не отмече�
   ID 0/127/128/255, повторные записи/соседей/raw, отказы без изменения данных.
 - `git diff --check` → PASS. Rust↔Java контейнера пока не сравнивались.
   Rust не изменялся; сторонний код не переносился. Следующий шаг CHUNK-001-C02.
+
+## CHUNK-001-C02 — done
+
+- Старт `f5cf5c9`; итог — коммит с этим разделом.
+- Изменены tools/parity/run.py, verify_report.py, README,
+  tests/python/test_chunk_runner.py, собственные status/handoff. Rust/fixture не менялись.
+- Группа chunk выполняет настоящий ChunkOracle на закреплённом JAR, сохраняет
+  reference_metadata, reference_invocations, wrapper scope, версии, исходные данные
+  и хеш JAR до/после. Отсутствие JAR → error; probe → not_implemented strict exit 1.
+- Синтетические тесты проверяют типы/порядок/количество, error priority,
+  nibble-order/index, ошибку отсутствующего JAR. Ошибка при отсутствующем ключе
+  исходника в минимальном checkout найдена и исправлена в runner до коммита;
+  ожидания не ослаблялись. Общие tests ошибок процессов/timeout продолжают работать.
+- `python3 tools/check.py` → PASS: 37 Python + 20 Rust, fmt/check/clippy/all-targets/doc.
+- `python3 tools/parity/run.py chunk --strict` → not_implemented exit 1,
+  реальный Java-адаптер и оригинальный nibble выполнены (4182 записи), Rust отсутствует.
+  Отчёт artifacts/parity/chunk/run-7uuqez7z/report.json — не parity pass.
+- `python3 tools/parity/run.py rng --strict` → 96/96 PASS,
+  artifacts/parity/rng/run-xg341uy5/report.json.
+- `python3 tools/parity/run.py rng-extended --strict` → 13227/13227 PASS,
+  artifacts/parity/rng-extended/run-mtp76uod/report.json.
+- Точная команда для C03:
+  `python3 tools/parity/verify_report.py <chunk-report.json> --protocol`.
+  Она проверяет исходный JAR/native calls, синтетические копии с изменёнными
+  nibble-order/index/значением, TSV/лимиты, missing JAR, ошибку reflection на
+  синтетической копии нашего адаптера с отсутствующим методом; оригинал не меняется.
+  Исполнение этого chunk-верификатора требует настоящего успешного live-отчёта C03.
+- `git diff --check` → PASS. Очередь показывает agy CHUNK-001-A01 ready,
+  но его snapshot ещё f16d280 (только RNG-002). Следующий шаг C03 после A01/A02;
+  ожидание по TASKS.md. Дополнительные агенты не запускались.

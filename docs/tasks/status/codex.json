@@ -79,9 +79,15 @@
       ]
     },
     "CHUNK-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлена группа chunk с реальным оригинальным Java-адаптером, hash/metadata/native invocation audit, защитой неизменности JAR, типами/ошибками TSV и протокол-верификатором. Rust chunk_probe пока отсутствует в checkout; это not_implemented, не parity pass.",
+      "checks": [
+        "python3 tools/check.py → PASS: 37 Python + 20 Rust, fmt/check/clippy/all-targets/doc",
+        "python3 tools/parity/run.py chunk --strict → not_implemented, exit 1: оригинальный Java nibble выполнен (4182 записи), native calls сохранены; artifacts/parity/chunk/run-7uuqez7z/report.json",
+        "python3 tools/parity/run.py rng --strict → 96/96 PASS; artifacts/parity/rng/run-xg341uy5/report.json",
+        "python3 tools/parity/run.py rng-extended --strict → 13227/13227 PASS; artifacts/parity/rng-extended/run-mtp76uod/report.json",
+        "git diff --check → PASS"
+      ]
     },
     "CHUNK-001-C03": {
       "state": "pending",

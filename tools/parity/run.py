@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live RNG-001 comparison. No saved or synthetic reference outputs are used."""
+"""Live Java/Rust parity. No saved or synthetic reference outputs are used."""
 
 import argparse
 from datetime import datetime, timezone
@@ -115,6 +115,79 @@ def valid_extended_record(line, key):
     return -(2**(bits-1)) <= number < 2**(bits-1)
 
 
+def parse_chunk_fixture(data):
+    cases, ids, total = [], set(), 0
+    for line in data.decode("utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 2 or not re.fullmatch(r"[A-Za-z0-9_-]+", fields[0]) or fields[0] in ids:
+            raise RunError("invalid chunk fields/ID")
+        operations = []
+        for token in fields[1].split(";"):
+            parts = token.split(":")
+            op, arguments = parts[0], parts[1:]
+            if op == "coord" and len(arguments) == 1:
+                if not re.fullmatch(r"[+-]?[0-9]+", arguments[0]) or not -(2**31) <= int(arguments[0]) < 2**31:
+                    raise RunError("coord argument outside signed i32")
+                args = [int(arguments[0])]
+            elif op == "byte" and len(arguments) == 2:
+                array, index = arguments
+                if array not in {"blocks", "data", "block_light", "sky_light"}:
+                    raise RunError("unknown chunk array")
+                limit = 32768 if array == "blocks" else 16384
+                if not re.fullmatch(r"\+?[0-9]+", index) or not 0 <= int(index) < limit:
+                    raise RunError("raw byte index outside array")
+                args = [array, int(index)]
+            elif (op in {"get", "index"} and len(arguments) == 3) or (op == "set" and len(arguments) == 7):
+                if any(not re.fullmatch(r"\+?[0-9]+", arg) or not 0 <= int(arg) <= 255 for arg in arguments):
+                    raise RunError("chunk argument outside u8")
+                args = [int(arg) for arg in arguments]
+            else:
+                raise RunError(f"invalid chunk operation: {token}")
+            operations.append((op, args))
+        total += len(operations)
+        if total > 100000:
+            raise RunError("operation limit 100000 exceeded")
+        ids.add(fields[0])
+        cases.append({"id": fields[0], "count": len(operations), "operations": operations})
+    if not cases:
+        raise RunError("fixture contains no cases")
+    return cases
+
+
+def valid_chunk_record(line, key):
+    case_id, index, op, args = key
+    prefix = f"{case_id}\t{index}\t{op}\t".encode("ascii")
+    if not line.startswith(prefix) or not line.endswith(b"\n"):
+        return False
+    value = line[len(prefix):-1]
+    if op == "coord":
+        return value == f"{args[0] >> 4},{args[0] & 15}".encode()
+    if op in {"index", "get", "set"}:
+        x, y, z = args[:3]
+        if x >= 16 or y >= 128 or z >= 16:
+            return value == b"invalid_coordinate"
+        if op == "index":
+            return value == str(y+z*128+x*2048).encode()
+        if op == "set":
+            return value == (b"invalid_nibble" if any(arg > 15 for arg in args[4:]) else b"ok")
+        parts = value.split(b",")
+        return (len(parts) == 4 and all(re.fullmatch(rb"(?:0|[1-9][0-9]*)", part) for part in parts)
+                and 0 <= int(parts[0]) <= 255 and all(0 <= int(part) <= 15 for part in parts[1:]))
+    return bool(re.fullmatch(rb"(?:0|[1-9][0-9]*)", value)) and 0 <= int(value) <= 255
+
+
+def client_jar(root):
+    config = root / "config/local.toml"
+    if not config.is_file():
+        raise RunError("client JAR not configured (config/local.toml)")
+    value = tomllib.loads(config.read_text()).get("paths", {}).get("client_jar")
+    if not value or not (root / value).is_file():
+        raise RunError("configured client JAR is absent")
+    return (root / value).resolve()
+
+
 def expected_keys(cases):
     return [(case["id"], index) for case in cases for index in range(case["count"])]
 
@@ -123,6 +196,8 @@ def valid_record(line, key):
     if key is None:
         return False
     if len(key) == 4:
+        if key[2] in {"coord", "index", "get", "set", "byte"}:
+            return valid_chunk_record(line, key)
         return valid_extended_record(line, key)
     prefix = f"{key[0]}\t{key[1]}\t".encode("ascii")
     if not line.startswith(prefix) or not line.endswith(b"\n"):
@@ -177,9 +252,9 @@ def run_process(command, *, cwd, directory, label, timeout, input_data=None):
 
 
 def source_snapshot(root):
-    paths = {FIXTURE, ORACLE, Path("tools/parity/run.py"), Path("Cargo.toml"),
+    paths = {FIXTURE, ORACLE, Path("tools/parity/run.py"), Path("config/local.toml"), Path("Cargo.toml"),
              Path("Cargo.lock"), Path("rust-toolchain.toml")}
-    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv")):
+    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv"), ("tests/fixtures/chunk", "*.tsv")):
         paths.update(path.relative_to(root) for path in (root / folder).rglob(pattern))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("*.rs"))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("Cargo.toml"))
@@ -200,12 +275,18 @@ def exit_code(status, strict):
 
 
 def run_rng(root=ROOT, timeout=60, suite="rng"):
+    chunk = suite == "chunk"
     extended = suite == "rng-extended"
     fixture = Path("tests/fixtures/rng/extended.tsv") if extended else FIXTURE
     class_name = "RandomExtendedOracle" if extended else "RandomOracle"
     oracle = Path(f"tools/oracle/src/{class_name}.java") if extended else ORACLE
     example = "rng_extended_probe" if extended else "rng_probe"
     probe = Path(f"crates/beta-core/examples/{example}.rs") if extended else PROBE
+    if chunk:
+        fixture = Path("tests/fixtures/chunk/layout.tsv")
+        class_name, example = "ChunkOracle", "chunk_probe"
+        oracle = Path("tools/oracle/src/ChunkOracle.java")
+        probe = Path("crates/beta-core/examples/chunk_probe.rs")
     started = time.monotonic()
     parent = artifacts_root(root) / f"parity/{suite}"
     parent.mkdir(parents=True, exist_ok=True)
@@ -240,17 +321,27 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
             raise RunError(f"{label}: {result['error'] or 'exit ' + str(result['returncode'])}")
         return Path(result["stdout"]).read_bytes()
 
+    if chunk:
+        report.update(scenario_id="CHUNK-001-layout", reference_side="Beta 1.7.3 client nibble class + API wrapper",
+                      scope="Original nibble constructor/get/set/raw; wrapper coordinate/index/ID/validation; no world loading/rendering",
+                      event_schedule="fresh zeroed container per case; operations in saved input order")
+    jar, jar_hash = None, None
     before = None
     try:
         before = source_snapshot(root)
         report["source_hashes"] = before
-        report["adapter_sha256"] = before[str(oracle)]
+        report["adapter_sha256"] = before.get(str(oracle))
         data = (root / fixture).read_bytes()
         (directory / "input.tsv").write_bytes(data)
         report["input_sha256"] = sha256(data)
-        cases = parse_extended_fixture(data) if extended else parse_fixture(data)
-        keys = extended_keys(cases) if extended else expected_keys(cases)
-        report.update(case_count=len(cases), value_count=len(keys), seed=cases)
+        parse = parse_chunk_fixture if chunk else (parse_extended_fixture if extended else parse_fixture)
+        cases = parse(data)
+        keys = extended_keys(cases) if (chunk or extended) else expected_keys(cases)
+        report.update(case_count=len(cases), value_count=len(keys), seed="not_applicable: no RNG" if chunk else cases)
+        if chunk:
+            jar = client_jar(root)
+            jar_hash = sha256(jar.read_bytes())
+            report.update(reference_jar_sha256=jar_hash, reference_jar_path=str(jar))
         report["rust_revision"] = execute("git-revision", ["git", "rev-parse", "HEAD"]).decode().strip()
         report["rust_dirty"] = bool(execute("git-dirty", ["git", "status", "--porcelain"]))
         for tool in ("java", "javac", "rustc", "cargo"):
@@ -264,7 +355,23 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         classes.mkdir()
         execute("java-build", ["javac", "-d", str(classes), str(root / oracle)])
         report["adapter_class_sha256"] = sha256((classes / f"{class_name}.class").read_bytes())
-        reference = execute("java-run", ["java", "-cp", str(classes), class_name], data)
+        java_command = ["java", "-cp", str(classes), class_name]
+        if chunk:
+            metadata = json.loads(execute("java-describe", java_command + ["--describe", str(jar)]))
+            if metadata.get("jar_sha256") != jar_hash or metadata.get("class") != "wi":
+                raise RunError("original nibble metadata does not match JAR")
+            report.update(reference_version="Minecraft Beta 1.7.3 client; " + report["reference_version"],
+                          reference_metadata=metadata)
+            audit_path = directory / "reference-invocations.json"
+            report["log_paths"]["reference_invocations"] = str(audit_path)
+            java_command += [str(jar), str(audit_path)]
+        reference = execute("java-run", java_command, data)
+        if chunk:
+            invocations = json.loads(audit_path.read_text())
+            if (invocations.get("jar_sha256") != jar_hash
+                    or any(invocations.get(key, 0) <= 0 for key in ("native_constructors", "native_gets", "native_sets", "raw_reads"))):
+                raise RunError("original nibble calls not demonstrated")
+            report["reference_invocations"] = invocations
         report["reference_output_sha256"] = sha256(reference)
         if compare_outputs(reference, reference, keys)["mismatch_count"]:
             raise RunError("Java oracle output violates scenario protocol")
@@ -297,6 +404,8 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         try:
             after = source_snapshot(root)
             report["source_hashes_after"] = after
+            if jar is not None and sha256(jar.read_bytes()) != jar_hash:
+                report.update(status="error", reason="original JAR changed during comparison")
             if before is not None and before != after:
                 report.update(status="error", reason="inputs/sources changed during comparison")
             saved = directory / "input.tsv"
@@ -311,7 +420,7 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -320,6 +429,7 @@ def main(argv=None):
     if args.group == "list":
         print("rng: RNG-001 nextInt; requires java, javac, rustc, cargo and rng_probe")
         print("rng-extended: RNG-002 mixed Random methods; requires Java and rng_extended_probe")
+        print("chunk: CHUNK-001 original Beta nibble class; requires configured client JAR and chunk_probe")
         return 0
     try:
         report, path = run_rng(timeout=args.timeout, suite=args.group)

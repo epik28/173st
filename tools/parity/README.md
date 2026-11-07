@@ -32,3 +32,12 @@ float/double и общее состояние цепочки. Проверка �
 Она проверяет синтаксис, лимиты, invalid_bound/reseed и подмену копии результата.
 Стандартный `tools/check.py` теперь выполняет all-targets (включая example-тесты)
 и отдельный cargo test --doc.
+
+CHUNK-001: `python3 tools/parity/run.py chunk --strict` читает `paths.client_jar`
+из config/local.toml, проверяет JAR и вызывает оригинальный класс через ChunkOracle.
+В отчёте отдельно сохраняются native metadata/invocation counts и wrapper scope;
+JAR и исходники проверяются на неизменность до/после запуска.
+`python3 tools/parity/verify_report.py <chunk-report.json> --protocol` подтверждает
+хеш JAR, реальные вызовы, обнаружение синтетической перестановки nibble/индекса,
+протокол/лимиты, missing JAR и ошибку reflection на явно синтетической копии нашей
+обёртки. Оригинальный JAR и успешные live-выходы не изменяются.
