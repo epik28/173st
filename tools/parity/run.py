@@ -906,6 +906,8 @@ def run_region(root=ROOT, timeout=60):
                 corpus.verify_snapshot(directory, evidence, root)
                 report["input_copy_hashes_after"] = {name: sha256((input_dir/name).read_bytes())
                                                      for name in evidence["copied"]}
+            if jar is not None and jar_hash is not None and sha256(jar.read_bytes()) != jar_hash:
+                raise ValueError("original JAR changed during comparison")
         except (OSError, ValueError, KeyError) as error:
             verification_error = f"source/copy verification failed: {error}"
             report.update(status="error", reason=f"{failure}; {verification_error}" if failure else verification_error)

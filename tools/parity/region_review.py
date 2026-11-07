@@ -1,9 +1,9 @@
 """Saved REGION-001 evidence and protocol review; synthetic checks stay separate."""
 
-import hashlib
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 
 from run import (REGION_JAR_SHA256, REGION_MARKER, compare_region_outputs,
                  REGION_CLASS_SHA256, parse_region_fixture, sha256,
@@ -165,6 +165,7 @@ def verify_region(report_path, report, protocol=False):
 
 
 def _verify_protocol(directory, report, cases):
+    review_directory = Path(tempfile.mkdtemp(prefix="protocol-", dir=directory))
     java = Path(report["processes"]["java-run"]["command"][0])
     classpath = report["processes"]["java-run"]["command"][4]
     jar = Path(report["reference_jar_path"])
@@ -177,7 +178,7 @@ def _verify_protocol(directory, report, cases):
     result_rows, failures = [], []
     for index, data in enumerate(invalid):
         for side, command in (("java", java_base), ("rust", [str(binary)])):
-            run_dir = directory / "protocol" / f"invalid-{index}-{side}"
+            run_dir = review_directory / f"invalid-{index}-{side}"
             inp, out = run_dir / "input", run_dir / "payloads"
             inp.mkdir(parents=True, exist_ok=True)
             out.mkdir()
@@ -204,7 +205,7 @@ def _verify_protocol(directory, report, cases):
     valid_data = b"control\tr.0.0.mcr\t0\t0\n"
     valid_outputs = {}
     for side, command in (("java", java_base), ("rust", [str(binary)])):
-        run_dir = directory / "protocol" / f"valid-{side}"
+        run_dir = review_directory / f"valid-{side}"
         inp, out = run_dir / "input", run_dir / "payloads"
         inp.mkdir(parents=True, exist_ok=True)
         out.mkdir()
