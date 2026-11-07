@@ -124,6 +124,8 @@ def generated_cases():
     chunk("coordinate-mismatch", dict(chunk_base, xPos=(3, 1)), False)
     chunk("missing-Level", {}, False, raw_override=root({}))
     cases.append(dict(name="absent-slot", kind="absent", raw=None, valid=True, x=0, z=0))
+    for case in cases:
+        case["name"] = case["kind"] + "-" + case["name"]
     return cases
 
 
