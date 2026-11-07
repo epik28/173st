@@ -63,7 +63,15 @@
         "python3 tools/parity/run.py rng-extended --strict → PASS (13227 записей совпадают)"
       ]
     },
-    "NBT-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "NBT-001-A01": {
+      "state": "done",
+      "summary": "Реализован beta_core::nbt: safe модель типов NBT 0–11, big-endian reader/writer, modified UTF-8 и проверки глубины, длины строки, общего числа элементов и размера payload. Reader отвергает неизвестные/недопустимые типы, отрицательные длины, дубликаты имён compound, неверные list и trailer; float/double хранят raw IEEE-754 bits. gzip и region формат не входят в карточку.",
+      "checks": [
+        "cargo test --all-targets --locked --offline → 38 тестов пройдены (24 library, 5 chunk_probe, 5 rng_extended_probe, 4 rng_probe)",
+        "python3 tools/check.py → 37 Python tests, fmt, cargo check, clippy -D warnings, workspace tests и doc tests прошли",
+        "git diff --check → без ошибок"
+      ]
+    },
     "NBT-001-A02": {"state": "pending", "summary": "", "checks": []}
   }
 }

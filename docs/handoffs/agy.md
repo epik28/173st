@@ -1,5 +1,29 @@
 # Отчёт Gemini / agy
 
+## NBT-001-A01 — Rust reader/writer
+
+### Результат
+- Реализован `beta_core::nbt` в `crates/beta-core/src/nbt.rs`, экспортирован из `lib.rs`.
+- Поддержаны все wire-типы 0–11, именованный корень, big-endian числа, вложенные списки и compound, массивы, сохранение IEEE-754 битов и детерминированная запись.
+- Modified UTF-8 кодирует NUL как `C0 80`, кодирует supplementary code points через UTF-16 surrogate pair и принимает также однобайтовый NUL, который допускает `DataInput.readUTF`. Одиночный surrogate отклоняется, так как `String` Rust не может его представить.
+- Лимиты по умолчанию: глубина 512, строка 65535 encoded bytes, суммарно 2 000 000 элементов, полный payload 64 MiB. Проверки размера payload выполняются до накопления writer output; длина строки проверяется до временного выделения encoded буфера; reader проверяет длины до выделения коллекций.
+- Повторные имена compound пока отвергаются до результата Codex C01 об оригинальном reader. gzip/zlib, `.mcr` и probe не входят в A01.
+
+### Изменённые файлы
+- `crates/beta-core/src/nbt.rs`
+- `crates/beta-core/src/lib.rs`
+- `docs/tasks/status/agy.json`
+- `docs/handoffs/agy.md`
+
+### Проверки
+- `cargo test --all-targets --locked --offline` → 38 тестов пройдены (24 library, 5 `chunk_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
+- `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
+- `git diff --check` → без ошибок.
+- Live NBT parity не запускался: oracle/runner принадлежат Codex и ещё не являются частью текущего коммита; A01 подтверждён обычными тестами, не оригинальным сравнением.
+
+### Следующий шаг
+- После коммита выбрать `NBT-001-A02` через `python3 tools/tasks.py next agy` и реализовать probe по контракту.
+
 ## Метаданные
 - **Model ID:** Gemini 3.8 Flash (High) via Antigravity
 - **Заимствования:** Нет (реализация контейнера чанка и probe по контракту CHUNK-001)

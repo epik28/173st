@@ -5,3 +5,4 @@
 
 pub mod chunk;
 pub mod java_random;
+pub mod nbt;
