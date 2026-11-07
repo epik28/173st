@@ -2,6 +2,10 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import json
+import subprocess
+import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('extended_runner', ROOT/'tools/parity/run.py')
@@ -35,6 +39,28 @@ class ExtendedTests(unittest.TestCase):
             prefix = f'{key[0]}\t{key[1]}\t{key[2]}\t'.encode()
             self.assertTrue(runner.valid_record(prefix+good+b'\n',key))
             self.assertFalse(runner.valid_record(prefix+wrong+b'\n',key))
+
+    def test_saved_report_mutation_uses_value_column(self):
+        # Explicitly synthetic report exercises the CLI with four-column output.
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            input_data = b"x\t0\tint\n"
+            output = b"x\t0\tint\t7\n"
+            (directory/'input.tsv').write_bytes(input_data)
+            (directory/'output.tsv').write_bytes(output)
+            report = {'kind':'synthetic test report, not live parity', 'suite':'rng-extended',
+                      'status':'pass', 'input_sha256':runner.sha256(input_data),
+                      'reference_output_sha256':runner.sha256(output), 'rust_output_sha256':runner.sha256(output),
+                      'log_paths':{'input':str(directory/'input.tsv'),
+                                   'java-run':{'stdout':str(directory/'output.tsv')},
+                                   'rust-run':{'stdout':str(directory/'output.tsv')}}}
+            path = directory/'report.json'
+            path.write_text(json.dumps(report))
+            result = subprocess.run([sys.executable,str(ROOT/'tools/parity/verify_report.py'),str(path)],
+                                    capture_output=True,timeout=5)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertEqual((directory/'synthetic-mutated-rust.tsv').read_bytes(),b'x\t0\tint\t8\n')
+            self.assertEqual((directory/'output.tsv').read_bytes(),output)
 
     def test_missing_extra_order_bits_and_state_errors(self):
         cases = runner.parse_extended_fixture(b'x\t0\tbound:0;int;seed:42;double')

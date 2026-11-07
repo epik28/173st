@@ -243,3 +243,22 @@ pending в общем коммите подготовки, а не отмече�
   → PASS: хеши, подмена и 36 live-проверок прежней группы.
 - `git diff --check` → PASS. Следующий шаг: очередь C03; agy A01 уже закоммичен,
   A02 ещё pending. Codex Rust-код не правил, эталоны не ослаблял.
+
+### RNG-002-C03 — отдельное исправление инфраструктуры Codex
+
+- Снимок agy `f16d280c4f0a48016d0357669e6f56661013dcac` проверен по diff/handoff/status;
+  все изменения в пределах роли. Merge без конфликтов: `1a554b1dd88a3ba47d9f2d18944c7c50069104b4`.
+- `python3 tools/check.py` → PASS: 31 Python + 20 Rust (all-targets), fmt/check/clippy/doc.
+- Первые live-отчёты: rng `artifacts/parity/rng/run-k1b8hjrc/report.json` → 96/96;
+  rng-extended `artifacts/parity/rng-extended/run-6830ekct/report.json` → 13227/13227.
+- При запуске verify_report.py на расширенном отчёте обнаружена ошибка Codex:
+  мутация читала колонку operation_name вместо value. Исправлено на последнюю колонку;
+  добавлен CLI-регрессионный тест с явно синтетическим четырёхколоночным отчётом.
+  Это исправление инструмента, не изменение эталона/fixture/Rust или допусков.
+- `python3 -m unittest discover -s tests/python -p test_rng_extended.py -v` → 5 PASS.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng-extended/run-6830ekct/report.json --protocol`
+  → PASS: целостность, подмена и 44 live-проверки. Старый rng verifier → 36 PASS.
+- `python3 tools/oracle/extended_corpus.py` → аудит Java/rejection PASS;
+  `cargo test --all-targets --locked --offline` → 20 PASS.
+- Изменены только verify_report.py, tests/python/test_rng_extended.py и этот handoff.
+  Исправление оформляется отдельным коммитом, затем чистая повторная приёмка C03.
