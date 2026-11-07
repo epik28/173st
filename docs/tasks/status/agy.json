@@ -52,9 +52,16 @@
       ]
     },
     "CHUNK-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Реализован CLI probe crates/beta-core/examples/chunk_probe.rs по контракту CHUNK-001. Поддерживает TSV-формат case_id<TAB>operations с операциями coord:V, index:X:Y:Z, get:X:Y:Z, set:X:Y:Z:ID:M:B:S, byte:A:I. Валидация входных данных: проверка уникальности case_id, запрет whitespace внутри операций, запрет пустых токенов (;), проверка диапазонов координат, первичность InvalidCoordinate над InvalidNibble в set, лимит 100000 операций. Ошибки выводятся в stderr с кодом 1.",
+      "checks": [
+        "cargo test --example chunk_probe --locked --offline → 5 passed",
+        "cargo test --all-targets --locked --offline → 31 passed (17 lib.rs, 5 chunk_probe, 5 rng_extended_probe, 4 rng_probe)",
+        "python3 tools/check.py → Workspace checks passed (32 Python tests, fmt, check, clippy, doc)",
+        "python3 tests: сценарии валидного потока и ошибок (whitespace, duplicate ID, empty operations, bad byte index, bad syntax) → returncode 1, stderr",
+        "python3 tools/parity/run.py rng --strict → PASS (96 записей совпадают)",
+        "python3 tools/parity/run.py rng-extended --strict → PASS (13227 записей совпадают)"
+      ]
     }
   }
 }

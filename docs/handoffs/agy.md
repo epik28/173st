@@ -2,7 +2,7 @@
 
 ## Метаданные
 - **Model ID:** Gemini 3.8 Flash (High) via Antigravity
-- **Заимствования:** Нет (реализация контейнера чанка по контракту CHUNK-001)
+- **Заимствования:** Нет (реализация контейнера чанка и probe по контракту CHUNK-001)
 - **Ручная помощь:** Нет
 - **Внешние зависимости:** Не добавлялись
 
@@ -42,8 +42,38 @@
 - `python3 tools/parity/run.py rng --strict` → 96 записей совпадают с Java-эталоном.
 - `python3 tools/parity/run.py rng-extended --strict` → 13227 записей совпадают с Java-эталоном.
 
-### Ограничения
-- Probe для чанка (`chunk_probe`) реализуется в следующей задаче `CHUNK-001-A02`.
+---
+
+## Задача: CHUNK-001-A02 — Rust probe данных чанка
+
+### Статус
+Выполнена (`done`).
+
+### Изменённые файлы
+- `crates/beta-core/examples/chunk_probe.rs`:
+  - Реализован CLI probe по контракту `CHUNK-001`.
+  - Читает TSV stdin (`case_id<TAB>operations`), где `operations` — список операций через `;`:
+    - `coord:V`: `split_block_coord(V)` -> `chunk,local`;
+    - `index:X:Y:Z`: вычисленный индекс `y + z*128 + x*2048` или `invalid_coordinate`;
+    - `get:X:Y:Z`: `id,metadata,block_light,sky_light` или `invalid_coordinate`;
+    - `set:X:Y:Z:ID:M:B:S`: `ok`, `invalid_coordinate` или `invalid_nibble` (проверка координат первична);
+    - `byte:ARRAY:INDEX`: значение байта (0..255) из указанного массива (`blocks`, `data`, `block_light`, `sky_light`); индекс вне диапазона даёт ошибку протокола.
+  - Строгая валидация протокола:
+    - Пропуск строго пустых строк и комментариев (`#`);
+    - Запрет пробелов внутри `operations`;
+    - Запрет пустых операций (висячие или повторяющиеся `;`);
+    - Уникальность `case_id` внутри входного потока;
+    - Суммарный лимит не более 100 000 операций;
+    - Диагностика ошибок пишется в stderr с кодом возврата 1.
+  - Написаны unit-тесты внутри probe: валидный поток операций, пропуск комментариев/пустых строк, отклонение пробелов, дубликатов case_id, синтаксических ошибок.
+- `docs/tasks/status/agy.json` — отметка `CHUNK-001-A02` в состоянии `done`.
+
+### Проверки
+- `cargo test --example chunk_probe --locked --offline` → 5 тестов пройдены успешно.
+- `cargo test --all-targets --locked --offline` → 31 тест пройден (17 lib.rs, 5 chunk_probe, 5 rng_extended_probe, 4 rng_probe).
+- `python3 tools/check.py` → 32 Python-теста, `cargo fmt`, `cargo check`, `cargo clippy -D warnings`, `cargo test` PASS.
+- `python3 tools/parity/run.py rng --strict` → PASS (96 записей совпадают).
+- `python3 tools/parity/run.py rng-extended --strict` → PASS (13227 записей совпадают).
 
 ### Следующий шаг
-- Переход к задаче `CHUNK-001-A02` (Rust probe данных чанка).
+- Задачи роли `agy` для пакета CHUNK-001 выполнены. Снапшот готов для интеграции и завершения приёмки `CHUNK-001-C03` ролью `codex`.
