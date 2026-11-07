@@ -41,3 +41,18 @@ JAR и исходники проверяются на неизменность �
 хеш JAR, реальные вызовы, обнаружение синтетической перестановки nibble/индекса,
 протокол/лимиты, missing JAR и ошибку reflection на явно синтетической копии нашей
 обёртки. Оригинальный JAR и успешные live-выходы не изменяются.
+
+NBT-001: `python3 tools/parity/run.py nbt --strict` вызывает оригинальные `ij.b`
+и `ij.a`, сохраняет round-trip bytes, consumed length и `canonical-trees.json`.
+Деревья сравниваются с учётом типов, IEEE-битов, порядка списков и last-value-wins
+для compound; независимо проверяется сохранность входного дерева при записи,
+с единственным явным преобразованием NaN по Java DataOutput.
+`python3 tools/parity/verify_report.py <nbt-report.json> --protocol` проверяет
+хеши входа/выходов/JAR/класса/probe/деревьев, успешность процессов, audit вызовов,
+пять синтетических мутаций, TSV и invalid NBT, missing JAR/classes.
+IntArray, границы глубины и защитные ограничения Rust проверяются отдельно.
+`protocol-review.json` отдельно перечисляет подтверждённые native differences:
+пустой список теряет объявленный тип в оригинальном writer; отрицательная длина
+списка, End-элементы и unknown type пустого списка допускаются оригинальным reader;
+Java String допускает одиночный surrogate. Эти проверки не считаются совпавшей parity
+и не меняют safe Rust API. Границы общей области описаны в NBT-001 и provenance.

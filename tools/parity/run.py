@@ -173,8 +173,124 @@ def valid_nbt_record(line, key):
     prefix = f"{key[0]}\t{key[1]}\t".encode("ascii")
     if not line.startswith(prefix) or not line.endswith(b"\n"): return False
     fields = line[len(prefix):-1].split(b"\t")
-    return (len(fields) == 2 and re.fullmatch(rb"[0-9a-f]+", fields[0])
+    return (len(fields) == 2 and len(fields[0]) % 2 == 0 and re.fullmatch(rb"[0-9a-f]+", fields[0])
             and re.fullmatch(rb"[1-9][0-9]*", fields[1]) is not None)
+
+
+def canonical_nbt(data):
+    """Independent wire inspection, not an original-game oracle.
+
+    Compound order is ignored and duplicate names use last-value-wins. IEEE bits
+    and empty-list element types are retained; strings use UTF-16 code units.
+    """
+    offset = 0
+
+    def take(length):
+        nonlocal offset
+        if length < 0 or offset + length > len(data):
+            raise ValueError("truncated NBT")
+        result = data[offset:offset + length]
+        offset += length
+        return result
+
+    def integer(width, signed=True):
+        return int.from_bytes(take(width), "big", signed=signed)
+
+    def string():
+        encoded = take(integer(2, False))
+        units, index = [], 0
+        while index < len(encoded):
+            first = encoded[index]
+            width = 1 if first < 128 else (2 if first & 0xe0 == 0xc0 else (3 if first & 0xf0 == 0xe0 else 0))
+            if not width or index + width > len(encoded):
+                raise ValueError("invalid modified UTF-8")
+            unit = first if width == 1 else first & (0x1f if width == 2 else 0x0f)
+            for byte in encoded[index + 1:index + width]:
+                if byte & 0xc0 != 0x80:
+                    raise ValueError("invalid modified UTF-8 continuation")
+                unit = (unit << 6) | (byte & 63)
+            units.append(unit)
+            index += width
+        return tuple(units)
+
+    def payload(kind, depth):
+        if depth > 512:
+            raise ValueError("NBT depth limit")
+        if kind in (1, 2, 3, 4):
+            return [kind, integer({1: 1, 2: 2, 3: 4, 4: 8}[kind])]
+        if kind in (5, 6):
+            return [kind, take(4 if kind == 5 else 8).hex()]
+        if kind == 8:
+            return [kind, list(string())]
+        if kind in (7, 9, 11):
+            element = integer(1, False) if kind == 9 else None
+            length = integer(4)
+            if length < 0 or length > 2_000_000:
+                raise ValueError("NBT collection length")
+            if kind == 7:
+                return [kind, take(length).hex()]
+            if kind == 11:
+                return [kind, [integer(4) for _ in range(length)]]
+            if element not in range(12) or (element == 0 and length):
+                raise ValueError("invalid list element type")
+            return [kind, element, [payload(element, depth + 1) for _ in range(length)]]
+        if kind == 10:
+            fields = {}
+            while True:
+                child = integer(1, False)
+                if child == 0:
+                    break
+                name = string()
+                fields[name] = payload(child, depth + 1)
+            return [kind, [[list(name), fields[name]] for name in sorted(fields)]]
+        raise ValueError("invalid NBT tag type")
+
+    kind = integer(1, False)
+    name = string()
+    tree = {"name_utf16": list(name), "value": payload(kind, 0)}
+    if offset != len(data):
+        raise ValueError("trailing NBT bytes")
+    return tree
+
+
+def java_written_nbt(tree):
+    """Explicit DataOutput NaN rule; no other payload/type normalization."""
+    tree = json.loads(json.dumps(tree))
+
+    def visit(tag):
+        kind = tag[0]
+        if kind in (5, 6):
+            bits = int(tag[1], 16)
+            mantissa = 23 if kind == 5 else 52
+            exponent = 8 if kind == 5 else 11
+            if (bits >> mantissa) & ((1 << exponent) - 1) == (1 << exponent) - 1 and bits & ((1 << mantissa) - 1):
+                tag[1] = "7fc00000" if kind == 5 else "7ff8000000000000"
+        elif kind == 9:
+            for child in tag[2]:
+                visit(child)
+        elif kind == 10:
+            for _, child in tag[1]:
+                visit(child)
+    visit(tree["value"])
+    return tree
+
+
+def inspect_nbt_outputs(data, cases):
+    records = data.splitlines(keepends=True)
+    if len(records) != len(cases):
+        raise ValueError("NBT output count")
+    result = []
+    for line, case in zip(records, cases):
+        if not valid_nbt_record(line, (case["id"], 0)):
+            raise ValueError("NBT output protocol")
+        _, _, wire, consumed = line.decode("ascii").rstrip("\n").split("\t")
+        if int(consumed) != len(case["data"]):
+            raise ValueError("incorrect NBT consumed length")
+        result.append({"id": case["id"], "consumed": int(consumed),
+                       "tree": canonical_nbt(bytes.fromhex(wire))})
+        if result[-1]["tree"] != java_written_nbt(canonical_nbt(case["data"])):
+            raise ValueError(f"NBT output tree changed input semantics: {case['id']}")
+    return result
 
 
 def valid_chunk_record(line, key):
@@ -345,6 +461,11 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
             raise RunError(f"{label}: {result['error'] or 'exit ' + str(result['returncode'])}")
         return Path(result["stdout"]).read_bytes()
 
+    if nbt:
+        report.update(scenario_id="NBT-001-roundtrip", reference_side="Original Beta 1.7.3 ij reader/writer + TSV wrapper",
+                      scope="Uncompressed NBT types 0..10; IntArray is separate wire evidence; no world loading",
+                      comparison_policy="exact ordered round-trip hex and consumed bytes; independent canonical output trees retain IEEE bits",
+                      event_schedule="one fresh named root per input row")
     if chunk:
         report.update(scenario_id="CHUNK-001-layout", reference_side="Beta 1.7.3 client nibble class + API wrapper",
                       scope="Original nibble constructor/get/set/raw; wrapper coordinate/index/ID/validation; no world loading/rendering",
@@ -363,7 +484,7 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         keys = ([(case["id"], index, "nbt") for case in cases for index in [0]] if nbt
                 else (extended_keys(cases) if (chunk or extended) else expected_keys(cases)))
         report.update(case_count=len(cases), value_count=len(keys), seed="not_applicable: no RNG" if (chunk or nbt) else cases)
-        if chunk:
+        if chunk or nbt:
             jar = client_jar(root)
             jar_hash = sha256(jar.read_bytes())
             report.update(reference_jar_sha256=jar_hash, reference_jar_path=str(jar))
@@ -397,6 +518,13 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
         if nbt:
             java_command += [str(client_jar(root))]
         reference = execute("java-run", java_command, data)
+        if nbt:
+            stderr = Path(report["log_paths"]["java-run"]["stderr"]).read_text()
+            if f"jar_sha256={jar_hash}" not in stderr or f"cases={len(cases)} classes=ij,nu" not in stderr:
+                raise RunError("original NBT invocation audit missing")
+            report.update(reference_version="Minecraft Beta 1.7.3 client; " + report["reference_version"],
+                          reference_invocations={"named_reads": len(cases), "named_writes": len(cases),
+                                                 "classes": ["ij", "nu"], "jar_sha256": jar_hash})
         if chunk:
             invocations = json.loads(audit_path.read_text())
             if (invocations.get("jar_sha256") != jar_hash
@@ -427,6 +555,16 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
             report["rust_output_sha256"] = sha256(actual)
             comparison = compare_outputs(reference, actual, keys)
             report.update(comparison)
+            if nbt:
+                trees = {"input": [{"id": case["id"], "tree": canonical_nbt(case["data"])} for case in cases],
+                         "java": inspect_nbt_outputs(reference, cases), "rust": inspect_nbt_outputs(actual, cases)}
+                tree_path = directory / "canonical-trees.json"
+                tree_path.write_text(json.dumps(trees, ensure_ascii=True) + "\n")
+                report["log_paths"]["canonical_trees"] = str(tree_path)
+                report["canonical_trees_sha256"] = sha256(tree_path.read_bytes())
+                report["canonical_match"] = trees["java"] == trees["rust"]
+                if not report["canonical_match"] and not comparison["mismatch_count"]:
+                    raise RunError("canonical NBT trees differ")
             report.update(status="fail" if comparison["mismatch_count"] else "pass",
                           reason="output mismatch" if comparison["mismatch_count"] else "all records match exactly")
     except (RunError, OSError, ValueError) as error:

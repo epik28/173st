@@ -1,5 +1,39 @@
 # Отчёт Codex
 
+## NBT-001-C03 — исправление инфраструктуры Codex, приёмка продолжается
+
+- Исходная Codex `07726cfa3913a4a565d8a47623f59b34bb17ae5d`; snapshot agy
+  `541d719e83e32ad13e9448e102c8cc1ed16bcf40` взят из очереди, изучены его
+  handoff/status/diff. `git merge --ff-only <этот SHA>` выполнен без конфликтов.
+- Исправлен собственный пробел C02: `verify_report.py --protocol` теперь вызывает
+  NBT verifier, сохраняет деревья, сверяет consumed length и исходную семантику,
+  NaN DataOutput, JAR/class/binary hashes и audit. Неправильные hex/TSV/IDs/duplicates
+  отвергаются также Java-обёрткой; разрешены любые named roots кроме End.
+- Файлы: tools/oracle/{nbt_corpus.py,src/NbtOracle.java}, tools/parity/{run.py,
+  verify_report.py,nbt_review.py,README.md}, tests/python/test_nbt_runner.py,
+  tests/fixtures/nbt/{corpus.tsv,invalid.tsv,audit.json,provenance.md}, контракт,
+  собственные status/handoff. Корпус усилен без удаления прежних 5200 cases.
+- Предварительная проверка: `python3 tools/check.py` — 47 Python + 43 Rust,
+  fmt/check/clippy/doc PASS; regression tests отдельно:
+  `python3 -m unittest discover -s tests/python -p test_nbt_runner.py -v` — 10 PASS.
+  `cargo test --all-targets --locked --offline` — 43 PASS.
+- `python3 tools/parity/run.py nbt --strict` — 5250/5250 PASS,
+  `artifacts/parity/nbt/run-amwvx0tt/report.json` (dirty, ещё не финальная приёмка).
+  `python3 tools/parity/verify_report.py artifacts/parity/nbt/run-amwvx0tt/report.json --protocol`
+  — 86 executions PASS: 12 common invalid inputs по одному на процесс, TSV,
+  missing JAR/classes, 5 copied-output mutations, отдельный IntArray/safety/depth.
+- Исследован оригинальный bytecode `ij`/`nu`/`sp`. Native differences записаны
+  отдельно, без выдачи за equal-output parity: empty-list type→Byte, negative list
+  length→empty, End-list, unknown empty-list type, isolated surrogate. В Rust
+  сохраняются требования контракта, Java-ответы не менялись. Прежний invalid ID
+  negative-list оказался trailing bytes после End и переименован по содержимому.
+- При расширении генератора исправлена собственная ошибка terminators вложенного
+  compound; первоначальный `run-pp8uqhx9` честно дал Java error, повторный прошёл.
+- Rust полностью agy; Codex Rust не редактировал. Модель Codex на основе GPT-6,
+  точный runtime model ID/стоимость не предоставлены; делегирования/заимствований нет.
+- Следующий шаг: после отдельного коммита инструментария повторить все live-группы
+  на чистой ревизии, завершить C03 и fast-forward main; затем снова прочитать очередь.
+
 ## RNG-001-C01 — done
 
 - Роль: Codex, текущая модель GPT-6; точные model ID, настройки и стоимость

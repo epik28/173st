@@ -18,6 +18,9 @@ def main():
     report = json.loads(args.report.read_text())
     if report["status"] != "pass":
         raise SystemExit("requires a successful live report")
+    if report["suite"] == "nbt":
+        from nbt_review import verify_nbt
+        return verify_nbt(args.report, report, args.protocol)
     input_data = Path(report["log_paths"]["input"]).read_bytes()
     reference = Path(report["log_paths"]["java-run"]["stdout"]).read_bytes()
     actual = Path(report["log_paths"]["rust-run"]["stdout"]).read_bytes()

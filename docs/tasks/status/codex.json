@@ -107,6 +107,17 @@
     },
     "NBT-001-C01": {"state": "done", "summary": "Найден и вызван оригинальный Beta 1.7.3 NBT API: obfuscated ij/nu. Подготовлен wire corpus из 5200 валидных compound cases и отдельные invalid cases; TAG_Int_Array (11) сохранён как явно помеченное wire-only свидетельство, поскольку оригинальный factory поддерживает только 0..10. Rust parity ещё не выполнена.", "checks": ["python3 tools/oracle/nbt_corpus.py → PASS: 5200 cases, 11 original tag types, отдельный wire-only TAG_Int_Array и 4 invalid cases", "javac -cp ../.local/minecraft/client-b1.7.3.jar -d artifacts/oracle-nbt-check/classes tools/oracle/src/NbtOracle.java → PASS", "java -cp artifacts/oracle-nbt-check/classes:../.local/minecraft/client-b1.7.3.jar NbtOracle ../.local/minecraft/client-b1.7.3.jar < tests/fixtures/nbt/corpus.tsv → PASS: 5200 round-trips; original classes ij/nu; JAR SHA-256 af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c", "invalid.tsv через тот же оригинальный adapter → ненулевой код и stderr", "git diff --check → PASS"]},
     "NBT-001-C02": {"state": "done", "summary": "Добавлена группа nbt в live runner: original ij/nu Java adapter, exact raw round-trip bytes и consumed length, сохранённые hashes/logs/statuses, строгий not_implemented при отсутствии Rust probe. Предыдущие rng/rng-extended/chunk сохранены.", "checks": ["python3 tools/check.py → PASS: 37 Python, 31 Rust all-targets, fmt/check/clippy/doc", "python3 tools/parity/run.py nbt --strict → not_implemented exit 1: Java adapter реально выполнил 5200 cases; report artifacts/parity/nbt/run-mfmj868x/report.json", "python3 tools/parity/run.py rng --strict → PASS 96/96", "git diff --check → PASS"]},
-    "NBT-001-C03": {"state": "pending", "summary": "", "checks": []}
+    "NBT-001-C03": {
+      "state": "in_progress",
+      "summary": "Интегрирован exact snapshot agy 541d719e83e32ad13e9448e102c8cc1ed16bcf40. Исправлена инфраструктура Codex: NBT protocol verifier, canonical evidence и metadata; корпус расширен до 5250. Предварительные parity/protocol проходят; финальная приёмка нужна на чистом коммите.",
+      "checks": [
+        "git merge --ff-only 541d719e83e32ad13e9448e102c8cc1ed16bcf40 → PASS",
+        "python3 tools/check.py → PASS: 47 Python + 43 Rust all-targets, fmt/check/clippy/doc",
+        "python3 -m unittest discover -s tests/python -p test_nbt_runner.py -v → 10 PASS, включая saved-report dispatch/tampering",
+        "cargo test --all-targets --locked --offline → 43 PASS",
+        "python3 tools/parity/run.py nbt --strict → 5250/5250 PASS; artifacts/parity/nbt/run-amwvx0tt/report.json; предварительный dirty run",
+        "python3 tools/parity/verify_report.py artifacts/parity/nbt/run-amwvx0tt/report.json --protocol → PASS: canonical/hashes, 5 synthetic mutations, 86 executions; native differences отдельно от parity"
+      ]
+    }
   }
 }
