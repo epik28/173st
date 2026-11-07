@@ -19,15 +19,12 @@ fn is_valid_case_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-fn run() -> Result<(), String> {
-    let stdin = io::stdin();
-    let stdout = io::stdout();
-    let mut out = io::BufWriter::new(stdout.lock());
+pub fn process_stream<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<(), String> {
     let mut seen_ids = HashSet::new();
 
-    for (line_num, line_res) in stdin.lock().lines().enumerate() {
+    for (line_num, line_res) in reader.lines().enumerate() {
         let line = line_res.map_err(|e| format!("line {}: IO error: {e}", line_num + 1))?;
-        if line.starts_with('#') || line.trim().is_empty() {
+        if line.is_empty() || line.starts_with('#') {
             continue;
         }
 
@@ -81,13 +78,20 @@ fn run() -> Result<(), String> {
         let mut rng = JavaRandom::new(seed);
         for idx in 0..count {
             let val = rng.next_int();
-            writeln!(out, "{case_id}\t{idx}\t{val}")
+            writeln!(writer, "{case_id}\t{idx}\t{val}")
                 .map_err(|e| format!("line {}: write error: {e}", line_num + 1))?;
         }
     }
 
-    out.flush().map_err(|e| format!("flush error: {e}"))?;
+    writer.flush().map_err(|e| format!("flush error: {e}"))?;
     Ok(())
+}
+
+fn run() -> Result<(), String> {
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let out = io::BufWriter::new(stdout.lock());
+    process_stream(stdin.lock(), out)
 }
 
 fn main() -> ExitCode {
@@ -97,5 +101,43 @@ fn main() -> ExitCode {
             eprintln!("rng_probe error: {err}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_line_and_comment_skipped() {
+        let input = b"\n# comment\n\n";
+        let mut out = Vec::new();
+        assert!(process_stream(&input[..], &mut out).is_ok());
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn test_space_only_line_rejected() {
+        let input = b" \n";
+        let mut out = Vec::new();
+        let err = process_stream(&input[..], &mut out).unwrap_err();
+        assert!(err.contains("expected 3 tab-separated fields"));
+    }
+
+    #[test]
+    fn test_tab_only_line_rejected() {
+        let input = b"\t\n";
+        let mut out = Vec::new();
+        let err = process_stream(&input[..], &mut out).unwrap_err();
+        assert!(err.contains("expected 3 tab-separated fields"));
+    }
+
+    #[test]
+    fn test_valid_input_matches() {
+        let input = b"test-case\t42\t2\n";
+        let mut out = Vec::new();
+        assert!(process_stream(&input[..], &mut out).is_ok());
+        let s = String::from_utf8(out).unwrap();
+        assert_eq!(s, "test-case\t0\t-1170105035\ntest-case\t1\t234785527\n");
     }
 }
