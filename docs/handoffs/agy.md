@@ -2,63 +2,53 @@
 
 ## Метаданные
 - **Model ID:** Gemini 3.8 Flash (High) via Antigravity
-- **Заимствования:** Нет (алгоритм LCG по спецификации `java.util.Random`, probe по контракту RNG-001)
+- **Заимствования:** Нет (алгоритм LCG по спецификации `java.util.Random`, probe по контракту RNG-001/RNG-002)
 - **Ручная помощь:** Нет
 - **Внешние зависимости:** Не добавлялись
 
 ---
 
 ## Задача: RNG-001-A01 — Rust JavaRandom.next_int
+- **Статус:** Выполнена (`done`), принята в `main`.
+
+---
+
+## Задача: RNG-001-A02 — Rust probe по TSV-контракту
+- **Статус:** Выполнена (`done`), принята в `main`.
+
+---
+
+## Задача: RNG-002-A01 — Rust API расширенного RNG
 
 ### Статус
 Выполнена (`done`).
 
 ### Изменённые файлы
-- `crates/beta-core/src/java_random.rs` — реализация `JavaRandom::new(seed: i64)` и `next_int(&mut self) -> i32`, unit-тесты для базовых и граничных seed (`0`, `1`, `-1`, `42`, `i64::MIN`, `i64::MAX`).
-- `crates/beta-core/src/lib.rs` — экспорт модуля `pub mod java_random;`.
-- `docs/tasks/status/agy.json` — отметка задачи A01 `done`.
+- `crates/beta-core/src/java_random.rs`:
+  - Добавлен `RandomError::InvalidBound` с реализацией `Display` и `Error`.
+  - Реализован `set_seed(&mut self, seed: i64)`.
+  - Реализован `next_int_bound(&mut self, bound: i32) -> Result<i32, RandomError>`:
+    - Проверка `bound <= 0` возвращает `Err(RandomError::InvalidBound)` без продвижения состояния генератора.
+    - Ветка степени 2: `(bound * r) >> 31`.
+    - Rejection sampling ветка: цикл перевыборки при `u - r + (bound - 1) < 0` (в 32-битном знаковом переполнении).
+  - Реализован `next_long(&mut self) -> i64` с сохранением знаковых промежуточных преобразований `(hi << 32).wrapping_add(lo)`.
+  - Реализован `next_boolean(&mut self) -> bool` (`next(1) != 0`).
+  - Реализован `next_float(&mut self) -> f32` (`next(24) as f32 / 16777216.0f32`).
+  - Реализован `next_double(&mut self) -> f64` (`((next(26) << 27) + next(27)) as f64 / 9007199254740992.0f64`).
+  - Написаны модульные тесты:
+    - `test_invalid_bound_does_not_mutate_state`
+    - `test_reseed_matches_new`
+    - `test_extended_methods_shared_state_sequence` (пошаговая цепочка методов `int`, `bound`, `long`, `boolean`, `float`, `double` сверена со стандартным выводом Java 17)
+    - `test_rejection_sampling_bound_1073741825` (2048 последовательных вызовов)
+- `docs/tasks/status/agy.json` — отметка `RNG-002-A01` в состоянии `done`.
 
 ### Проверки
-- `cargo test --workspace --locked --offline` → 7 unit-тестов пройдены успешно (0 failed).
-- `python3 tools/check.py` → все проверки репозитория пройдены (unittest, rustfmt, cargo check, clippy, cargo test).
+- `cargo test --all-targets --locked --offline` → 15 тестов пройдены успешно (11 в `lib.rs`, 4 в `rng_probe.rs`).
+- `python3 tools/check.py` → 27 Python-тестов, fmt, clippy, workspace checks passed.
+- `python3 tools/parity/run.py rng --strict` → 96 записей совпадают с Java-эталоном.
 
 ### Ограничения
-- Сквозное сравнение Rust↔Java через `tools/parity/run.py` выполняется интегратором (Codex) в C03.
-
----
-
-## Задача: RNG-001-A02 — Rust probe по TSV-контракту
-
-### Статус
-Выполнена (`done`). Включает исправление по запросу Codex из `docs/handoffs/codex.md`.
-
-### Изменённые файлы
-- `crates/beta-core/examples/rng_probe.rs`:
-  - Функция `process_stream<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<(), String>`.
-  - Заменено условие `line.trim().is_empty()` на `line.is_empty()`. Теперь пропускаются только истинно пустые строки (`""`) и строки с комментариями (`line.starts_with('#')`).
-  - Строки, содержащие только пробелы (`0x20 0x0a`) или табуляции (`0x09 0x0a`), не считаются пустыми и попадают в проверку формата TSV (`split('\t')`), которая корректно отклоняет их с кодом выхода 1 и ошибкой в stderr (`expected 3 tab-separated fields...`).
-  - Добавлены unit-тесты в модуль `tests` внутри `rng_probe.rs`:
-    - `test_empty_line_and_comment_skipped`
-    - `test_space_only_line_rejected`
-    - `test_tab_only_line_rejected`
-    - `test_valid_input_matches`
-- `docs/tasks/status/agy.json` — обновлены `summary` и `checks` для `RNG-001-A02`.
-
-### Проверки
-- `cargo test --example rng_probe --locked --offline` → 4 passed; 0 failed.
-- Прямой запуск через subprocess на байтах `20 0a` (`" \n"`) и `09 0a` (`"\t\n"`):
-  - Обе строки завершаются с кодом возврата `1`, stderr содержит диагностику `expected 3 tab-separated fields`.
-- Проверка строк `0a` (`"\n"`) и `# comment\n`:
-  - Завершаются с кодом возврата `0`, stdout пустой.
-- `cargo run --locked --offline -p beta-core --example rng_probe < tests/fixtures/rng/next-int.tsv`:
-  - 96 строк TSV с LF-окончаниями, код возврата 0.
-- `python3 tools/check.py`:
-  - 13 Python-тестов PASS
-  - `cargo fmt --all -- --check` PASS
-  - `cargo check --workspace --all-targets --locked --offline` PASS
-  - `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` PASS
-  - `cargo test --workspace --locked --offline` (7 тестов lib.rs) PASS
-  - Workspace checks passed.
+- Probe для расширенного RNG (`rng_extended_probe`) реализуется в следующей задаче `RNG-002-A02`.
 
 ### Следующий шаг
-- Передать новый SHA коммита роли `codex` для повторного объединения и завершения карточки приёмки `RNG-001-C03`.
+- Переход к задаче `RNG-002-A02` (Rust probe расширенного RNG).
