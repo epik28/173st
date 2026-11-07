@@ -397,3 +397,10 @@ pending в общем коммите подготовки, а не отмече�
 - Все шесть новых карточек Codex выполнены, новые этапы вне очереди не открывались.
   Следующий шаг — отдельные контракты по roadmap; обновить ветку agy до main
   в её следующей собственной сессии. Публикация удалённых веток не выполнялась.
+## NBT-001-C01 — done
+
+- Исследован оригинальный Beta 1.7.3 client JAR `../.local/minecraft/client-b1.7.3.jar`, SHA-256 `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`. Найдены obfuscated классы `ij` (tag factory/named I/O) и `nu` (compound).
+- Добавлены `tools/oracle/src/NbtOracle.java`, `tools/oracle/nbt_corpus.py`, NBT fixtures и provenance. Адаптер вызывает `ij.b(DataInput)` и `ij.a(ij,DataOutput)` оригинала.
+- `python3 tools/oracle/nbt_corpus.py` → 5200 детерминированных valid cases, original tag ids 0..10, supplementary Unicode/NUL, signed boundaries, IEEE payloads, empty/nested compound/list и arrays; 4 invalid cases. TAG_Int_Array (11) явно вынесен в wire-only, поскольку Beta factory оригинала поддерживает только 0..10.
+- `javac -cp ../.local/minecraft/client-b1.7.3.jar -d artifacts/oracle-nbt-check/classes tools/oracle/src/NbtOracle.java` → PASS. Live adapter на corpus → 5200 round-trips, `cases=5200`, JAR hash подтверждён. Invalid fixture тем же адаптером → ненулевой код и stderr.
+- `git diff --check` → PASS. Rust parity не заявляется; следующий шаг — C02 runner/canonical comparator после появления agy A01/A02 по очереди.
