@@ -1,0 +1,115 @@
+{
+  "kind": "native original-JAR world data oracle; no Rust parity asserted",
+  "live_cases": 749,
+  "input_sha256": "2730243e48ad138acde476d20b64bdf2ca7da181fe6599351810eb941138de0e",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "source_before": {
+    "level.dat": "2711d16242afd13909575955d4a34502da01f6f666ee79341fe1c1ba96c8a960",
+    "r.-1.-1.mcr": "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f",
+    "r.-1.0.mcr": "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004",
+    "r.0.-1.mcr": "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba",
+    "r.0.0.mcr": "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a"
+  },
+  "source_after": {
+    "level.dat": "2711d16242afd13909575955d4a34502da01f6f666ee79341fe1c1ba96c8a960",
+    "r.-1.-1.mcr": "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f",
+    "r.-1.0.mcr": "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004",
+    "r.0.-1.mcr": "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba",
+    "r.0.0.mcr": "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a"
+  },
+  "copied_after": {
+    "level.dat": "2711d16242afd13909575955d4a34502da01f6f666ee79341fe1c1ba96c8a960",
+    "r.-1.-1.mcr": "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f",
+    "r.-1.0.mcr": "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004",
+    "r.0.-1.mcr": "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba",
+    "r.0.0.mcr": "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a"
+  },
+  "native": {
+    "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "classes": {
+      "ei": "5d01d1dda7be346c57fd00846d2425615186c3ef1c65c06aa0bd0f45aa9f7fef",
+      "nu": "a1a5701ec2180d01ddc604cc8c2e5aff1176b10faf83bdb64d2f1cc8c806ac4a",
+      "ij": "9db862e2ee83e95a2db7a8495594d2c0e0bbe904d96c3f09f167f2b47b72b8d0",
+      "qj": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6"
+    },
+    "code_sources": {
+      "ei": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "ij": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "nu": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "qj": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+    },
+    "native_methods": {
+      "nbt_parse": "ij.b(DataInput)",
+      "region_read": "qj.a(int,int)",
+      "metadata_constructor": "ei(nu)",
+      "native_chunk_loads": 0
+    },
+    "native_calls": {
+      "native_chunk_loads": 0,
+      "ij_b_DataInput": 705,
+      "ei_constructor": 1,
+      "qj_a_int_int": 748
+    },
+    "live_rows": 749,
+    "level_rows": 1,
+    "chunk_present": 704,
+    "chunk_absent": 44,
+    "input_sha256": {
+      "level.dat": "2711d16242afd13909575955d4a34502da01f6f666ee79341fe1c1ba96c8a960",
+      "r.-1.-1.mcr": "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f",
+      "r.-1.0.mcr": "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004",
+      "r.0.-1.mcr": "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba",
+      "r.0.0.mcr": "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a"
+    },
+    "class_names": [
+      "ij",
+      "nu",
+      "ei",
+      "qj"
+    ]
+  },
+  "generated": {
+    "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "classes": {
+      "ei": "5d01d1dda7be346c57fd00846d2425615186c3ef1c65c06aa0bd0f45aa9f7fef",
+      "nu": "a1a5701ec2180d01ddc604cc8c2e5aff1176b10faf83bdb64d2f1cc8c806ac4a",
+      "ij": "9db862e2ee83e95a2db7a8495594d2c0e0bbe904d96c3f09f167f2b47b72b8d0",
+      "qj": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6"
+    },
+    "code_sources": {
+      "ei": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "ij": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "nu": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+      "qj": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+    },
+    "generated_semantics": {
+      "cases": [
+        "missing-scalars-and-player",
+        "nonzero-and-negative-boolean-byte",
+        "empty-player-compound",
+        "i32-i64-boundaries-and-empty-name",
+        "wrong-long-int-byte-compound-types-cast-fail",
+        "unknown-empty-and-unicode-names",
+        "chunk-signed-bytes-lists-unknown-names-preserved",
+        "empty-entities-byte-list-and-absent-tile-list",
+        "wrong-array-type-length-coordinate-missing-field-and-list-entry-errors",
+        "symlink-output-parent-canonicalized"
+      ],
+      "wrong_type_class_cast": "PASS",
+      "status": "PASS",
+      "unknown_entity_and_tile_factories": "not_called",
+      "native_chunk_loads": 0
+    },
+    "native_calls": {
+      "native_chunk_loads": 0,
+      "ij_b_DataInput": 11,
+      "ei_constructor": 7,
+      "qj_a_int_int": 0
+    }
+  },
+  "retained_files": 705,
+  "retained_manifest_sha256": "05d119a9d8aba6c50a5ddbf036c9e22f0eabf0a00bf5cef8db7c4b2e77001feb",
+  "reference_sha256": "f2e08c13997bb6fab03170dfbcec1fb3bd619e9079b792cf324fd853bd12fcc2",
+  "repeat_reference_sha256": "f2e08c13997bb6fab03170dfbcec1fb3bd619e9079b792cf324fd853bd12fcc2",
+  "repeatable": true
+}
