@@ -105,3 +105,56 @@
 После согласованного исправления: взять точный новый SHA agy, интегрировать,
 выполнить check.py, rng --strict и verify_report.py --protocol, обновить C03 и принять
 результат в main. Текущая область проверки — Java API, не игровая Beta.
+
+## RNG-001-C03 — повторная приёмка, done
+
+Пользователь передал готовое исправление agy и поручил завершить C03.
+Предыдущий раздел blocked сохранён как история; запрос исправления закрыт.
+Новые карточки и этапы не добавлялись, чужой status JSON вручную не редактировался.
+
+### Ревизии и изменения
+
+- Начальная ревизия Codex: `1983689bd0d1263f675fd4f33ff404849ba5d0f6`.
+- Snapshot agy подтверждён через `python3 tools/tasks.py next codex`:
+  `80dee8a5296d0769d29a938b0aea2795d4f0e556`. Очередь ещё показывала прежний
+  собственный blocked; возобновление разрешено сообщением пользователя.
+- Через Git прочитаны handoff/status и diff snapshot относительно `ac6ce46`.
+  В diff только Rust probe и файлы отчёта/status agy; новых зависимостей нет.
+- `git merge --no-ff 80dee8a5296d0769d29a938b0aea2795d4f0e556 -m 'merge: integrate agy probe validation fix for RNG-001-C03'`
+  → успешно, без конфликтов. Объединённая ревизия:
+  `544e9d2c0adb3412939ce203a278d56f97c904f9`.
+- Исправление Rust и четыре регрессионных теста написаны agy. Codex повторил
+  независимую проверку, не меняя Rust-код, эталоны или fixture.
+- Текущие изменения Codex: этот handoff, `docs/tasks/status/codex.json`,
+  `docs/progress.md`, статус `docs/tasks/RNG-001.md`.
+- Итоговая ревизия приёмки — коммит, содержащий этот раздел. Его точный SHA
+  устанавливается через Git; этот же коммит переносится в `main` fast-forward.
+
+### Точные команды и результаты
+
+- `python3 tools/doctor.py` → PASS, инструменты доступны, Java/javac 17.0.21.0.3.
+- `python3 tools/check.py` → PASS: 27 Python-тестов, Rust fmt/check/clippy,
+  7 Rust-тестов ядра. Эта команда не запускает unit-тесты examples.
+- `cargo test --locked --offline -p beta-core --example rng_probe` → PASS,
+  отдельно выполнены все 4 регрессионных теста probe.
+- `python3 tools/parity/run.py rng --strict` → PASS, exit 0, оба процесса exit 0,
+  96/96 значений, шесть seed (включая min/max i64), mismatch_count=0.
+  Проверен чистый merge `544e9d2c0adb3412939ce203a278d56f97c904f9`.
+- Отчёт, полный вход/выходы, бинарник Rust и Java-класс:
+  `artifacts/parity/rng/run-oajcevsr/report.json` и соседние файлы.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng/run-oajcevsr/report.json --protocol`
+  → PASS, exit 0: все 36 проверок TSV (16 неверных и 2 допустимых входа
+  обеими сторонами), включая бывшие проблемные `20 0a` и `09 0a`.
+  Хеши сохранённых данных подтверждены. Синтетическая подмена одного значения
+  обнаружена (mismatch_count=1, first_mismatch.record=0), оригиналы не менялись.
+- `git diff --check` → PASS.
+
+Завершение: после коммита приёмки выполнить `git switch main`,
+`git merge --ff-only codex/verification`, вернуться через `git switch codex/verification`,
+подтвердить равенство main и Codex, `python3 tools/tasks.py next codex` → complete,
+затем освободить сессию при чистой рабочей папке. Если main не интегрируется,
+по карточке C03 вернуть blocked и записать причину.
+
+Ограничения: принят только Java RNG API nextInt на фиксированных seed, игровая
+Beta и другие методы RNG не проверялись. Следующий этап без нового контракта
+не начинать. Модель Codex и настройки сессии не менялись, делегирования не было.

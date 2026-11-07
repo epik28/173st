@@ -21,12 +21,14 @@
       ]
     },
     "RNG-001-C03": {
-      "state": "blocked",
-      "summary": "Интегрирован agy ac6ce46c7ac872362c09e2fefc34c39dd79a4331; merge c485934358335cf2535300b5293b616ed71e9cae. Все 96 значений совпали. При проверке протокола Rust принимает непустые строки hex 200a и 090a (exit 0), Java корректно отклоняет (exit 1 + stderr). Нужна отдельная согласованная карточка исправления agy; main не обновлён. Конкретный запрос в docs/handoffs/codex.md.",
+      "state": "done",
+      "summary": "Повторно проверен и интегрирован snapshot agy 80dee8a5296d0769d29a938b0aea2795d4f0e556; объединённая ревизия 544e9d2c0adb3412939ce203a278d56f97c904f9. Все 96 значений совпали; 36 проверок TSV и защита компаратора от подмены прошли. Блокировка whitespace устранена agy. Приёмка RNG-001 оформлена для включения этого коммита в main.",
       "checks": [
-        "python3 tools/check.py → PASS: 27 Python-тестов, 7 Rust-тестов, fmt/check/clippy",
-        "python3 tools/parity/run.py rng --strict → PASS: 6 seed / 96 значений, оба процесса exit 0; artifacts/parity/rng/run-lwytrhsv/report.json; rust_dirty=false",
-        "python3 tools/parity/verify_report.py artifacts/parity/rng/run-lwytrhsv/report.json --protocol → exit 1: хеши и синтетическая подмена проверены; 36 запусков проверки TSV, 2 нарушения Rust (hex 200a, 090a), protocol-review.json",
+        "python3 tools/doctor.py → PASS: инструменты доступны; игровой серверный JAR не требуется для Java API",
+        "python3 tools/check.py → PASS: 27 Python-тестов, 7 Rust-тестов ядра, fmt/check/clippy",
+        "cargo test --locked --offline -p beta-core --example rng_probe → PASS: 4 регрессионных теста",
+        "python3 tools/parity/run.py rng --strict → PASS, exit 0: 6 seed / 96 значений; оба процесса exit 0; artifacts/parity/rng/run-oajcevsr/report.json; rust_dirty=false",
+        "python3 tools/parity/verify_report.py artifacts/parity/rng/run-oajcevsr/report.json --protocol → PASS, exit 0: 36 live-проверок TSV; хеши подтверждены; синтетическая подмена одного значения обнаружена",
         "git diff --check → PASS"
       ]
     }
