@@ -288,3 +288,31 @@ pending в общем коммите подготовки, а не отмече�
   Codex не правил Rust. Покрытие — только Java RNG API, не генерация мира.
 - После main: самостоятельно выбрать CHUNK-001-C01. Сессия agy завершена;
   следующий пакет требует её повторного запуска пользователем, файлы не запускают агент.
+
+## CHUNK-001-C01 — done
+
+- Предыдущая приёмка реально включена в main: `e11362c518ad75c83edda89076ea1ef44b256415`.
+  `git switch main; git merge --ff-only codex/verification; git switch codex/verification`
+  → PASS; `git diff --exit-code main HEAD` → 0; очередь открыла CHUNK-001-C01.
+  `git merge --ff-only main` перед новым пакетом → Already up to date.
+- Исходная ревизия: `e11362c`; итог — коммит с этим разделом.
+- Изменены tools/oracle/src/ChunkOracle.java, chunk_corpus.py, README,
+  tests/fixtures/chunk/layout.tsv и provenance.md, собственные status/handoff.
+- Оригинальный класс найден сканированием сигнатур classfile и javap:
+  `javap -private -c -classpath <configured-client-jar> wi`. JAR SHA256
+  `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`;
+  wi.class SHA256 `ef5df5cdcd5ba63d8802f5bc539c8e164681eb173ef74586c369ae483415bb50`.
+  Имена: wi(int), get a(int,int,int), set a(int,int,int,int), raw a:byte[].
+  Disassembly только artifacts/chunk-research/wi.javap.txt, не в Git.
+- `python3 tools/oracle/chunk_corpus.py --write` → PASS: javac, reflection self-test,
+  два одинаковых выхода по 4182 записи, 16 неверных входов отклонены,
+  100000 операций принято, missing/wrong JAR отвергнуты.
+  Фактические native вызовы: constructors=6, get=3606, set=1746, raw reads=1752.
+  Отчёт artifacts/oracle-chunk-check/audit.json; исходный JAR не менялся.
+- Оригинальные вызовы исполняет изолированный URLClassLoader, проверяются hash и
+  code source. Дополнительных runtime-зависимостей wi нет. Обёртка отдельно
+  реализует контракт координат/индекса/ID/валидации, не выдаёт их за игровой код.
+- Корпус охватывает i32-границы, nibble 0..15, оба полубайта/разные x/z,
+  ID 0/127/128/255, повторные записи/соседей/raw, отказы без изменения данных.
+- `git diff --check` → PASS. Rust↔Java контейнера пока не сравнивались.
+  Rust не изменялся; сторонний код не переносился. Следующий шаг CHUNK-001-C02.

@@ -55,7 +55,7 @@
     },
     "RNG-002-C03": {
       "state": "done",
-      "summary": "Принят RNG-002: agy f16d280c4f0a48016d0357669e6f56661013dcac, проверенная ревизия 660008d6e93b751e7b604cda92f8f27249a7ed0b. 13227/13227 расширенных и 96/96 прежних значений совпали, 44+36 protocol-проверок PASS. Java API parity, не генерация мира. Коммит приёмки интегрируется в main перед открытием CHUNK-001.",
+      "summary": "Принят RNG-002: agy f16d280c4f0a48016d0357669e6f56661013dcac, проверенная ревизия 660008d6e93b751e7b604cda92f8f27249a7ed0b. 13227/13227 расширенных и 96/96 прежних значений совпали, 44+36 protocol-проверок PASS. Java API parity, не генерация мира. Коммит приёмки e11362c включён в main fast-forward; CHUNK-001 открыт.",
       "checks": [
         "python3 tools/check.py → PASS: 32 Python + 20 Rust (all-targets), fmt/check/clippy/doc",
         "cargo test --all-targets --locked --offline → 20 PASS",
@@ -64,13 +64,19 @@
         "python3 tools/parity/verify_report.py artifacts/parity/rng-extended/run-8kwu2qxa/report.json --protocol → 44 live-проверки PASS; хеши и синтетическая подмена PASS",
         "python3 tools/parity/verify_report.py artifacts/parity/rng/run-ebou8vei/report.json --protocol → 36 live-проверок PASS",
         "python3 tools/oracle/extended_corpus.py → Java/rejection audit PASS (2048 synthetic mismatches)",
-        "git diff --check → PASS"
+        "git diff --check → PASS",
+        "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main e11362c; git diff --exit-code main HEAD → 0"
       ]
     },
     "CHUNK-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Оригинальный nibble-класс wi найден в Beta client JAR; ChunkOracle проверяет hash/code source и вызывает native constructor/get/set/raw через reflection. Входной корпус 4182 операции и provenance опубликованы. Проверена обёртка ошибок и реальные оригинальные вызовы; Rust parity ещё не выполнена.",
+      "checks": [
+        "git merge --ff-only main → Already up to date (e11362c)",
+        "javap -private -c -classpath <configured-client-jar> wi → оригинальные сигнатуры/байткод исследованы локально, artifacts/chunk-research/wi.javap.txt",
+        "python3 tools/oracle/chunk_corpus.py --write → PASS: 4182 повторяемых записи; native constructors=6/get=3606/set=1746/raw=1752; 16 неверных входов, missing/wrong JAR отклонены; 100000 операций принято; artifacts/oracle-chunk-check/audit.json",
+        "git diff --check → PASS"
+      ]
     },
     "CHUNK-001-C02": {
       "state": "pending",

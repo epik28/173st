@@ -13,3 +13,8 @@ RNG-002: `src/RandomExtendedOracle.java`, входы `tests/fixtures/rng/extende
 `python3 tools/oracle/extended_corpus.py` проверяет корпус, компиляцию,
 детерминированность, границы/ошибки и отдельную синтетическую rejection-мутацию.
 `--write` явно воспроизводит входной fixture, не сохраняет ожидаемые ответы.
+
+CHUNK-001: `src/ChunkOracle.java` reflection-вызов оригинального класса `wi`.
+`python3 tools/oracle/chunk_corpus.py` проверяет корпус и настоящий JAR из
+`paths.client_jar`; `--write` воспроизводит входы. Имена и хеши опубликованы в
+`tests/fixtures/chunk/provenance.md`; JAR и disassembly остаются вне Git.
