@@ -2,8 +2,23 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
-    "RNG-001-C01": {"state": "pending", "summary": "", "checks": []},
-    "RNG-001-C02": {"state": "pending", "summary": "", "checks": []},
-    "RNG-001-C03": {"state": "pending", "summary": "", "checks": []}
+    "RNG-001-C01": {
+      "state": "done",
+      "summary": "Java-адаптер вызывает настоящий java.util.Random, проверяет TSV и сохраняет порядок. Rust↔Java ещё не сравнивались.",
+      "checks": [
+        "python3 tools/oracle/verify.py → PASS: javac; 96 детерминированных записей, границы i64; 14 неверных входов отклонены; count=100000 принят",
+        "python3 tools/check.py → PASS: 13 Python-тестов, fmt/check/clippy/cargo test (0 Rust-тестов)"
+      ]
+    },
+    "RNG-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "RNG-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    }
   }
 }
