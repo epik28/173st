@@ -262,3 +262,29 @@ pending в общем коммите подготовки, а не отмече�
   `cargo test --all-targets --locked --offline` → 20 PASS.
 - Изменены только verify_report.py, tests/python/test_rng_extended.py и этот handoff.
   Исправление оформляется отдельным коммитом, затем чистая повторная приёмка C03.
+
+## RNG-002-C03 — done
+
+- Snapshot agy: `f16d280c4f0a48016d0357669e6f56661013dcac` из очереди,
+  просмотрены diff/status/handoff, границы роли соблюдены.
+- Merge `1a554b1d`; отдельное исправление инфраструктуры Codex `660008d`.
+  Чистая проверенная ревизия: `660008d6e93b751e7b604cda92f8f27249a7ed0b`.
+- `python3 tools/check.py` → 32 Python + 20 Rust (all-targets), fmt/check/clippy/doc PASS.
+  `cargo test --all-targets --locked --offline` → 20 PASS.
+- `python3 tools/parity/run.py rng --strict` → 96/96, оба процесса exit 0;
+  `artifacts/parity/rng/run-ebou8vei/report.json`.
+- `python3 tools/parity/run.py rng-extended --strict` → 13227/13227,
+  оба процесса exit 0, dirty=false; `artifacts/parity/rng-extended/run-8kwu2qxa/report.json`.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng-extended/run-8kwu2qxa/report.json --protocol`
+  → 44 live-проверки PASS, сохранённые хеши и синтетическая подмена PASS.
+- `python3 tools/parity/verify_report.py artifacts/parity/rng/run-ebou8vei/report.json --protocol`
+  → 36 live-проверок и синтетическая подмена PASS.
+- `python3 tools/oracle/extended_corpus.py` → Java API/rejection audit PASS,
+  2048 synthetic no-rejection mismatches. Синтетические данные отдельно помечены;
+  настоящие входы/выходы не перезаписывались. `git diff --check` → PASS.
+- Изменены только свой status/handoff, docs/progress.md и статус RNG-002.md.
+  Итоговый SHA — коммит с этим разделом, включаемый в main fast-forward.
+- Вклад: Rust методы/probe — agy; Java/corpus/runner/review/integration — Codex.
+  Codex не правил Rust. Покрытие — только Java RNG API, не генерация мира.
+- После main: самостоятельно выбрать CHUNK-001-C01. Сессия agy завершена;
+  следующий пакет требует её повторного запуска пользователем, файлы не запускают агент.

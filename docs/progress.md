@@ -2,6 +2,14 @@
 
 ## Текущее состояние
 
+- **RNG-002 принят (C03)**: live Java API parity 13227/13227 операций,
+  старый rng 96/96, протокол 44+36 PASS. Проверенная чистая ревизия
+  `660008d6e93b751e7b604cda92f8f27249a7ed0b`, agy `f16d280`.
+  `python3 tools/check.py`: 32 Python + 20 Rust PASS, fmt/check/clippy/doc.
+  Отчёт `artifacts/parity/rng-extended/run-8kwu2qxa/report.json`.
+  Найденная ошибка verify_report.py исправлена отдельным коммитом Codex `660008d`;
+  Rust Codex не менял. Проверка по-прежнему не подтверждает генерацию мира.
+
 - Цель и границы: Minecraft Beta 1.7.3 на Rust, без модов; см.
   `project-requirements.md`, `workflow.md` и `parity-testing.md`.
 - **RNG-001 принят**: C01, C02, A01, A02 и C03 выполнены. Коммит приёмки C03
@@ -42,18 +50,6 @@
 
 ## Следующий шаг
 
-Подготовлены [подробный план](roadmap.md), [RNG-002](tasks/RNG-002.md) и
-[CHUNK-001](tasks/CHUNK-001.md). В очередь добавлены десять pending-карточек:
-сначала дополнительные методы RNG и смешанные цепочки, затем координаты/хранение
-чанка и nibble-адаптер оригинала. Реализация новых пакетов не выполнена.
-Следующие доступные задачи: RNG-002-C01 для Codex, RNG-002-A01 для agy.
-После принятия RNG-002 обе роли сами выбирают CHUNK-001.
-Дальнейший первый визуальный рубеж — VIEW-001: просмотр участка настоящего мира.
-
-Повторная проверка исходной ревизии `44a8bf9` (2026-11-07):
-`python3 tools/check.py` — 27 Python + 7 Rust PASS;
-`cargo test --all-targets --locked --offline` — 11 Rust PASS;
-`python3 tools/parity/run.py rng --strict` — 96/96 PASS;
-`python3 tools/parity/verify_report.py artifacts/parity/rng/run-p7anmxvs/report.json --protocol`
-— хеши, синтетическая подмена и 36 live protocol-проверок PASS.
-Это повторная проверка RNG-001, а не приёмка новых контрактов.
+Приёмку RNG-002 включить в main и перейти по очереди к CHUNK-001:
+контейнер чанка, координаты и независимый вызов оригинального nibble-класса.
+Дальнейшие этапы только по отдельно открываемым контрактам.

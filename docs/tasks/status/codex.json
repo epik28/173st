@@ -54,9 +54,18 @@
       ]
     },
     "RNG-002-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят RNG-002: agy f16d280c4f0a48016d0357669e6f56661013dcac, проверенная ревизия 660008d6e93b751e7b604cda92f8f27249a7ed0b. 13227/13227 расширенных и 96/96 прежних значений совпали, 44+36 protocol-проверок PASS. Java API parity, не генерация мира. Коммит приёмки интегрируется в main перед открытием CHUNK-001.",
+      "checks": [
+        "python3 tools/check.py → PASS: 32 Python + 20 Rust (all-targets), fmt/check/clippy/doc",
+        "cargo test --all-targets --locked --offline → 20 PASS",
+        "python3 tools/parity/run.py rng --strict → 96/96 PASS; artifacts/parity/rng/run-ebou8vei/report.json",
+        "python3 tools/parity/run.py rng-extended --strict → 13227/13227 PASS; artifacts/parity/rng-extended/run-8kwu2qxa/report.json; dirty=false",
+        "python3 tools/parity/verify_report.py artifacts/parity/rng-extended/run-8kwu2qxa/report.json --protocol → 44 live-проверки PASS; хеши и синтетическая подмена PASS",
+        "python3 tools/parity/verify_report.py artifacts/parity/rng/run-ebou8vei/report.json --protocol → 36 live-проверок PASS",
+        "python3 tools/oracle/extended_corpus.py → Java/rejection audit PASS (2048 synthetic mismatches)",
+        "git diff --check → PASS"
+      ]
     },
     "CHUNK-001-C01": {
       "state": "pending",
