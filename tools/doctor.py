@@ -28,12 +28,16 @@ def main() -> int:
             result = subprocess.run(
                 command, cwd=ROOT, capture_output=True, text=True, timeout=30, check=False
             )
-            output = (result.stdout or result.stderr).strip().splitlines()
+            output = (result.stdout + "\n" + result.stderr).strip().splitlines()
             if result.returncode:
                 print(f"MISSING: {label} (exit {result.returncode})")
                 failed = True
             else:
-                print(f"OK: {label}: {output[0] if output else 'available'}")
+                version = output[0] if output else "available"
+                if label in ("Java", "javac"):
+                    prefixes = ("openjdk ", "java ") if label == "Java" else ("javac ",)
+                    version = next((line for line in output if line.startswith(prefixes)), version)
+                print(f"OK: {label}: {version}")
         except (OSError, subprocess.TimeoutExpired):
             print(f"MISSING: {label}")
             failed = True
