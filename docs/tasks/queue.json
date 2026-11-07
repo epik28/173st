@@ -1,10 +1,145 @@
 {
   "schema_version": 1,
   "tasks": [
-    {"id": "RNG-001-C01", "owner": "codex", "title": "Независимый Java-эталон", "card": "docs/tasks/CODEX.md", "depends_on": []},
-    {"id": "RNG-001-C02", "owner": "codex", "title": "Runner и проверки компаратора", "card": "docs/tasks/CODEX.md", "depends_on": ["RNG-001-C01"]},
-    {"id": "RNG-001-A01", "owner": "agy", "title": "Rust JavaRandom.next_int", "card": "docs/tasks/AGY.md", "depends_on": []},
-    {"id": "RNG-001-A02", "owner": "agy", "title": "Rust probe по TSV-контракту", "card": "docs/tasks/AGY.md", "depends_on": ["RNG-001-A01"]},
-    {"id": "RNG-001-C03", "owner": "codex", "title": "Интеграция и приёмка RNG-001", "card": "docs/tasks/CODEX.md", "depends_on": ["RNG-001-C01", "RNG-001-C02", "RNG-001-A01", "RNG-001-A02"]}
+    {
+      "id": "RNG-001-C01",
+      "owner": "codex",
+      "title": "Независимый Java-эталон",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": []
+    },
+    {
+      "id": "RNG-001-C02",
+      "owner": "codex",
+      "title": "Runner и проверки компаратора",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-001-C01"
+      ]
+    },
+    {
+      "id": "RNG-001-A01",
+      "owner": "agy",
+      "title": "Rust JavaRandom.next_int",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": []
+    },
+    {
+      "id": "RNG-001-A02",
+      "owner": "agy",
+      "title": "Rust probe по TSV-контракту",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "RNG-001-A01"
+      ]
+    },
+    {
+      "id": "RNG-001-C03",
+      "owner": "codex",
+      "title": "Интеграция и приёмка RNG-001",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-001-C01",
+        "RNG-001-C02",
+        "RNG-001-A01",
+        "RNG-001-A02"
+      ]
+    },
+    {
+      "id": "RNG-002-C01",
+      "owner": "codex",
+      "title": "Независимый эталон и корпус расширенного RNG",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-001-C03"
+      ]
+    },
+    {
+      "id": "RNG-002-C02",
+      "owner": "codex",
+      "title": "Runner, протокол и компаратор расширенного RNG",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-002-C01"
+      ]
+    },
+    {
+      "id": "RNG-002-A01",
+      "owner": "agy",
+      "title": "Rust API расширенного RNG",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "RNG-001-C03"
+      ]
+    },
+    {
+      "id": "RNG-002-A02",
+      "owner": "agy",
+      "title": "Rust probe расширенного RNG",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "RNG-002-A01"
+      ]
+    },
+    {
+      "id": "RNG-002-C03",
+      "owner": "codex",
+      "title": "Интеграция и приёмка RNG-002",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-002-C01",
+        "RNG-002-C02",
+        "RNG-002-A01",
+        "RNG-002-A02"
+      ]
+    },
+    {
+      "id": "CHUNK-001-C01",
+      "owner": "codex",
+      "title": "Независимый эталон и корпус данных чанка",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "RNG-002-C03"
+      ]
+    },
+    {
+      "id": "CHUNK-001-C02",
+      "owner": "codex",
+      "title": "Runner, протокол и компаратор данных чанка",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "CHUNK-001-C01"
+      ]
+    },
+    {
+      "id": "CHUNK-001-A01",
+      "owner": "agy",
+      "title": "Rust API данных чанка",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "RNG-002-C03"
+      ]
+    },
+    {
+      "id": "CHUNK-001-A02",
+      "owner": "agy",
+      "title": "Rust probe данных чанка",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "CHUNK-001-A01"
+      ]
+    },
+    {
+      "id": "CHUNK-001-C03",
+      "owner": "codex",
+      "title": "Интеграция и приёмка CHUNK-001",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "CHUNK-001-C01",
+        "CHUNK-001-C02",
+        "CHUNK-001-A01",
+        "CHUNK-001-A02"
+      ]
+    }
   ]
 }

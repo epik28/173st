@@ -9,7 +9,7 @@ Gemini/Antigravity работает одновременно в `/home/andrew/17
 1. `docs/project-requirements.md` — общие требования и этапы.
 2. `docs/workflow.md` — владение файлами и интеграция.
 3. `docs/progress.md` — текущее состояние.
-4. `TASKS.md`, `docs/tasks/CODEX.md` и общий контракт текущей задачи.
+4. `TASKS.md`, `docs/roadmap.md`, `docs/tasks/CODEX.md` и общий контракт текущей задачи.
 
 После чтения самостоятельно выполняй доступные карточки роли `codex`:
 `python3 tools/tasks.py next codex`. После каждой карточки обновляй только свой
@@ -24,7 +24,8 @@ Gemini/Antigravity работает одновременно в `/home/andrew/17
 
 - На старте владеешь `tools/oracle/`, `tools/parity/`, `docs/handoffs/codex.md`.
 - Также ведёшь `tests/python/test_rng_runner.py` и `docs/tasks/status/codex.json`.
-  `docs/tasks/status/agy.json` изменяет только agy.
+  Результаты в `docs/tasks/status/agy.json` изменяет только agy; инициализация
+  новых pending-карточек общим коммитом описана отдельно в workflow.
 - Как интегратор ведёшь workspace, lockfile, общий контракт и `docs/progress.md`.
   Об изменении контракта сообщай до продолжения зависимой работы Gemini.
 - Перед работой выполни `python3 tools/agent_session.py start codex`.

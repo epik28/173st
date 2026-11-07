@@ -23,12 +23,12 @@
 
 ## Что агенты выберут сами
 
-- codex: C01 — Java-эталон, затем C02 — runner и тесты компаратора.
-- agy: A01 — Rust RNG, затем A02 — Rust probe.
-- codex: C03 — интеграция и сравнение, когда коммиты обеих частей готовы.
+- codex: RNG-002-C01 — эталон/корпус, затем C02 — runner и C03 — приёмка.
+- agy: RNG-002-A01 — методы RNG, затем A02 — stateful probe.
+- После приёмки оба переходят к CHUNK-001; исправления выполняют по TASKS.md.
 
 [Очередь и порядок](TASKS.md), [карточки Codex](docs/tasks/CODEX.md),
-[карточки agy](docs/tasks/AGY.md), [общий контракт](docs/tasks/RNG-001.md).
+[карточки agy](docs/tasks/AGY.md), [контракт RNG-002](docs/tasks/RNG-002.md), [план этапов](docs/roadmap.md).
 
 ## Посмотреть состояние
 
@@ -44,4 +44,5 @@ python3 tools/tasks.py next agy
 в пределах указанного в TASKS.md времени ожидания.
 
 Общие локальные JAR лежат в `../.local/`, сборки и отчёты у каждого worktree отдельные.
-Реализация RNG и сравнительного runner пока не начата.
+RNG-001 принят; RNG-002 и CHUNK-001 подготовлены, но ещё не реализованы.
+Настройки подтверждений Antigravity: [docs/antigravity.md](docs/antigravity.md).

@@ -32,6 +32,36 @@
         "git diff --check → PASS",
         "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main принят до fa875dd; git diff --exit-code main codex/verification → 0; python3 tools/tasks.py next codex → complete"
       ]
+    },
+    "RNG-002-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "RNG-002-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "RNG-002-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "CHUNK-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "CHUNK-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "CHUNK-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
