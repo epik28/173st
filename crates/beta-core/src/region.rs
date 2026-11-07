@@ -6,7 +6,7 @@
 use std::io::{self, BufRead, BufReader, Cursor, Read};
 
 use flate2::bufread::GzDecoder;
-use flate2::read::ZlibDecoder;
+use flate2::{Decompress, FlushDecompress, Status};
 
 const SECTOR_BYTES: usize = 4096;
 const HEADER_BYTES: usize = 2 * SECTOR_BYTES;
@@ -209,19 +209,69 @@ fn decompress(id: u8, input: &[u8], limit: usize) -> Result<Vec<u8>, RegionError
     let mut output = Vec::with_capacity(limit.min(8192));
     let result = match id {
         1 => read_gzip_members(input, &mut output, limit),
-        2 => read_bounded(&mut ZlibDecoder::new(input), &mut output, limit),
+        2 => read_zlib(input, &mut output, limit),
         other => return Err(RegionError::UnsupportedCompression(other)),
     };
     result?;
     Ok(output)
 }
 
+fn read_zlib(input: &[u8], output: &mut Vec<u8>, limit: usize) -> Result<(), RegionError> {
+    let mut decoder = Decompress::new(true);
+    let mut input_offset = 0;
+    loop {
+        let before_in = decoder.total_in();
+        let before_out = decoder.total_out();
+        let remaining = limit
+            .checked_sub(output.len())
+            .ok_or(RegionError::LimitExceeded)?;
+        let output_capacity = remaining.saturating_add(1).min(8192);
+        let mut chunk = [0_u8; 8192];
+        let status = decoder
+            .decompress(
+                &input[input_offset..],
+                &mut chunk[..output_capacity],
+                FlushDecompress::Finish,
+            )
+            .map_err(|_| RegionError::Decompression)?;
+        let consumed =
+            usize::try_from(decoder.total_in()).map_err(|_| RegionError::Decompression)?;
+        let produced = usize::try_from(decoder.total_out() - before_out)
+            .map_err(|_| RegionError::Decompression)?;
+        if consumed < input_offset || consumed > input.len() || produced > output_capacity {
+            return Err(RegionError::Decompression);
+        }
+        input_offset = consumed;
+        output.extend_from_slice(&chunk[..produced]);
+        if output.len() > limit {
+            return Err(RegionError::LimitExceeded);
+        }
+        if status == Status::StreamEnd {
+            return Ok(());
+        }
+        if decoder.total_in() == before_in && decoder.total_out() == before_out {
+            return Err(RegionError::Decompression);
+        }
+    }
+}
+
 fn read_gzip_members(input: &[u8], output: &mut Vec<u8>, limit: usize) -> Result<(), RegionError> {
     let mut source = BufReader::new(Cursor::new(input));
     let mut members = 0;
     loop {
-        let next = source.fill_buf().map_err(map_decompression_error)?;
-        if next.is_empty() || (members > 0 && !next.starts_with(&[0x1f, 0x8b])) {
+        if source
+            .fill_buf()
+            .map_err(map_decompression_error)?
+            .is_empty()
+        {
+            return if members == 0 {
+                Err(RegionError::Decompression)
+            } else {
+                Ok(())
+            };
+        }
+        let begins_member = gzip_member_starts(input, &mut source)?;
+        if !begins_member {
             // The original GZIPInputStream stops when the next bytes are not a
             // gzip member, so record padding/trailing bytes are ignored.
             return if members == 0 {
@@ -229,9 +279,6 @@ fn read_gzip_members(input: &[u8], output: &mut Vec<u8>, limit: usize) -> Result
             } else {
                 Ok(())
             };
-        }
-        if !next.starts_with(&[0x1f, 0x8b]) {
-            return Err(RegionError::Decompression);
         }
         let remaining = limit
             .checked_sub(output.len())
@@ -242,6 +289,38 @@ fn read_gzip_members(input: &[u8], output: &mut Vec<u8>, limit: usize) -> Result
         }
         members += 1;
     }
+}
+
+fn gzip_member_starts<'a>(
+    input: &'a [u8],
+    source: &mut BufReader<Cursor<&'a [u8]>>,
+) -> Result<bool, RegionError> {
+    let (available, first) = {
+        let bytes = source.fill_buf().map_err(map_decompression_error)?;
+        (bytes.len(), bytes.first().copied())
+    };
+    if available >= 2 {
+        return Ok(source
+            .fill_buf()
+            .map_err(map_decompression_error)?
+            .starts_with(&[0x1f, 0x8b]));
+    }
+    if first != Some(0x1f) {
+        return Ok(false);
+    }
+
+    // A previous member can end at the last byte of BufReader's buffer. Peek
+    // across that boundary and restore the buffered view if it is a new member.
+    let member_start = (source.get_ref().position() as usize)
+        .checked_sub(source.buffer().len())
+        .ok_or(RegionError::Decompression)?;
+    source.consume(1);
+    let following_is_magic =
+        source.fill_buf().map_err(map_decompression_error)?.first() == Some(&0x8b);
+    if following_is_magic {
+        *source = BufReader::new(Cursor::new(&input[member_start..]));
+    }
+    Ok(following_is_magic)
 }
 
 fn read_bounded(
@@ -325,6 +404,70 @@ mod tests {
         let bytes = region(Some((1, compressed)));
         let file = RegionFile::open(&bytes, RegionLimits::default()).unwrap();
         assert_eq!(file.read_local(0, 0).unwrap().unwrap().nbt, b"firstsecond");
+    }
+
+    #[test]
+    fn rejects_empty_truncated_and_bad_checksum_streams() {
+        for (compression, complete) in [
+            (1, compress_gzip(b"payload")),
+            (2, compress_zlib(b"payload")),
+        ] {
+            assert_eq!(
+                decompress(compression, &[], 64),
+                Err(RegionError::Decompression)
+            );
+            for cut in 1..=complete.len() {
+                let truncated = &complete[..complete.len() - cut];
+                assert_eq!(
+                    decompress(compression, truncated, 64),
+                    Err(RegionError::Decompression),
+                    "compression={compression}, removed trailing {cut} bytes"
+                );
+            }
+            let checksum_bytes = if compression == 1 { 8 } else { 4 };
+            for index in complete.len() - checksum_bytes..complete.len() {
+                let mut bad_checksum = complete.clone();
+                bad_checksum[index] ^= 0x80;
+                assert_eq!(
+                    decompress(compression, &bad_checksum, 64),
+                    Err(RegionError::Decompression),
+                    "compression={compression}, corrupted trailer byte {index}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn zlib_ignores_bytes_after_a_complete_stream() {
+        let mut compressed = compress_zlib(b"payload");
+        compressed.extend_from_slice(b"trailing bytes");
+        assert_eq!(decompress(2, &compressed, 64).unwrap(), b"payload");
+    }
+
+    #[test]
+    fn detects_gzip_member_magic_split_at_reader_buffer_boundary() {
+        let (raw, mut first_member) = (8100..8300)
+            .find_map(|size| {
+                let mut raw = Vec::with_capacity(size);
+                let mut state = 0x1234_5678_u32;
+                for _ in 0..size {
+                    state ^= state << 13;
+                    state ^= state >> 17;
+                    state ^= state << 5;
+                    raw.push(state as u8);
+                }
+                let encoded = compress_gzip(&raw);
+                (encoded.len() == 8191).then_some((raw, encoded))
+            })
+            .expect("find incompressible gzip member exactly 8191 bytes long");
+        let second_raw = b"second member";
+        first_member.extend(compress_gzip(second_raw));
+        let mut expected = raw;
+        expected.extend_from_slice(second_raw);
+        assert_eq!(
+            decompress(1, &first_member, expected.len()).unwrap(),
+            expected
+        );
     }
 
     #[test]

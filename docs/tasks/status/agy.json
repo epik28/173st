@@ -89,10 +89,10 @@
     },
     "REGION-001-A01": {
       "state": "done",
-      "summary": "Реализован read-only beta_core::region API: borrowed RegionFile, полная проверка заголовка/location/length/sector bounds/overlap, timestamp, bounded gzip/zlib декодирование, negative region coordinates. Сохранён original gzip trailing garbage и multi-member behavior из C01; исходники не мутируются.",
+      "summary": "Реализован read-only beta_core::region API: borrowed RegionFile, полная проверка заголовка/location/length/sector bounds/overlap, timestamp, bounded gzip/zlib декодирование и negative coordinates. Последующая проверка устранила приём пустого/усечённого zlib (требуется StreamEnd) и пропуск gzip member при magic на границе BufReader; trailer checksum валидируется.",
       "checks": [
-        "cargo test --all-targets --locked --offline → 30 library + 18 example tests PASS",
-        "python3 tools/check.py → 51 Python tests, fmt/check/clippy/workspace tests/doc tests PASS",
+        "cargo test --locked --offline -p beta-core region::tests:: → 8 region tests PASS; all truncation prefixes of valid gzip/zlib, empty streams, each gzip 8-byte and zlib 4-byte trailer mutation, gzip 8191-byte reader-boundary case",
+        "python3 tools/check.py → 51 Python tests, fmt/check/clippy, 33 library + 22 example tests, doc tests PASS",
         "git diff --check → PASS"
       ]
     },

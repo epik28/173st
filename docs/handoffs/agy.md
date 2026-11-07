@@ -9,6 +9,14 @@
 - Проверки: `cargo test --all-targets --locked --offline` → 30 library + 18 example tests PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy/workspace tests/doc tests PASS; `git diff --check` → PASS.
 - Model ID: **gpt-6-luna low**. Заимствований нет; контракт C01 использован как входные требования. Стоимость/токены недоступны.
 
+### A01 follow-up — stream completion regressions
+
+- Follow-up проверка воспроизвела: flate2 read zlib decoder принимал пустой input как пустой успешный output. Zlib reader заменён на bounded `Decompress` loop, который требует `Status::StreamEnd`; incomplete/truncated streams и checksum errors дают `Decompression`, bytes после полного stream остаются допустимы по C01.
+- Gzip member detection исправлена для случая, когда первый byte следующего `1f 8b` magic остаётся последним byte внутреннего 8192-byte BufReader buffer: теперь проверяется следующий byte и reader восстанавливается на точном начале member.
+- Regression test перебирает все усечения валидных gzip/zlib streams (включая удаление 1–4 последних trailer bytes), повреждает каждый байт gzip (CRC32 + ISIZE) и zlib (Adler32) trailers, проверяет пустые inputs, допустимый zlib trailing garbage и concatenated gzip member с границей ровно 8191 bytes.
+- Проверки: `cargo test --locked --offline -p beta-core region::tests::` → 8 PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy, 33 library + 22 example tests и doc tests PASS; `git diff --check` → PASS.
+- Внешние файлы, сохранение Prism, JAR, oracle/runner и общий контракт не трогались. Model ID: **gpt-6-luna low**; заимствований нет, стоимость/токены недоступны.
+
 ## REGION-001-A02 — Rust region probe
 
 - Добавлен `crates/beta-core/examples/region_probe.rs`. CLI принимает только `INPUT_COPY_DIR PAYLOAD_DIR`, требует обычный `.region-input-copy` marker, разделяет input/payload каталоги и читает только regular region files непосредственно в canonical input directory. TSV проверяет число полей, уникальный ASCII case ID, координаты i32 и точное имя региона `r.<floor(x/32)>.<floor(z/32)>.mcr`; запрещает абсолютные/traversal пути и symlink region files.
