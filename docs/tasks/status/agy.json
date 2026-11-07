@@ -2,7 +2,16 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
-    "WORLD-LOAD-001-A01": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-A01": {
+      "state": "done",
+      "summary": "Реализован beta_core::world: bounded gzip load_level_gzip и typed load_chunk_nbt с exact NBT types, metadata defaults, byte!=0 booleans, player/root/raw NBT retention, required coords и все пять chunk-array lengths. Повреждения, mismatch, wrong type и limits возвращают явные WorldError; filesystem/engine code и новые зависимости отсутствуют.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core world::tests:: → 4 PASS: metadata defaults/type errors/raw Player NaN bits, compressed/decompressed/NBT limits, gzip truncation/checksum, coordinates, all five array lengths, signed arrays/lists/preservation",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "python3 tools/check.py → 64 Python tests; fmt/check/clippy, 40 library + 22 example tests, doc tests PASS",
+        "git diff --check → PASS"
+      ]
+    },
     "WORLD-LOAD-001-A02": {"state":"pending","summary":"","checks":[]},
     "RNG-001-A01": {
       "state": "done",

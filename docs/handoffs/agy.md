@@ -1,5 +1,14 @@
 # Отчёт Gemini / agy
 
+## WORLD-LOAD-001-A01 — typed read-only loader
+
+- Добавлен `beta_core::world` с `WorldLimits`, `WorldMetadata`, `LoadedChunk`, `WorldError`, `load_level_gzip` и `load_chunk_nbt`. Для level gzip повторно используется bounded `region::decompress(1, ...)`; эффективный decoded cap — минимум `max_level_decompressed_bytes` и `nbt.max_total_payload`, compressed cap проверяется до декодирования.
+- Metadata читает только точные native scalar-типы; absent scalar defaults — 0/false/empty string, `Player` сохраняется полным `Tag::Compound`, dimension берётся из `Player.Dimension` с default 0. Boolean соответствует native policy `TAG_Byte != 0`. Ошибки malformed gzip/NBT, missing/wrong type, лимитов, chunk coordinates и массива явные.
+- Chunk требует `Level`, `xPos/zPos` и все пять массивов контрактных размеров; signed NBT bytes преобразуются побитово в `u8` представление массива. Optional `LastUpdate/TerrainPopulated` используют defaults; absent lists становятся пустыми, nonempty lists требуют compounds. И root `NamedTag`, и точные decompressed/input NBT bytes остаются в результатах; unknown поля и list declarations сохраняются без записи обратно. Core не обращается к FS и не создаёт игровых объектов.
+- Изменены: `crates/beta-core/src/world.rs`, экспорт в `lib.rs`, видимость существующего decoder как `pub(crate)` в `region.rs`, собственный `docs/tasks/status/agy.json` и этот handoff. Новых dependencies нет.
+- Проверки: `cargo test --locked --offline -p beta-core world::tests::` → 4 PASS (metadata defaults/types, signed byte conversion, все пять lengths, coordinates, lists/unknown fields/raw player retention, gzip corruption/truncation и compressed/decompressed/NBT caps); `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `python3 tools/check.py` → 64 Python tests и fmt/check/clippy, 40 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
+- Model ID: **gpt-6-luna low**. Заимствований, ручной помощи, новых зависимостей и изменений oracle/runner/контракта нет; стоимость/токены недоступны. Live world parity не запускался (A02 ещё не реализован).
+
 ## REGION-001-A01 — read-only Rust McRegion reader
 
 - Реализован borrowed `beta_core::region::RegionFile`: проверяет выравнивание и заголовок, все location records, длины, границы и перекрытия до выдачи reader. Добавлены metadata записей, ошибки для локальных x/z вне диапазона, `region_coord/local_coord` для отрицательных координат и границ i32.
