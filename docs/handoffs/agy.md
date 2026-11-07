@@ -9,6 +9,16 @@
 - Проверки: `cargo test --all-targets --locked --offline` → 30 library + 18 example tests PASS; `python3 tools/check.py` → 51 Python tests, fmt/check/clippy/workspace tests/doc tests PASS; `git diff --check` → PASS.
 - Model ID: **gpt-6-luna low**. Заимствований нет; контракт C01 использован как входные требования. Стоимость/токены недоступны.
 
+## REGION-001-A02 — Rust region probe
+
+- Добавлен `crates/beta-core/examples/region_probe.rs`. CLI принимает только `INPUT_COPY_DIR PAYLOAD_DIR`, требует обычный `.region-input-copy` marker, разделяет input/payload каталоги и читает только regular region files непосредственно в canonical input directory. TSV проверяет число полей, уникальный ASCII case ID, координаты i32 и точное имя региона `r.<floor(x/32)>.<floor(z/32)>.mcr`; запрещает абсолютные/traversal пути и symlink region files.
+- Для каждой строки сохраняется порядок и печатается `present|absent` с timestamp/compression/length/SHA-256; каждый present NBT payload создаётся через `create_new`, absent файл не создаёт. Диагностика CLI идёт только в stderr с ненулевым кодом.
+- Тесты probe покрывают правильный TSV, present/absent, payload hash/bytes, bad IDs/paths/coordinate syntax/range, duplicate ID, marker/dir guards, запрет перезаписи и повторяемость на неизменном синтетическом input. Live save/JAR parity не запускались; Codex C02 runner ещё не интегрирован. Все тесты выполнялись на созданных временных копиях.
+- Изменены: `crates/beta-core/examples/region_probe.rs`, `docs/tasks/status/agy.json`, этот handoff.
+- Проверки: `cargo test --locked --offline -p beta-core --example region_probe` → 4 PASS; `cargo test --all-targets --locked --offline` → 30 library + 22 example tests PASS; `python3 tools/check.py` → 51 Python tests и fmt/check/clippy/workspace/doc PASS.
+- CLI smoke на синтетической copied input: валидный present/absent stdin → exit 0, точные 2 строки TSV в порядке входа, stderr пуст; неправильное имя/путь → exit 1, stdout пуст, diagnostics stderr. Повторный запуск с отдельной payload directory дал тот же stdout и байты payload; input не изменился.
+- Model ID: **gpt-6-luna low**. Заимствований нет. Сохранение Prism, JAR и C02/C03 ветка не трогались. Стоимость/токены недоступны.
+
 ## NBT-001 — приёмка в main и завершение очереди agy
 
 - Прочитаны закоммиченные контракт, статус C03 и handoff Codex. Приёмка находится

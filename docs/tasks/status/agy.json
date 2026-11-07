@@ -97,9 +97,14 @@
       ]
     },
     "REGION-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен region_probe по REGION-001: принимает только copied input с marker и basename региона по координатам; запрещает traversal/absolute/symlink paths и output/input overlap. Выдаёт deterministic present/absent TSV с metadata и SHA-256, сохраняет present NBT через create_new без перезаписи.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example region_probe → 4 passed",
+        "cargo test --all-targets --locked --offline → 30 library + 22 example tests passed",
+        "python3 tools/check.py → 51 Python tests, fmt/check/clippy/workspace/doc PASS",
+        "synthetic CLI smoke → valid present/absent exit 0, ordered TSV, empty stderr; invalid path exit 1, empty stdout, stderr diagnostic; repeated run output/payload matched and input stayed unchanged"
+      ]
     }
   }
 }
