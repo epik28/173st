@@ -56,3 +56,15 @@ IntArray, границы глубины и защитные ограничени
 списка, End-элементы и unknown type пустого списка допускаются оригинальным reader;
 Java String допускает одиночный surrogate. Эти проверки не считаются совпавшей parity
 и не меняют safe Rust API. Границы общей области описаны в NBT-001 и provenance.
+
+REGION-001: `python3 tools/parity/run.py region --strict` сначала проверяет четыре
+закреплённых source hash, создаёт отдельную копию входов и запускает Java `qj`
+только на ней. Далее `region_probe` получает независимую копию. Отчёт сравнивает
+presence, timestamp, compression, длину и SHA-256 decompressed NBT; каждый present
+payload остаётся в `java-payloads/` и `rust-payloads/`. Источники, обе копии, JAR,
+процессы, вызовы native reader и payloads сверяются до/после запуска.
+`python3 tools/parity/verify_report.py <region-report.json> --protocol` повторно
+проверяет сохранённые хеши, native audit, payload bytes, отсутствие изменений
+источников/копий и синтетически меняет payload для проверки чувствительности.
+Fixture с 704 занятыми и 44 пустыми слотами отделён от синтетических malformed
+region tests; последние проверяют safe Rust reader, а не расширяют native parity.

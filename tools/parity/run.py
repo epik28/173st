@@ -18,6 +18,11 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path("tests/fixtures/rng/next-int.tsv")
 ORACLE = Path("tools/oracle/src/RandomOracle.java")
 PROBE = Path("crates/beta-core/examples/rng_probe.rs")
+REGION_FIXTURE = Path("tests/fixtures/region/live.tsv")
+REGION_ORACLE = Path("tools/oracle/src/RegionOracle.java")
+REGION_PROBE = Path("crates/beta-core/examples/region_probe.rs")
+REGION_MARKER = "REGION-001 copied inputs\n"
+REGION_JAR_SHA256 = "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c"
 
 
 class RunError(Exception):
@@ -168,6 +173,89 @@ def parse_nbt_fixture(data):
         ids.add(fields[0]); cases.append({"id": fields[0], "data": bytes.fromhex(fields[1])})
     if not cases: raise RunError("NBT fixture contains no cases")
     return cases
+
+
+def parse_region_fixture(data):
+    """Parse the coordinate-only REGION-001 corpus and bind names to floor coords."""
+    cases, ids = [], set()
+    for number, line in enumerate(data.decode("ascii").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 4:
+            raise RunError(f"region fixture line {number}: expected four fields")
+        case_id, filename, x_text, z_text = fields
+        if (not re.fullmatch(r"[A-Za-z0-9_-]+", case_id) or case_id in ids
+                or not re.fullmatch(r"r\.-?(?:0|[1-9][0-9]*)\.-?(?:0|[1-9][0-9]*)\.mcr", filename)):
+            raise RunError(f"region fixture line {number}: invalid ID or basename")
+        if not re.fullmatch(r"-?(?:0|[1-9][0-9]*)", x_text) or not re.fullmatch(r"-?(?:0|[1-9][0-9]*)", z_text):
+            raise RunError(f"region fixture line {number}: invalid coordinate syntax")
+        x, z = int(x_text), int(z_text)
+        if not -(2**31) <= x < 2**31 or not -(2**31) <= z < 2**31:
+            raise RunError(f"region fixture line {number}: coordinate outside i32")
+        expected = f"r.{x // 32}.{z // 32}.mcr"
+        if filename != expected:
+            raise RunError(f"region fixture line {number}: region basename does not match coordinates")
+        ids.add(case_id)
+        cases.append({"id": case_id, "file": filename, "x": x, "z": z})
+        if len(cases) > 100000:
+            raise RunError("region case limit 100000 exceeded")
+    if not cases:
+        raise RunError("region fixture contains no cases")
+    return cases
+
+
+def region_keys(cases):
+    return [(case["id"], case["file"], case["x"], case["z"]) for case in cases]
+
+
+def valid_region_record(line, key):
+    if line is None or not line.endswith(b"\n") or b"\r" in line:
+        return False
+    fields = line[:-1].split(b"\t")
+    if len(fields) != 6 or fields[0] != key[0].encode("ascii"):
+        return False
+    if fields[1] == b"absent":
+        return fields[2:] == [b"-", b"-", b"-", b"-"]
+    if fields[1] != b"present":
+        return False
+    return (re.fullmatch(rb"(?:0|[1-9][0-9]*)", fields[2]) is not None
+            and int(fields[2]) <= 0xffffffff
+            and fields[3] in {b"1", b"2"}
+            and re.fullmatch(rb"(?:0|[1-9][0-9]*)", fields[4]) is not None
+            and int(fields[4]) <= 64 * 1024 * 1024
+            and re.fullmatch(rb"[0-9a-f]{64}", fields[5]) is not None)
+
+
+def safe_region_file(input_dir, name):
+    """Resolve only an ordinary region basename inside a marked per-run copy."""
+    input_dir = Path(input_dir).resolve(strict=True)
+    marker = input_dir / ".region-input-copy"
+    if marker.is_symlink() or not marker.is_file() or marker.read_text() != REGION_MARKER:
+        raise RunError("region input copy marker is missing or invalid")
+    if Path(name).name != name or not re.fullmatch(r"r\.-?(?:0|[1-9][0-9]*)\.-?(?:0|[1-9][0-9]*)\.mcr", name):
+        raise RunError("region path must be a valid basename")
+    path = input_dir / name
+    if path.is_symlink() or not path.is_file() or path.resolve(strict=True).parent != input_dir:
+        raise RunError("region path escapes input copy or is absent")
+    return path
+
+
+def compare_region_outputs(reference, actual, cases):
+    left, right = reference.splitlines(keepends=True), actual.splitlines(keepends=True)
+    keys = region_keys(cases)
+    count, first = 0, None
+    for index in range(max(len(keys), len(left), len(right))):
+        expected = left[index] if index < len(left) else None
+        observed = right[index] if index < len(right) else None
+        key = keys[index] if index < len(keys) else None
+        if expected != observed or not valid_region_record(expected, key) or not valid_region_record(observed, key):
+            count += 1
+            if first is None:
+                first = {"record": index, "case": None if key is None else key[0],
+                         "reference": None if expected is None else expected.decode("utf-8", "replace"),
+                         "rust": None if observed is None else observed.decode("utf-8", "replace")}
+    return {"mismatch_count": count, "first_mismatch": first}
 
 def valid_nbt_record(line, key):
     prefix = f"{key[0]}\t{key[1]}\t".encode("ascii")
@@ -386,6 +474,8 @@ def run_process(command, *, cwd, directory, label, timeout, input_data=None):
         result["error"] = str(error)
     stdout_path.write_bytes(stdout)
     stderr_path.write_bytes(stderr)
+    result["stdout_sha256"] = sha256(stdout)
+    result["stderr_sha256"] = sha256(stderr)
     result["duration_ms"] = round((time.monotonic() - started) * 1000, 3)
     return result
 
@@ -393,8 +483,9 @@ def run_process(command, *, cwd, directory, label, timeout, input_data=None):
 def source_snapshot(root):
     paths = {FIXTURE, ORACLE, Path("tools/parity/run.py"), Path("config/local.toml"), Path("Cargo.toml"),
              Path("Cargo.lock"), Path("rust-toolchain.toml")}
-    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv"), ("tests/fixtures/chunk", "*.tsv"), ("tests/fixtures/nbt", "*.tsv")):
+    for folder, pattern in (("tools/oracle", "*.java"), ("tools/parity", "*.py"), ("tests/fixtures/rng", "*.tsv"), ("tests/fixtures/chunk", "*.tsv"), ("tests/fixtures/nbt", "*.tsv"), ("tests/fixtures/region", "*.tsv"), ("tests/fixtures/region", "*.json"), ("tests/fixtures/region", "*.md")):
         paths.update(path.relative_to(root) for path in (root / folder).rglob(pattern))
+    paths.add(Path("tools/oracle/region_corpus.py"))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("*.rs"))
     paths.update(path.relative_to(root) for path in (root / "crates").rglob("Cargo.toml"))
     return {str(path): sha256((root / path).read_bytes()) if (root / path).is_file() else None
@@ -587,9 +678,241 @@ def run_rng(root=ROOT, timeout=60, suite="rng"):
     return report, report_path
 
 
+def region_source_snapshot(root):
+    paths = {REGION_FIXTURE, REGION_ORACLE, REGION_PROBE, Path("tools/oracle/region_corpus.py"),
+             Path("tools/parity/run.py"), Path("config/local.toml"), Path("Cargo.toml"),
+             Path("Cargo.lock"), Path("rust-toolchain.toml"), Path("tests/fixtures/region/sources.json"),
+             Path("tests/fixtures/region/audit.json"), Path("tests/fixtures/region/coordinates.tsv"),
+             Path("tests/fixtures/region/provenance.md"), Path("tools/parity/region_review.py"),
+             Path("tools/parity/verify_report.py")}
+    paths.update(path.relative_to(root) for path in (root / "tests/fixtures/region").iterdir() if path.is_file())
+    paths.update(path.relative_to(root) for path in (root / "tools/oracle").rglob("*.java"))
+    paths.update(path.relative_to(root) for path in (root / "tools/parity").rglob("*.py"))
+    paths.update(path.relative_to(root) for path in (root / "crates").rglob("*.rs"))
+    paths.update(path.relative_to(root) for path in (root / "crates").rglob("Cargo.toml"))
+    result = {}
+    for path in sorted(paths):
+        full = root / path
+        result[str(path)] = sha256(full.read_bytes()) if full.is_file() else None
+    return result
+
+
+def region_config(root):
+    config_path = root / "config/local.toml"
+    if not config_path.is_file():
+        raise RunError("region paths not configured (config/local.toml)")
+    paths = tomllib.loads(config_path.read_text()).get("paths", {})
+    if not paths.get("prism_instance"):
+        raise RunError("paths.prism_instance is not configured")
+    if not paths.get("client_jar"):
+        raise RunError("paths.client_jar is not configured")
+    prism = (root / paths["prism_instance"]).resolve(strict=True)
+    jar = (root / paths["client_jar"]).resolve(strict=True)
+    return prism, jar
+
+
+def run_region(root=ROOT, timeout=60):
+    """Run original and Rust readers only against a new, hash-verified copy."""
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    module_path = root / "tools/oracle/region_corpus.py"
+    spec = spec_from_file_location("region_corpus_runner", module_path)
+    corpus = module_from_spec(spec)
+    spec.loader.exec_module(corpus)
+
+    started = time.monotonic()
+    parent = artifacts_root(root) / "parity/region"
+    parent.mkdir(parents=True, exist_ok=True)
+    directory = Path(tempfile.mkdtemp(prefix="run-", dir=parent))
+    report_path = directory / "report.json"
+    report = {"schema_version": 1, "suite": "region", "scenario_id": "REGION-001-read-copies",
+              "started_at": datetime.now(timezone.utc).isoformat(), "status": "error",
+              "reason": "comparison not completed", "reference_side": "Original Beta 1.7.3 qj(File).a(int,int)",
+              "reference_version": None, "reference_jar_path": None, "reference_jar_sha256": None,
+              "reference_class_sha256": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6",
+              "scope": "read-only McRegion record extraction from run-specific copies; no world loading or writes",
+              "comparison_policy": "exact ordered presence, unsigned timestamp, compression id, NBT length and SHA-256",
+              "platform": platform.platform(), "runtime_versions": {}, "toolchain": {}, "rust_revision": None,
+              "rust_dirty": None, "rust_binary_sha256": None, "adapter_class_sha256": None,
+              "source_hashes": {}, "source_hashes_after": {}, "source_world_hashes": {},
+              "source_world_hashes_after": {}, "input_copy_hashes": {}, "input_copy_hashes_after": {},
+              "input_sha256": None, "case_count": 0, "present_count": None, "absent_count": None,
+              "native_cases": {"live": 0, "synthetic": 0}, "mismatch_count": None, "first_mismatch": None,
+              "duration_ms": None, "reference_output_sha256": None, "rust_output_sha256": None,
+              "log_paths": {"input": str(directory / "input.tsv"), "report": str(report_path)}, "processes": {}}
+
+    def execute(label, command, input_data=None, cwd=root):
+        result = run_process(command, cwd=cwd, directory=directory, label=label,
+                             timeout=timeout, input_data=input_data)
+        report["processes"][label] = result
+        report["log_paths"][label] = {key: result[key] for key in ("stdout", "stderr")}
+        if result["error"] or result["returncode"] != 0:
+            raise RunError(f"{label}: {result['error'] or 'exit ' + str(result['returncode'])}")
+        return Path(result["stdout"]).read_bytes()
+
+    input_dir, evidence = None, None
+    source_world, jar = None, None
+    source_world_hashes = {}
+    jar_hash = None
+    initial = None
+    failure = None
+    try:
+        prism, jar = region_config(root)
+        manifest = json.loads((root / "tests/fixtures/region/sources.json").read_text())
+        source_world = prism / manifest["world_relative_path"]
+        _, source_world_hashes = corpus.source_hashes(root)
+        jar_hash = sha256(jar.read_bytes())
+        if jar_hash != REGION_JAR_SHA256:
+            raise RunError("configured original client JAR has wrong SHA-256")
+        report.update(reference_jar_path=str(jar), reference_jar_sha256=jar_hash,
+                      source_world_path=str(source_world), source_world_hashes=source_world_hashes)
+        initial = region_source_snapshot(root)
+        report["source_hashes"] = initial
+
+        input_dir, evidence = corpus.snapshot(directory, root)
+        (directory / "snapshot.json").replace(directory / "snapshot-evidence.json")
+        copied = {name: sha256((input_dir / name).read_bytes()) for name in source_world_hashes}
+        report["input_copy_hashes"] = copied
+        fixture = (root / REGION_FIXTURE).read_bytes()
+        cases = parse_region_fixture(fixture)
+        fixture_hash = sha256(fixture)
+        (directory / "input.tsv").write_bytes(fixture)
+        report.update(input_sha256=fixture_hash, case_count=len(cases),
+                      present_count=704, absent_count=len(cases)-704,
+                      native_cases={"live": len(cases), "synthetic": 0})
+
+        for tool, command in (("java", ["java", "-version"]), ("javac", ["javac", "-version"]),
+                              ("rustc", ["rustc", "--version"]), ("cargo", ["cargo", "--version"])):
+            execute(f"version-{tool}", command)
+            proc = report["processes"][f"version-{tool}"]
+            report["runtime_versions"][tool] = (Path(proc["stdout"]).read_bytes() + Path(proc["stderr"]).read_bytes()).decode().strip()
+        report["reference_version"] = report["runtime_versions"]["java"]
+        report["toolchain"] = {key: report["runtime_versions"][key] for key in ("rustc", "cargo")}
+
+        classes = directory / "classes"
+        classes.mkdir()
+        execute("java-build", ["javac", "-cp", str(jar), "-d", str(classes), str(root / REGION_ORACLE)])
+        class_file = classes / "RegionOracle.class"
+        report["adapter_class_sha256"] = sha256(class_file.read_bytes())
+        java_command = ["java", "-XX:-UsePerfData", "-Xmx256m", "-cp", f"{classes}:{jar}", "RegionOracle", str(jar)]
+        payload_dir = directory / "java-payloads"
+        audit_path = directory / "native-audit.json"
+        java_result = run_process(java_command + [str(input_dir), str(payload_dir), str(audit_path)],
+                                  cwd=root, directory=directory, label="java-run", timeout=timeout,
+                                  input_data=fixture)
+        report["processes"]["java-run"] = java_result
+        report["log_paths"]["java-run"] = {key: java_result[key] for key in ("stdout", "stderr")}
+        if java_result["error"] or java_result["returncode"] != 0:
+            raise RunError(f"java-run: {java_result['error'] or 'exit ' + str(java_result['returncode'])}")
+        reference = Path(java_result["stdout"]).read_bytes()
+        report["reference_output_sha256"] = sha256(reference)
+        audit = json.loads(audit_path.read_text())
+        if (audit.get("jar_sha256") != jar_hash or audit.get("class") != "qj"
+                or audit.get("native_reads") != len(cases) or audit.get("present") != 704
+                or audit.get("absent") != len(cases)-704):
+            raise RunError("original qj invocation audit does not match live fixture")
+        report["reference_invocations"] = audit
+        report["log_paths"]["reference_invocations"] = str(audit_path)
+        if compare_region_outputs(reference, reference, cases)["mismatch_count"]:
+            raise RunError("native adapter output violates region TSV contract")
+        expected_payloads = set()
+        for line, case in zip(reference.splitlines(keepends=True), cases):
+            fields = line[:-1].decode("ascii").split("\t")
+            if fields[1] == "present":
+                name = case["id"] + ".nbt"
+                path = payload_dir / name
+                if path.is_symlink() or not path.is_file():
+                    raise RunError(f"native payload missing or unsafe: {name}")
+                payload = path.read_bytes()
+                if len(payload) != int(fields[4]) or sha256(payload) != fields[5]:
+                    raise RunError(f"native payload hash/length mismatch: {name}")
+                expected_payloads.add(name)
+        if {p.name for p in payload_dir.iterdir()} != expected_payloads:
+            raise RunError("native payload set differs from present coordinate cases")
+        report["payload_files"] = {name: {"sha256": sha256((payload_dir/name).read_bytes()),
+                                          "length": (payload_dir/name).stat().st_size}
+                                    for name in sorted(expected_payloads)}
+        report["log_paths"]["payload_dir"] = str(payload_dir)
+
+        if not (root / REGION_PROBE).is_file():
+            report.update(status="not_implemented", reason="Rust region_probe source is absent; Java oracle executed")
+        else:
+            report["rust_revision"] = execute("git-revision", ["git", "rev-parse", "HEAD"]).decode().strip()
+            report["rust_dirty"] = bool(execute("git-dirty", ["git", "status", "--porcelain"]))
+            build_bytes = execute("rust-build", ["cargo", "build", "--locked", "--offline", "-p", "beta-core",
+                                                       "--example", "region_probe", "--message-format=json-render-diagnostics"])
+            # run_process keeps compiler diagnostics; inspect the saved stdout for Cargo's JSON artifact record.
+            binaries = []
+            for line in build_bytes.splitlines():
+                message = json.loads(line)
+                if message.get("reason") == "compiler-artifact" and message.get("target", {}).get("name") == "region_probe" and message.get("executable"):
+                    binaries.append(Path(message["executable"]))
+            if len(binaries) != 1:
+                raise RunError("cargo did not identify exactly one region_probe executable")
+            binary = directory / "region_probe"
+            shutil.copy2(binaries[0], binary)
+            report["rust_binary_sha256"] = sha256(binary.read_bytes())
+            rust_payloads = directory / "rust-payloads"
+            rust_payloads.mkdir()
+            # A fresh, exclusive snapshot protects each side from a native repair/write.
+            rust_input = directory / "rust-input"
+            rust_input.mkdir()
+            (rust_input / ".region-input-copy").write_text(REGION_MARKER)
+            for name, digest in copied.items():
+                with (rust_input/name).open("xb") as target:
+                    target.write((input_dir/name).read_bytes())
+                if sha256((rust_input/name).read_bytes()) != digest:
+                    raise RunError(f"Rust input snapshot hash mismatch: {name}")
+            rust = execute("rust-run", [str(binary), str(rust_input), str(rust_payloads)], fixture)
+            report["rust_output_sha256"] = sha256(rust)
+            comparison = compare_region_outputs(reference, rust, cases)
+            report.update(comparison)
+            report.update(status="fail" if comparison["mismatch_count"] else "pass",
+                          reason="output mismatch" if comparison["mismatch_count"] else "all records match exactly")
+            report["log_paths"]["rust_payload_dir"] = str(rust_payloads)
+            if {p.name for p in rust_payloads.iterdir()} != expected_payloads:
+                raise RunError("Rust payload set differs from present coordinate cases")
+            for name, info in report["payload_files"].items():
+                payload = (rust_payloads/name).read_bytes()
+                info["rust_sha256"] = sha256(payload)
+                info["rust_length"] = len(payload)
+                if sha256(payload) != info["sha256"] or len(payload) != info["length"]:
+                    raise RunError(f"Rust payload bytes differ: {name}")
+            report["input_copy_hashes_after"] = {name: sha256((input_dir/name).read_bytes()) for name in copied}
+            report["rust_input_copy_hashes"] = {name: sha256((rust_input/name).read_bytes()) for name in copied}
+            if report["input_copy_hashes_after"] != copied or report["rust_input_copy_hashes"] != copied:
+                raise RunError("region input copy changed during reader execution")
+
+        # Real files and JAR are verified once more even on not_implemented.
+        _, after_world = corpus.source_hashes(root)
+        report["source_world_hashes_after"] = after_world
+        if after_world != source_world_hashes or sha256(jar.read_bytes()) != jar_hash:
+            raise RunError("original world source or client JAR changed during comparison")
+    except (RunError, OSError, ValueError, KeyError, json.JSONDecodeError, subprocess.SubprocessError) as error:
+        failure = str(error)
+        report.update(status="error", reason=str(error))
+    finally:
+        try:
+            if initial is not None:
+                after = region_source_snapshot(root)
+                report["source_hashes_after"] = after
+                if after != initial:
+                    report.update(status="error", reason="inputs/sources changed during comparison")
+            if input_dir is not None and evidence is not None:
+                corpus.verify_snapshot(directory, evidence, root)
+                report["input_copy_hashes_after"] = {name: sha256((input_dir/name).read_bytes())
+                                                     for name in evidence["copied"]}
+        except (OSError, ValueError, KeyError) as error:
+            verification_error = f"source/copy verification failed: {error}"
+            report.update(status="error", reason=f"{failure}; {verification_error}" if failure else verification_error)
+        report["duration_ms"] = round((time.monotonic() - started) * 1000, 3)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    return report, report_path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -600,9 +923,10 @@ def main(argv=None):
         print("rng-extended: RNG-002 mixed Random methods; requires Java and rng_extended_probe")
         print("chunk: CHUNK-001 original Beta nibble class; requires configured client JAR and chunk_probe")
         print("nbt: NBT-001 original Beta ij/nu reader/writer; requires configured client JAR and nbt_probe")
+        print("region: REGION-001 original qj reads hash-verified copies; requires configured Prism instance/client JAR and region_probe")
         return 0
     try:
-        report, path = run_rng(timeout=args.timeout, suite=args.group)
+        report, path = run_region(timeout=args.timeout) if args.group == "region" else run_rng(timeout=args.timeout, suite=args.group)
     except (OSError, ValueError) as error:
         print(f"error: {error}")
         return 1
