@@ -62,6 +62,8 @@
         "python3 tools/parity/run.py rng --strict → PASS (96 записей совпадают)",
         "python3 tools/parity/run.py rng-extended --strict → PASS (13227 записей совпадают)"
       ]
-    }
+    },
+    "NBT-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "NBT-001-A02": {"state": "pending", "summary": "", "checks": []}
   }
 }

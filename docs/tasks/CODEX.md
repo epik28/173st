@@ -2,7 +2,7 @@
 
 Выбирать задачу через `python3 tools/tasks.py next codex` по [TASKS.md](../../TASKS.md).
 Архив: [RNG-001](RNG-001.md). Новые контракты: [RNG-002](RNG-002.md),
-[CHUNK-001](CHUNK-001.md); правила проверок — [parity-testing](../parity-testing.md).
+[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md); правила проверок — [parity-testing](../parity-testing.md).
 В каждой карточке изменять свой status JSON и `docs/handoffs/codex.md`.
 Отметка `done` появляется в коммите вместе с кодом и фактическими результатами.
 
@@ -151,3 +151,28 @@ Rust probe успехом. В `tools/check.py` включить запуск т�
 При успехе записать результаты и ревизии, обновить прогресс/контракт, закоммитить,
 интегрировать в main и вернуться в codex/verification. Если обновление main не удалось,
 C03 не оставлять принятой. Следующий пакет выбирать самостоятельно через очередь.
+## NBT-001-C01 — независимый эталон и корпус
+
+После CHUNK-001-C03 и обновления ветки до принятого `main`. Прочитать
+[NBT-001](NBT-001.md). Разрешены `tools/oracle/`, `tests/fixtures/`, собственный
+status/handoff. Найти настоящий NBT reader/writer оригинала или явно зафиксировать
+его отсутствие; не выдавать ручную копию формата за игровой эталон. Подготовить
+не менее 5000 valid/invalid случаев, доказать modified UTF-8, типы, endian,
+лимиты, consumed bytes и происхождение JAR/API. Сделать коммит и перейти к C02.
+
+## NBT-001-C02 — runner и canonical comparator
+
+После C01 добавить группу `nbt` в runner, не меняя Rust и не ослабляя прежние
+группы. Сравнивать canonical tree, raw bytes где writer детерминирован, consumed
+length и ошибки; сохранить input/output/hash/version metadata. Проверить truncation,
+length overflow, malformed UTF, unknown tag, trailing bytes, timeout и mutation.
+Отсутствующий оригинальный адаптер должен дать `error`/`not_implemented`, не pass.
+Выполнить Python/Codex проверки, записать evidence и закоммитить C02.
+
+## NBT-001-C03 — интеграция и приёмка
+
+После C01/C02/A01/A02 взять точный snapshot agy, проверить diff и интегрировать его.
+Запустить `tools/check.py`, all-targets и группы `rng`, `rng-extended`, `chunk`,
+`nbt --strict`. При расхождении использовать цикл blocked C03 из TASKS.md; при
+успехе сохранить отчёты, обновить progress, принять NBT-001 в `main` и выбрать
+следующий контракт REGION-001. NBT parity не объявляет загрузку мира.

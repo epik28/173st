@@ -104,6 +104,9 @@
         "git diff --check → PASS",
         "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main 2c5cb4a; git diff --exit-code main HEAD → 0; python3 tools/tasks.py next codex → complete"
       ]
-    }
+    },
+    "NBT-001-C01": {"state": "pending", "summary": "", "checks": []},
+    "NBT-001-C02": {"state": "pending", "summary": "", "checks": []},
+    "NBT-001-C03": {"state": "pending", "summary": "", "checks": []}
   }
 }

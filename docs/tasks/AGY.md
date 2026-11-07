@@ -2,7 +2,7 @@
 
 Выбирать задачу через `python3 tools/tasks.py next agy` по [TASKS.md](../../TASKS.md).
 Архивный протокол: [RNG-001](RNG-001.md). Новые: [RNG-002](RNG-002.md),
-[CHUNK-001](CHUNK-001.md). В каждой карточке изменять только свой
+[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md). В каждой карточке изменять только свой
 `docs/tasks/status/agy.json` и `docs/handoffs/agy.md` вместе с разрешённым Rust-кодом.
 
 ## RNG-001-A01 — Rust RNG
@@ -104,3 +104,20 @@ Java-адаптеры, fixture, runner, зависимости и контрак
 Исправления внутри контракта выполнять через переоткрытие своей карточки, не ждать,
 пока пользователь вручную скопирует запрос. После приёмки выбирать следующий пакет;
 если интегратор ещё работает, действовать по ограниченному ожиданию TASKS.md.
+## NBT-001-A01 — Rust NBT reader/writer
+
+После CHUNK-001-C03 прочитать [NBT-001](NBT-001.md) целиком. Разрешены
+`crates/beta-core/src/` и обычные Rust-тесты. Реализовать safe representation,
+big-endian tags 0–11, modified UTF-8, limits и атомарные ошибки без Java-вызовов,
+зашитых ответов или новых crates. Проверить все типы, empty lists/compounds,
+NaN bits, malformed input, depth/size limits и deterministic writer. Выполнить
+`python3 tools/check.py` и `cargo test --all-targets --locked --offline`, затем
+закоммитить A01 и перейти к A02.
+
+## NBT-001-A02 — Rust NBT probe
+
+После A01 реализовать `nbt_probe` по контракту NBT-001 в новом example, используя
+только библиотечный API. Java oracle, fixture, runner и общий контракт не менять.
+Диагностика только stderr, LF/stdout строго по протоколу; проверить invalid cases,
+лимиты и round-trip. Сделать commit A02 done и ждать/читать C03 через Git. Ошибки
+внутри этого контракта исправлять самостоятельно по циклу TASKS.md.

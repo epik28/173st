@@ -140,6 +140,41 @@
         "CHUNK-001-A01",
         "CHUNK-001-A02"
       ]
+    },
+    {
+      "id": "NBT-001-C01",
+      "owner": "codex",
+      "title": "Независимый NBT-эталон и корпус",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["CHUNK-001-C03"]
+    },
+    {
+      "id": "NBT-001-C02",
+      "owner": "codex",
+      "title": "NBT runner и canonical comparator",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["NBT-001-C01"]
+    },
+    {
+      "id": "NBT-001-A01",
+      "owner": "agy",
+      "title": "Rust NBT reader/writer",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["CHUNK-001-C03"]
+    },
+    {
+      "id": "NBT-001-A02",
+      "owner": "agy",
+      "title": "Rust NBT probe",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["NBT-001-A01"]
+    },
+    {
+      "id": "NBT-001-C03",
+      "owner": "codex",
+      "title": "Интеграция и приёмка NBT-001",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["NBT-001-C01", "NBT-001-C02", "NBT-001-A01", "NBT-001-A02"]
     }
   ]
 }
