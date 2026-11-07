@@ -23,6 +23,7 @@ REGION_ORACLE = Path("tools/oracle/src/RegionOracle.java")
 REGION_PROBE = Path("crates/beta-core/examples/region_probe.rs")
 REGION_MARKER = "REGION-001 copied inputs\n"
 REGION_JAR_SHA256 = "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c"
+REGION_CLASS_SHA256 = "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6"
 
 
 class RunError(Exception):
@@ -210,7 +211,7 @@ def region_keys(cases):
 
 
 def valid_region_record(line, key):
-    if line is None or not line.endswith(b"\n") or b"\r" in line:
+    if key is None or line is None or not line.endswith(b"\n") or b"\r" in line:
         return False
     fields = line[:-1].split(b"\t")
     if len(fields) != 6 or fields[0] != key[0].encode("ascii"):
@@ -729,7 +730,7 @@ def run_region(root=ROOT, timeout=60):
               "started_at": datetime.now(timezone.utc).isoformat(), "status": "error",
               "reason": "comparison not completed", "reference_side": "Original Beta 1.7.3 qj(File).a(int,int)",
               "reference_version": None, "reference_jar_path": None, "reference_jar_sha256": None,
-              "reference_class_sha256": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6",
+              "reference_class_sha256": REGION_CLASS_SHA256,
               "scope": "read-only McRegion record extraction from run-specific copies; no world loading or writes",
               "comparison_policy": "exact ordered presence, unsigned timestamp, compression id, NBT length and SHA-256",
               "platform": platform.platform(), "runtime_versions": {}, "toolchain": {}, "rust_revision": None,
@@ -808,6 +809,7 @@ def run_region(root=ROOT, timeout=60):
         report["reference_output_sha256"] = sha256(reference)
         audit = json.loads(audit_path.read_text())
         if (audit.get("jar_sha256") != jar_hash or audit.get("class") != "qj"
+                or audit.get("method") != "a(int,int)" or audit.get("class_sha256") != REGION_CLASS_SHA256
                 or audit.get("native_reads") != len(cases) or audit.get("present") != 704
                 or audit.get("absent") != len(cases)-704):
             raise RunError("original qj invocation audit does not match live fixture")
@@ -833,6 +835,7 @@ def run_region(root=ROOT, timeout=60):
                                           "length": (payload_dir/name).stat().st_size}
                                     for name in sorted(expected_payloads)}
         report["log_paths"]["payload_dir"] = str(payload_dir)
+        report["log_paths"]["input_copy_dir"] = str(input_dir)
 
         if not (root / REGION_PROBE).is_file():
             report.update(status="not_implemented", reason="Rust region_probe source is absent; Java oracle executed")
@@ -863,6 +866,7 @@ def run_region(root=ROOT, timeout=60):
                     target.write((input_dir/name).read_bytes())
                 if sha256((rust_input/name).read_bytes()) != digest:
                     raise RunError(f"Rust input snapshot hash mismatch: {name}")
+            report["log_paths"]["rust_input_copy_dir"] = str(rust_input)
             rust = execute("rust-run", [str(binary), str(rust_input), str(rust_payloads)], fixture)
             report["rust_output_sha256"] = sha256(rust)
             comparison = compare_region_outputs(reference, rust, cases)

@@ -3,9 +3,9 @@
 import importlib.util
 import json
 from pathlib import Path
-import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 import zlib
@@ -72,9 +72,8 @@ class RegionProtocolTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.binary = ROOT/"target/debug/examples/region_probe"
-        if not cls.binary.is_file():
-            subprocess.run(["cargo", "build", "--locked", "--offline", "-p", "beta-core", "--example", "region_probe"],
-                           cwd=ROOT, check=True, capture_output=True, timeout=120)
+        subprocess.run(["cargo", "build", "--locked", "--offline", "-p", "beta-core", "--example", "region_probe"],
+                       cwd=ROOT, check=True, capture_output=True, timeout=120)
 
     def probe(self, contents, rows, *, extra_slot=False):
         with tempfile.TemporaryDirectory() as temp:
@@ -117,19 +116,20 @@ class RegionProtocolTests(unittest.TestCase):
             input_dir, payload_dir = root/"input", root/"payloads"
             input_dir.mkdir(); payload_dir.mkdir()
             (input_dir/".region-input-copy").write_text(runner.REGION_MARKER)
-            outside = root/"outside.mcr"
-            outside.write_bytes(bytes(record_region(zlib.compress(b"payload"))))
+            outside_dir = root/"outside"
+            outside_dir.mkdir()
+            outside = outside_dir/"r.0.0.mcr"
+            original = bytes(record_region(zlib.compress(b"payload")))
+            outside.write_bytes(original)
             (input_dir/"r.0.0.mcr").symlink_to(outside)
             result = subprocess.run([str(self.binary), str(input_dir), str(payload_dir)],
                                     input=b"x\tr.0.0.mcr\t0\t0\n", capture_output=True, timeout=20)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b"regular copied file", result.stderr)
-            self.assertEqual(outside.read_bytes(), bytes(record_region(zlib.compress(b"payload"))))
+            self.assertEqual(outside.read_bytes(), original)
 
     def test_saved_report_rejects_missing_process_even_if_status_claims_pass(self):
         # Report verifier enforces completeness before considering saved output hashes.
-        from unittest.mock import patch
-        import sys
         sys.path.insert(0, str(ROOT/"tools/parity"))
         import region_review
         report = {"schema_version": 1, "suite": "region", "status": "pass", "processes": {}}
@@ -138,6 +138,45 @@ class RegionProtocolTests(unittest.TestCase):
             path.write_text(json.dumps(report))
             with self.assertRaisesRegex(SystemExit, "required process"):
                 region_review.verify_region(path, report)
+
+    def test_saved_report_evidence_helpers_detect_audit_payload_and_copy_tampering(self):
+        sys.path.insert(0, str(ROOT/"tools/parity"))
+        import region_review
+        report = {"reference_class_sha256": runner.REGION_CLASS_SHA256}
+        audit = {"class": "qj", "method": "a(int,int)", "class_sha256": runner.REGION_CLASS_SHA256,
+                 "jar_sha256": runner.REGION_JAR_SHA256, "native_reads": 748, "present": 704, "absent": 44}
+        region_review._check_audit(audit, report, 748)
+        for key, value in (("native_reads", 747), ("class_sha256", "0"*64), ("jar_sha256", "0"*64)):
+            mutated = dict(audit, **{key: value})
+            with self.subTest(key=key), self.assertRaises(SystemExit):
+                region_review._check_audit(mutated, report, 748)
+
+        payload = b"payload"
+        row = b"x\tpresent\t1\t2\t7\t" + runner.sha256(payload).encode() + b"\n"
+        region_review._check_payload_tsv(payload, row)
+        with self.assertRaises(SystemExit):
+            region_review._check_payload_tsv(payload+b"!", row)
+
+        with tempfile.TemporaryDirectory() as temp:
+            copied = Path(temp)/"input"
+            copied.mkdir()
+            (copied/".region-input-copy").write_text(runner.REGION_MARKER)
+            (copied/"r.0.0.mcr").write_bytes(b"region")
+            hashes = {"r.0.0.mcr": runner.sha256(b"region")}
+            region_review._check_copy(copied, hashes)
+            (copied/"r.0.0.mcr").write_bytes(b"changed")
+            with self.assertRaises(SystemExit):
+                region_review._check_copy(copied, hashes)
+
+    def test_region_process_timeout_is_reported_and_partial_logs_are_preserved(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            result = runner.run_process([sys.executable, "-c", "import time; print('start', flush=True); time.sleep(2)"],
+                                        cwd=ROOT, directory=directory, label="region-timeout", timeout=0.05)
+            self.assertTrue(result["timeout"])
+            self.assertIsNone(result["returncode"])
+            self.assertEqual(Path(result["stdout"]).read_bytes(), b"start\n")
+            self.assertEqual(result["stdout_sha256"], runner.sha256(b"start\n"))
 
 
 if __name__ == "__main__":

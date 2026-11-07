@@ -6,12 +6,46 @@ from pathlib import Path
 import subprocess
 
 from run import (REGION_JAR_SHA256, REGION_MARKER, compare_region_outputs,
-                 parse_region_fixture, region_keys, safe_region_file, sha256)
+                 REGION_CLASS_SHA256, parse_region_fixture, sha256,
+                 valid_region_record)
 
 
 def require(condition, message):
     if not condition:
         raise SystemExit(message)
+
+
+def _check_audit(audit, report, case_count):
+    require(audit.get("class") == "qj" and audit.get("method") == "a(int,int)"
+            and audit.get("class_sha256") == REGION_CLASS_SHA256
+            and audit.get("class_sha256") == report.get("reference_class_sha256")
+            and audit.get("jar_sha256") == REGION_JAR_SHA256
+            and audit.get("native_reads") == case_count and audit.get("present") == 704
+            and audit.get("absent") == case_count-704,
+            "native invocation evidence is incomplete or inconsistent")
+
+
+def _check_copy(path, expected):
+    path = Path(path).resolve(strict=True)
+    marker = path/".region-input-copy"
+    require(not marker.is_symlink() and marker.is_file() and marker.read_text() == REGION_MARKER,
+            f"copied-input marker is missing or invalid: {path}")
+    actual = {}
+    for name in expected:
+        item = path/name
+        require(Path(name).name == name and not item.is_symlink() and item.is_file()
+                and item.resolve(strict=True).parent == path,
+                f"unsafe or absent region copy: {name}")
+        actual[name] = sha256(item.read_bytes())
+    require(actual == expected, f"region copy file hashes differ: {path}")
+    return path
+
+
+def _check_payload_tsv(payload, row):
+    fields = row[:-1].split(b"\t")
+    require(len(fields) == 6 and fields[1] == b"present"
+            and len(payload) == int(fields[4]) and sha256(payload).encode() == fields[5],
+            "payload bytes differ from corresponding TSV row")
 
 
 def verify_region(report_path, report, protocol=False):
@@ -36,6 +70,9 @@ def verify_region(report_path, report, protocol=False):
     adapter = directory / "classes/RegionOracle.class"
     require(adapter.is_file() and sha256(adapter.read_bytes()) == report.get("adapter_class_sha256"),
             "saved RegionOracle class hash mismatch")
+    binary = directory / "region_probe"
+    require(binary.is_file() and sha256(binary.read_bytes()) == report.get("rust_binary_sha256"),
+            "saved region_probe binary hash mismatch")
 
     input_path = Path(report["log_paths"]["input"]).resolve(strict=True)
     fixture = input_path.read_bytes()
@@ -57,12 +94,7 @@ def verify_region(report_path, report, protocol=False):
     audit_path = Path(report["log_paths"]["reference_invocations"]).resolve(strict=True)
     audit = json.loads(audit_path.read_text())
     require(audit == report.get("reference_invocations"), "native invocation audit differs from report")
-    require(audit.get("class") == "qj" and audit.get("method") == "a(int,int)"
-            and audit.get("class_sha256") == report.get("reference_class_sha256")
-            and audit.get("jar_sha256") == REGION_JAR_SHA256
-            and audit.get("native_reads") == len(cases) and audit.get("present") == 704
-            and audit.get("absent") == len(cases)-704,
-            "native invocation evidence is incomplete or inconsistent")
+    _check_audit(audit, report, len(cases))
     stderr_path = Path(report["log_paths"]["java-run"]["stderr"]).resolve(strict=True)
     require(json.loads(stderr_path.read_text()) == audit, "native stderr audit differs")
 
@@ -85,11 +117,17 @@ def verify_region(report_path, report, protocol=False):
 
     copy_before, copy_after = report.get("input_copy_hashes", {}), report.get("input_copy_hashes_after", {})
     require(copy_before == copy_after == expected_sources, "native input copy hashes differ from pinned sources")
+    _check_copy(report["log_paths"]["input_copy_dir"], copy_before)
+    _check_copy(report["log_paths"]["rust_input_copy_dir"], copy_before)
     payload_dir = Path(report["log_paths"]["payload_dir"]).resolve(strict=True)
     rust_payload_dir = Path(report["log_paths"]["rust_payload_dir"]).resolve(strict=True)
     payload_manifest = report.get("payload_files", {})
-    present_cases = [case for case, line in zip(cases, reference.splitlines(keepends=True))
-                     if line.split(b"\t", 2)[1] == b"present"]
+    native_rows = {line.split(b"\t", 1)[0].decode("ascii"): line
+                   for line in reference.splitlines(keepends=True)}
+    rust_rows = {line.split(b"\t", 1)[0].decode("ascii"): line
+                 for line in actual.splitlines(keepends=True)}
+    present_cases = [case for case in cases
+                     if native_rows[case["id"]].split(b"\t")[1] == b"present"]
     expected_names = {case["id"] + ".nbt" for case in present_cases}
     require(set(payload_manifest) == expected_names, "payload manifest does not cover present cases exactly")
     require({path.name for path in payload_dir.iterdir()} == expected_names
@@ -98,8 +136,14 @@ def verify_region(report_path, report, protocol=False):
     for name, info in payload_manifest.items():
         native = (payload_dir/name).read_bytes()
         rust = (rust_payload_dir/name).read_bytes()
+        case_id = name[:-4]
         require(sha256(native) == info.get("sha256") and len(native) == info.get("length"),
                 f"saved native payload mismatch: {name}")
+        try:
+            _check_payload_tsv(native, native_rows[case_id])
+            _check_payload_tsv(rust, rust_rows[case_id])
+        except (SystemExit, KeyError) as error:
+            raise SystemExit(f"payload bytes do not match saved TSV fields: {name}: {error}") from error
         require(sha256(rust) == info.get("rust_sha256") == info.get("sha256")
                 and len(rust) == info.get("rust_length") == info.get("length"),
                 f"saved Rust payload mismatch: {name}")
@@ -127,7 +171,7 @@ def _verify_protocol(directory, report, cases):
     binary = directory / "region_probe"
     java_base = [str(java), "-XX:-UsePerfData", "-Xmx256m", "-cp", str(classpath), "RegionOracle", str(jar)]
     invalid = [b" \n", b"x\tr.0.0.mcr\t0\n", b"x\t../r.0.0.mcr\t0\t0\n",
-               b"x\tr.0.0.mcr\t-0\t0\n", b"x\tr.1.0.mcr\t0\t0\n",
+               b"x\tr.1.0.mcr\t0\t0\n",
                b"bad id\tr.0.0.mcr\t0\t0\n", b"x\tr.0.0.mcr\t2147483648\t0\n",
                b"x\tr.0.0.mcr\t0\t0\nx\tr.0.0.mcr\t0\t0\n"]
     result_rows, failures = [], []
@@ -157,6 +201,31 @@ def _verify_protocol(directory, report, cases):
         (directory/"protocol-review.json").write_text(json.dumps({"kind": "synthetic protocol rejection checks",
             "results": result_rows, "failures": failures}, indent=2)+"\n")
         raise SystemExit(f"region TSV protocol rejection failures: {len(failures)}")
+    valid_data = b"control\tr.0.0.mcr\t0\t0\n"
+    valid_outputs = {}
+    for side, command in (("java", java_base), ("rust", [str(binary)])):
+        run_dir = directory / "protocol" / f"valid-{side}"
+        inp, out = run_dir / "input", run_dir / "payloads"
+        inp.mkdir(parents=True, exist_ok=True)
+        out.mkdir()
+        (inp/".region-input-copy").write_text(REGION_MARKER)
+        for name in report["input_copy_hashes"]:
+            (inp/name).write_bytes((directory/"input"/name).read_bytes())
+        command = command + ([str(inp), str(out), str(run_dir/"audit.json")] if side == "java" else [str(inp), str(out)])
+        process = subprocess.run(command, input=valid_data, capture_output=True, timeout=20)
+        accepted = process.returncode == 0 and valid_region_record(process.stdout, ("control", "r.0.0.mcr", 0, 0))
+        row = {"side": side, "input_hex": valid_data.hex(), "returncode": process.returncode,
+               "stdout": process.stdout.decode("utf-8", "replace"), "stderr": process.stderr.decode("utf-8", "replace"),
+               "expected_valid": True, "accepted": accepted}
+        result_rows.append(row)
+        if not accepted:
+            failures.append(row)
+        valid_outputs[side] = process.stdout
+    if valid_outputs.get("java") != valid_outputs.get("rust"):
+        failures.append({"side": "valid-comparison", "expected_valid": True, "accepted": False,
+                         "reason": "valid synthetic control outputs differ"})
+    if failures:
+        raise SystemExit(f"region TSV protocol checks failed: {len(failures)}")
     (directory/"protocol-review.json").write_text(json.dumps({"kind": "synthetic TSV protocol rejection checks; separate from live cases",
         "results": result_rows, "failures": []}, indent=2)+"\n")
     print(f"PASS: {len(result_rows)} live-adapter protocol rejection executions")
