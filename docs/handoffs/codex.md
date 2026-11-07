@@ -549,3 +549,34 @@ snapshot fixture); agy A01 откроется после C01; затем обе 
 Проверки этого docs-only этапа: `git diff --check`; JSON parsing queue/status files;
 очередь валидируется `tools/tasks.py` после синхронизации обеих веток. Полный Cargo,
 Python и parity наборы не запускались повторно, код движка не менялся.
+
+## REGION-001-C02 — runner и protocol checks
+
+- Рабочая ветка `agents/region-runner`, исходный C01 `dcca8e3`; Rust для C02
+  fast-forward до `033aa449b96f49414258069d9970243892b0d805`. Ветка C02
+  закоммичена двумя изменениями: `5c7655093c70112111b0e1125f1e5a81630b6bb9`
+  (runner/review/tests) и `c76113e79e6928d16bad9764157deb6296739d6f`
+  (усиление saved-report verifier по review). Rust-файлы не менялись.
+- Добавлена группа `region`, использующая закреплённый `RegionOracle`/`qj` и
+  `region_probe` на двух независимых снимках. Оригинальное сохранение не открывается
+  Java: helper проверяет четыре source SHA до и после; Java и Rust получают только
+  копии с marker. Сохраняются stdout/stderr, audits, отчет и отдельные decompressed
+  payload-файлы. Компаратор сравнивает порядок, present/absent, timestamp,
+  compression, длину и SHA-256.
+- `python3 tools/check.py` → PASS: 60 Python, 57 Rust (all-targets), fmt/check/
+  clippy/doc. `python3 -m unittest discover -s tests/python -p test_region_runner.py
+  -v` → 9 PASS, включая invalid header, overlap, unknown compression, truncated
+  zlib, output limit, path/symlink, payload/audit/copy tamper и timeout.
+- Чистый live run после commit: `python3 tools/parity/run.py region --strict` →
+  PASS, 748/748 ordered cases: 704 present + 44 absent, mismatch=0,
+  `rust_dirty=false`; `artifacts/parity/region/run-sfw68p9c/report.json`.
+  Java/Rust output SHA-256 одинаков: `b816543713a272313d46f071d9e376ca0e9ae8f239ae57b3dab749ccc6bc7f4d`.
+- `python3 tools/parity/verify_report.py
+  artifacts/parity/region/run-sfw68p9c/report.json --protocol` → PASS: pinned
+  JAR/class, native qj audit, process logs, fixture, source/copy hashes, TSV-linked
+  payload bytes; 16 synthetic valid/invalid protocol executions и payload mutation.
+  Все четыре world SHA до/после равны manifest, обе copies равны source. Синтетические
+  malformed reader checks отделены от 748 native live cases.
+- Это C02 runner baseline на Rust SHA `c76113e`; более поздний Rust gzip edge fix
+  `4f6c41c` и native synthetic edge matrix принадлежат C03. Следующий шаг —
+  координатор выполняет C03 на итоговом Rust snapshot и принимает изменения.
