@@ -23,12 +23,12 @@
 
 ## Что агенты выберут сами
 
-- codex: RNG-002-C01 — эталон/корпус, затем C02 — runner и C03 — приёмка.
-- agy: RNG-002-A01 — методы RNG, затем A02 — stateful probe.
-- После приёмки оба переходят к CHUNK-001; исправления выполняют по TASKS.md.
+- codex: REGION-001-C01 — native Java-адаптер, local fixture и dependency.
+- agy: REGION-001-A01 после C01 — read-only region parser и bounded decompression.
+- Далее C02/A02/C03 открываются автоматически по зависимостям; исправления — по TASKS.md.
 
 [Очередь и порядок](TASKS.md), [карточки Codex](docs/tasks/CODEX.md),
-[карточки agy](docs/tasks/AGY.md), [контракт RNG-002](docs/tasks/RNG-002.md), [план этапов](docs/roadmap.md).
+[карточки agy](docs/tasks/AGY.md), [контракт REGION-001](docs/tasks/REGION-001.md), [план этапов](docs/roadmap.md).
 
 ## Посмотреть состояние
 
@@ -44,5 +44,5 @@ python3 tools/tasks.py next agy
 в пределах указанного в TASKS.md времени ожидания.
 
 Общие локальные JAR лежат в `../.local/`, сборки и отчёты у каждого worktree отдельные.
-RNG-001 принят; RNG-002 и CHUNK-001 подготовлены, но ещё не реализованы.
+RNG-001, RNG-002, CHUNK-001 и NBT-001 приняты. Следующий пакет — REGION-001.
 Настройки подтверждений Antigravity: [docs/antigravity.md](docs/antigravity.md).

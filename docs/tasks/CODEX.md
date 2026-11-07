@@ -2,7 +2,8 @@
 
 Выбирать задачу через `python3 tools/tasks.py next codex` по [TASKS.md](../../TASKS.md).
 Архив: [RNG-001](RNG-001.md). Новые контракты: [RNG-002](RNG-002.md),
-[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md); правила проверок — [parity-testing](../parity-testing.md).
+[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md), [REGION-001](REGION-001.md);
+правила проверок — [parity-testing](../parity-testing.md).
 В каждой карточке изменять свой status JSON и `docs/handoffs/codex.md`.
 Отметка `done` появляется в коммите вместе с кодом и фактическими результатами.
 
@@ -176,3 +177,39 @@ length overflow, malformed UTF, unknown tag, trailing bytes, timeout и mutation
 `nbt --strict`. При расхождении использовать цикл blocked C03 из TASKS.md; при
 успехе сохранить отчёты, обновить progress, принять NBT-001 в `main` и выбрать
 следующий контракт REGION-001. NBT parity не объявляет загрузку мира.
+
+## REGION-001-C01 — original adapter, dependency и corpus
+
+После NBT-001-C03 и обновления до принятого `main`. Прочитать
+[REGION-001](REGION-001.md), проверить наличие Prism save и four source hashes,
+оригинальный client JAR hash/classpath. Исследовать настоящий Java RegionFile
+reader и вызвать его на неизменённой по содержимому копии файлов. Подготовить
+snapshot helper: копировать четыре `.mcr` только в run-specific artifacts, хешировать
+до/после и запрещать path escape. Реальные world files в Git не включать.
+Зафиксировать live 704 non-empty/empty cases и synthetic malformed corpus отдельно.
+В этой карточке как интегратор добавить `flate2` с pure Rust backend, проверить
+лицензию, закрепить разрешённый диапазон версии и `Cargo.lock`; сохранить offline
+installability или описать provisioning. Не копировать код из mc173 reference.
+Если реальный native adapter невозможен, записать точную причину blocked до того,
+как называть corpus оригинальным эталоном. Закоммитить C01 и перейти к C02.
+
+## REGION-001-C02 — runner и protocol checks
+
+После C01 добавить группу `region` в parity runner. Проверить разрешённые пути,
+копирование/хеши, координаты и стабильно воспроизводимый JSON report. Сравнивать
+presence, timestamp, compression, decompressed length и SHA-256 NBT bytes.
+Native live cases и synthetic cases показывать раздельно. Добавить тесты на ошибку
+копирования/hash change, traversal path, invalid header, sector overlap, unknown
+compression, timeout, decompression limit и мутацию одного payload. Сначала runner
+собирается с dependency из C01 без Rust probe, strict верно падает/not_implemented.
+Запустить общие проверки и сделать коммит C02.
+
+## REGION-001-C03 — integration and acceptance
+
+Зависит от C01/C02/A01/A02. Взять точный agy SHA из task snapshot, проверить diff,
+интегрировать SHA и выполнить все команды из контракта REGION-001, включая 704
+native live chunks и прежние parity suites. При дефекте открыть blocked C03 и
+передать конкретный input/expected/actual/SHA через handoff по общему циклу TASKS.
+При успехе проверить неизменность файлов в Prism source, сохранить итоговый report,
+обновить progress и REGION-001, принять в main. REGION-001 не означает загрузку
+полного мира или право записывать region files.

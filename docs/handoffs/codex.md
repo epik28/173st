@@ -480,3 +480,32 @@ pending в общем коммите подготовки, а не отмече�
   exit 1, Java выполнила 5200 случаев: `artifacts/parity/nbt/run-mfmj868x/report.json`.
 - Предыдущая группа `rng` повторно PASS 96/96; следующий шаг — ожидать agy
   NBT A01/A02 и затем C03 по точному snapshot.
+## 2026-11-08 — открыт REGION-001 после приёмки NBT
+
+Проверил snapshot Codex/main `2930029` (NBT-001-C03 принят) и agy `38ded3c`
+(handoff agy добавлен fast-forward в Codex перед изменениями). Обе сессии были
+свободны, деревья чистые. Подготовлен read-only контракт McRegion и пять карточек
+для Codex/agy; старые выполненные статусы сохранены. Новая рабочая область — чтение
+region-записей и bounded decompression; записи в `.mcr`, `level.dat`, генерация
+и рендер не включены.
+
+Локальный Prism мир `/home/andrew/.local/share/PrismLauncher/instances/b1.7.3/minecraft/saves/New World`
+содержит четыре `.mcr`, 704 непустых location slots (везде compression id 2).
+В read-only scan границ обнаружено 0 malformed entries и 0 пересечений. Размеры
+и SHA-256 каждого файла записаны в `docs/tasks/REGION-001.md`. Были прочитаны только
+region headers/record headers и хеши файлов; save не изменялся. Raw сохранение не
+копировалось в Git.
+
+Для A01 выбран `flate2` pure-Rust backend `rust_backend`; C01 добавит разрешённую
+версию и lockfile прежде, чем agy начнёт implementation. Источник backend:
+[официальные docs.rs docs](https://docs.rs/flate2/latest/flate2/).
+
+Изменены контракт, roadmap/progress, карточки ролей, queue и pending entries.
+Зафиксированные next tasks: Codex C01 (оригинальный RegionFile adapter, dependency,
+snapshot fixture); agy A01 откроется после C01; затем обе очереди выбирают C02/A02
+и C03. Сохранение остаётся локальным; parity helper должен тестировать копии и
+проверять неизменность источников.
+
+Проверки этого docs-only этапа: `git diff --check`; JSON parsing queue/status files;
+очередь валидируется `tools/tasks.py` после синхронизации обеих веток. Полный Cargo,
+Python и parity наборы не запускались повторно, код движка не менялся.

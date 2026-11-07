@@ -175,6 +175,41 @@
       "title": "Интеграция и приёмка NBT-001",
       "card": "docs/tasks/CODEX.md",
       "depends_on": ["NBT-001-C01", "NBT-001-C02", "NBT-001-A01", "NBT-001-A02"]
+    },
+    {
+      "id": "REGION-001-C01",
+      "owner": "codex",
+      "title": "Original McRegion adapter, dependency and fixture corpus",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["NBT-001-C03"]
+    },
+    {
+      "id": "REGION-001-C02",
+      "owner": "codex",
+      "title": "McRegion parity runner and protocol checks",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["REGION-001-C01"]
+    },
+    {
+      "id": "REGION-001-A01",
+      "owner": "agy",
+      "title": "Read-only Rust McRegion parser",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["REGION-001-C01"]
+    },
+    {
+      "id": "REGION-001-A02",
+      "owner": "agy",
+      "title": "Rust region probe",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["REGION-001-A01"]
+    },
+    {
+      "id": "REGION-001-C03",
+      "owner": "codex",
+      "title": "McRegion integration and parity acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["REGION-001-C01", "REGION-001-C02", "REGION-001-A01", "REGION-001-A02"]
     }
   ]
 }

@@ -122,6 +122,9 @@
         "python3 tools/parity/verify_report.py artifacts/parity/nbt/run-a56fm2ot/report.json --protocol → PASS: canonical/hashes/audit, 5 synthetic mutations, 86 executions; native differences отдельно от parity",
         "git diff --check → PASS"
       ]
-    }
+    },
+    "REGION-001-C01": {"state": "pending", "summary": "", "checks": []},
+    "REGION-001-C02": {"state": "pending", "summary": "", "checks": []},
+    "REGION-001-C03": {"state": "pending", "summary": "", "checks": []}
   }
 }

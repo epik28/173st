@@ -2,7 +2,8 @@
 
 Выбирать задачу через `python3 tools/tasks.py next agy` по [TASKS.md](../../TASKS.md).
 Архивный протокол: [RNG-001](RNG-001.md). Новые: [RNG-002](RNG-002.md),
-[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md). В каждой карточке изменять только свой
+[CHUNK-001](CHUNK-001.md), [NBT-001](NBT-001.md), [REGION-001](REGION-001.md).
+В каждой карточке изменять только свой
 `docs/tasks/status/agy.json` и `docs/handoffs/agy.md` вместе с разрешённым Rust-кодом.
 
 ## RNG-001-A01 — Rust RNG
@@ -121,3 +122,27 @@ NaN bits, malformed input, depth/size limits и deterministic writer. Выпол
 Диагностика только stderr, LF/stdout строго по протоколу; проверить invalid cases,
 лимиты и round-trip. Сделать commit A02 done и ждать/читать C03 через Git. Ошибки
 внутри этого контракта исправлять самостоятельно по циклу TASKS.md.
+
+## REGION-001-A01 — read-only McRegion API
+
+После REGION-001-C01 прочитать [REGION-001](REGION-001.md) целиком; начать только
+после того, как контракт зафиксировал точный `flate2`/backend в `Cargo.lock`.
+Разрешены `crates/beta-core/src/`, `Cargo.toml`, `Cargo.lock` по согласованному
+решению и тесты crate. Реализовать borrowed `RegionFile`, проверку заголовка,
+location/timestamp, отрицательные region coordinates, чтение и bounded decompression
+через выбранный API. Запись региона и любые правки исходного мира запрещены.
+Проверить malformed headers, overlapping sectors, unsupported compression,
+decompression errors/bombs и NBT payload. Запустить `tools/check.py` и
+`cargo test --all-targets --locked --offline`; если dependency отсутствует offline,
+зафиксировать это как blocked dependency provisioning, не подменять проверку.
+Закоммитить A01 и перейти к A02.
+
+## REGION-001-A02 — region probe
+
+После A01 создать `region_probe` и TSV-протокол контракта. Файлы открывать только
+из per-run copied input directory; не принимать абсолютные пути или `..`.
+Сопоставить полный список слотов, включая absent; сохранять timestamp/compression,
+length/SHA decompressed NBT. Игровой мир, runner и original Java adapter не менять.
+Проверить stdin/stdout/stderr/exit status и повторяемость. Сделать коммит A02 done;
+читать Codex C03/handoff по Git и самостоятельно выполнять исправления внутри
+контракта по циклу TASKS.md.

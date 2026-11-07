@@ -86,6 +86,8 @@
         "python3 -c subprocess smoke → валидный CLI exact stdout; malformed root exits 1, stdout пустой, диагностика в stderr",
         "git diff --check → без ошибок"
       ]
-    }
+    },
+    "REGION-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "REGION-001-A02": {"state": "pending", "summary": "", "checks": []}
   }
 }
