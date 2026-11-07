@@ -136,7 +136,17 @@
         "git diff --check → PASS"
       ]
     },
-    "REGION-001-C02": {"state": "pending", "summary": "", "checks": []},
+    "REGION-001-C02": {
+      "state": "done",
+      "summary": "Добавлен region parity runner на оригинальном qj и region_probe, работающий только на закреплённых копиях. Сравниваются ordered presence/timestamp/compression/NBT length+SHA; saved verifier проверяет native audit, source/copy/log/JAR/class/probe/payload hashes, протокол и синтетическую подмену. 704 present + 44 absent совпали на чистом Rust SHA c76113e; C03 добавит свежий parity run на итоговом Rust SHA и проверит отдельный native edge corpus.",
+      "checks": [
+        "python3 tools/check.py → PASS: 60 Python + 57 Rust all-targets, fmt/check/clippy/doc",
+        "python3 -m unittest discover -s tests/python -p test_region_runner.py -v → PASS: 9 synthetic parser/path/comparator/decompression/limit/audit/payload/copy/timeout tests",
+        "python3 tools/parity/run.py region --strict → PASS 748/748 rows (704 present + 44 absent), SHA c76113e79e6928d16bad9764157deb6296739d6f, rust_dirty=false; artifacts/parity/region/run-sfw68p9c/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/region/run-sfw68p9c/report.json --protocol → PASS: pinned JAR/class/native calls, source and copies unchanged, payload hashes, 16 protocol executions and synthetic payload mutation",
+        "git diff --check → PASS"
+      ]
+    },
     "REGION-001-C03": {"state": "pending", "summary": "", "checks": []}
   }
 }
