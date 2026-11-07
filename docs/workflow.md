@@ -87,8 +87,9 @@ python3 tools/agent_session.py finish agy
 
 Перед параллельной реализацией зафиксировать интерфейсы, входы, выходы и приёмку
 общим коммитом. Приняты [RNG-001](tasks/RNG-001.md), [RNG-002](tasks/RNG-002.md),
-[CHUNK-001](tasks/CHUNK-001.md) и [NBT-001](tasks/NBT-001.md); текущий контракт —
-[REGION-001](tasks/REGION-001.md).
+[CHUNK-001](tasks/CHUNK-001.md), [NBT-001](tasks/NBT-001.md) и
+[REGION-001](tasks/REGION-001.md); текущий контракт —
+[WORLD-LOAD-001](tasks/WORLD-LOAD-001.md).
 Если контракт нужно изменить, сначала договориться и обновить исходную ревизию
 обоих агентов. Нельзя одновременно менять общие зависимости и ожидать бесконфликтный merge.
 
