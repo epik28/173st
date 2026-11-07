@@ -1,5 +1,45 @@
 # Отчёт Codex
 
+## REGION-001-C01 — done, dependency и native corpus готовы для agy
+
+- Исходная ревизия: `312a41e88bec2d68d3e31b2d6e58907bafa16173` (main и обе роли).
+  Итоговая — коммит, содержащий этот раздел; точный SHA берётся из очереди.
+  Agy должен получить snapshot Codex с C01 done через собственный merge, затем A01.
+  Его worktree/ветка здесь не менялись; C01 в main до приёмки пакета не переносится.
+- Cargo.toml / crates/beta-core/Cargo.toml / Cargo.lock: flate2 **=1.1.9**,
+  default-features=false, rust_backend → miniz_oxide 0.8.9. Для хешей probe только
+  dev-dependency sha2 **=0.10.9**. Лицензии/версии записаны в provenance; локальный
+  registry содержит все 15 dependency packages. Новая машина: cargo fetch --locked.
+- Native `qj(File)`, `a(int,int): DataInputStream`, `b()`; private d/e для
+  locations/timestamps. Class hash 6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6.
+  Проверен code source оригинального JAR и pinned JAR hash. Ручной reader/decompressor
+  вместо native метода не используется. Constructor rw запускается только на копиях
+  с guard против ремонта short/unaligned files; все копии хешируются после закрытия.
+- `python3 tools/oracle/region_corpus.py --write` — PASS,
+  `artifacts/oracle-region/run-m_k99qsa`: 704 occupied + 44 absent в двух одинаковых
+  native запусках; 23 synthetic cases и 10 coordinate-boundary cases отдельно.
+  snapshot.json содержит before/after_copy/after_run, все четыре pinned source SHA
+  совпали; копии тоже неизменны. Raw NBT остаётся в artifacts/payloads.
+- Подтверждены ids 1=gzip / 2=zlib, trailing garbage после завершённого stream,
+  несколько gzip members → concatenated output. CRC/truncation/output cap дают error.
+  Native допускает overlap и oversized length на 1–4 байта; safe Rust должен их
+  отвергать. Контракт уточнён этими измерениями до начала A01.
+- CLI закреплён: `region_probe INPUT_COPY_DIR PAYLOAD_DIR`; TSV по контракту;
+  `PAYLOAD_DIR/<case_id>.nbt` для каждого present, без перезаписи; marker в input.
+- Остальные файлы: tools/oracle/region_corpus.py, tools/oracle/src/RegionOracle.java,
+  tests/fixtures/region/{sources.json,live.tsv,coordinates.tsv,audit.json,provenance.md},
+  tests/python/test_region_corpus.py, docs/tasks/REGION-001.md, progress/status/handoff.
+- `cargo generate-lockfile --offline`, `cargo check --workspace --all-targets --locked --offline`,
+  `cargo tree --locked --offline -e features` — PASS; pure Rust compression backend.
+  `python3 -m unittest discover -s tests/python -p test_region_corpus.py -v` — 4 PASS.
+  `python3 tools/check.py` — 51 Python + 43 Rust all-targets, fmt/check/clippy/doc PASS.
+  `git diff --check` — PASS.
+- C01 доказывает оригинальный adapter, а не Rust parity. Сохранение не изменено,
+  игровые bytes не включены в Git. Rust implementation agy не редактировалась;
+  Codex менял только dependency manifests. Заимствований из mc173 нет.
+  Codex на основе GPT-6; точный runtime model ID/стоимость недоступны. Других агентов нет.
+- Следующий шаг Codex: C02 runner; agy: A01 по этому зафиксированному контракту.
+
 ## NBT-001-C03 — независимая приёмка завершена
 
 - Snapshot agy `541d719e83e32ad13e9448e102c8cc1ed16bcf40` интегрирован fast-forward.

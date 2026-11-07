@@ -123,7 +123,19 @@
         "git diff --check → PASS"
       ]
     },
-    "REGION-001-C01": {"state": "pending", "summary": "", "checks": []},
+    "REGION-001-C01": {
+      "state": "done",
+      "summary": "Закреплены flate2 =1.1.9/rust_backend и probe-only sha2 =0.10.9, Cargo.lock и offline provisioning. Оригинальный qj прочитал 704 occupied + 44 absent слота дважды; опубликованы coordinates, source hashes, native audit и 23 synthetic + 10 coordinate cases. Подтверждены gzip/zlib, concatenated gzip и trailing policy. Источники и копии неизменны; Rust parity ещё не выполнялась. Agy может получить этот snapshot Codex и начать A01.",
+      "checks": [
+        "git merge --ff-only main → Already up to date, исходная ревизия 312a41e88bec2d68d3e31b2d6e58907bafa16173",
+        "cargo generate-lockfile --offline; cargo check --workspace --all-targets --locked --offline → PASS, 15 pinned packages доступны offline",
+        "cargo tree --locked --offline -e features → flate2/rust_backend/miniz_oxide, без C backend",
+        "python3 tools/oracle/region_corpus.py --write → PASS: 704 present + 44 absent дважды, 23 synthetic + 10 coordinate cases; artifacts/oracle-region/run-m_k99qsa; четыре source SHA до/после совпали",
+        "python3 -m unittest discover -s tests/python -p test_region_corpus.py -v → 4 PASS: copy/hash/source-change/path/symlink protections",
+        "python3 tools/check.py → PASS: 51 Python + 43 Rust all-targets, fmt/check/clippy/doc",
+        "git diff --check → PASS"
+      ]
+    },
     "REGION-001-C02": {"state": "pending", "summary": "", "checks": []},
     "REGION-001-C03": {"state": "pending", "summary": "", "checks": []}
   }

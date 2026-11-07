@@ -1,0 +1,9 @@
+{
+  "world_relative_path": "minecraft/saves/New World/region",
+  "files": {
+    "r.-1.-1.mcr": {"size": 761856, "sha256": "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f", "present": 172},
+    "r.-1.0.mcr": {"size": 843776, "sha256": "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004", "present": 196},
+    "r.0.-1.mcr": {"size": 1019904, "sha256": "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba", "present": 184},
+    "r.0.0.mcr": {"size": 782336, "sha256": "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a", "present": 152}
+  }
+}

@@ -59,6 +59,29 @@ Unknown/unsupported ids Rust отвергает с отдельной ошибк
 выбор backend. Записывать сжатые файлы в этом пакете не нужно, поэтому parity
 не зависит от уровня компрессии и байтового оформления encoder.
 
+Зафиксировано C01: `flate2 = "=1.1.9"`, `default-features=false`,
+`features=["rust_backend"]`; backend `miniz_oxide 0.8.9`. Для SHA-256 TSV и
+сохранённых payload probe добавлен только dev-dependency `sha2 = "=0.10.9"`
+(`default-features=false`, `features=["std"]`); движку SHA-256 не требуется.
+`Cargo.lock` содержит точные transitive versions/checksums. Все crates уже
+доступны в локальном Cargo cache; `cargo check --workspace --all-targets --locked
+--offline` проходит. На новой машине provisioning: `cargo fetch --locked`, затем
+обычные `--locked --offline` проверки. Лицензии — provenance пакета.
+
+Native evidence C01: настоящий класс `qj`, constructor `qj(File)`, reader
+`a(int,int): DataInputStream`, close `b()`. Поддержаны **1=gzip, 2=zlib**;
+3/raw и остальные ids отвергнуты. Проверены trailing compressed bytes: мусор после
+полного zlib/gzip stream игнорируется; gzip с несколькими корректными members
+возвращает конкатенацию payloads. Лимит 64 MiB применяется к суммарному выводу.
+Повреждённые checksum и незавершённые поддержанные streams — ошибка.
+`MultiGzDecoder` сам по себе может отвергать trailing garbage: реализация должна
+сохранить фактически измеренную политику, не ослабляя проверку завершения members.
+Sector padding не входит в compressed record и игнорируется.
+
+Оригинал допускает overlap и length, превышающий sector capacity на 1–4 bytes;
+Rust обязан отвергать это по safe API выше. Эти два случая — отдельно помеченные
+native differences, не основания считать повреждённый region корректным.
+
 Лимиты reader: input region ≤256 MiB; compressed record не больше
 `255*4096-5` байт; decompressed record ≤64 MiB. Проверять лимиты до allocation,
 decode с output cap, переполнения арифметики и неполное/ошибочное завершение потока.
@@ -101,6 +124,12 @@ method/class cannot be proven, mark live reference blocked; do not replace it wi
 handwritten Java implementation of the Rust parser.
 
 Probe `region_probe` reads copied `.mcr` files and the exact same coordinate list.
+CLI: `region_probe INPUT_COPY_DIR PAYLOAD_DIR`; сохранять каждый present payload
+как `PAYLOAD_DIR/<case_id>.nbt` (пустые слоты файла не создают). Каталоги разделены,
+файлы payload не перезаписывать. Snapshot helper создаёт в input marker
+`.region-input-copy` с текстом `REGION-001 copied inputs\n`; probe требует этот
+marker, чтобы не читать исходное сохранение по ошибке. Java вызывается как
+`RegionOracle JAR INPUT_COPY_DIR PAYLOAD_DIR AUDIT_JSON`.
 Use TSV `case_id<TAB>region_file<TAB>chunk_x<TAB>chunk_z`; `region_file` is a basename
 matching the region coordinates derived from chunk_x/chunk_z. Resolve it only within
 the per-run copied input directory; reject traversal/absolute paths. Output per case:
