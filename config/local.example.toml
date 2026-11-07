@@ -1,0 +1,13 @@
+# Copy to config/local.toml and adjust paths for this machine.
+# Relative paths are resolved from the repository root.
+# Credentials belong in Git's credential helper / SSH agent, not in this file.
+
+[paths]
+beta_wiki = "../beta-wiki"
+reference_sources = ".local/reference-sources"
+minecraft_reference = ".local/minecraft"
+artifacts = "artifacts"
+
+# Optional, once original JAR files are provided and verified:
+# client_jar = ".local/minecraft/client-b1.7.3.jar"
+# server_jar = ".local/minecraft/server-b1.7.3.jar"

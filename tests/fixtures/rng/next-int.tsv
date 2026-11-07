@@ -1,0 +1,7 @@
+# case_id	seed_i64_decimal	count
+seed-zero	0	16
+seed-one	1	16
+seed-negative-one	-1	16
+seed-forty-two	42	16
+seed-min-i64	-9223372036854775808	16
+seed-max-i64	9223372036854775807	16

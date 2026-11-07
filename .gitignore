@@ -1,0 +1,17 @@
+/target/
+/artifacts/
+/.local/
+/config/local.toml
+/.env
+/.env.*
+!/.env.example
+__pycache__/
+*.pyc
+*.class
+*.jar
+*.log
+*.profraw
+*.profdata
+.DS_Store
+/.idea/
+/.vscode/
