@@ -150,7 +150,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(
             output,
-            "tree\t0\t0a0004726f6f740300017a0000000301000161ff00\t21\n"
+            "tree\t0\t0a0004726f6f7401000161ff0300017a0000000300\t21\n"
         );
     }
 

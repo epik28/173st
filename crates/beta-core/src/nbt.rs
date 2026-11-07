@@ -131,7 +131,6 @@ pub enum NbtError {
     InvalidEndTag,
     InvalidListElementType,
     InvalidListElement,
-    InvalidDuplicateName(String),
     NegativeLength(i32),
     LengthOverflow,
     TrailingBytes(usize),
@@ -149,7 +148,6 @@ impl fmt::Display for NbtError {
             Self::InvalidEndTag => f.write_str("End tag has no named payload"),
             Self::InvalidListElementType => f.write_str("invalid NBT list element type"),
             Self::InvalidListElement => f.write_str("NBT list element type mismatch"),
-            Self::InvalidDuplicateName(name) => write!(f, "duplicate compound name {name:?}"),
             Self::NegativeLength(len) => write!(f, "negative NBT collection length {len}"),
             Self::LengthOverflow => f.write_str("NBT length overflow"),
             Self::TrailingBytes(count) => write!(f, "{count} trailing byte(s) after NBT root"),
@@ -322,8 +320,9 @@ impl Reader<'_> {
                 }
             }
             TagType::Compound => {
-                let mut fields = Vec::new();
-                let mut names = std::collections::HashSet::new();
+                let mut fields: Vec<(String, Tag)> = Vec::new();
+                let mut positions: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
                 loop {
                     let field_type = self.read_type()?;
                     if field_type == TagType::End {
@@ -331,11 +330,15 @@ impl Reader<'_> {
                     }
                     self.reserve_elements(1)?;
                     let name = self.read_string()?;
-                    if !names.insert(name.clone()) {
-                        return Err(NbtError::InvalidDuplicateName(name));
-                    }
                     let field = self.read_payload(field_type, depth + 1)?;
-                    fields.push((name, field));
+                    if let Some(&index) = positions.get(&name) {
+                        // The original Beta compound uses HashMap.put: duplicate
+                        // names replace the value while retaining the key slot.
+                        fields[index].1 = field;
+                    } else {
+                        positions.insert(name.clone(), fields.len());
+                        fields.push((name, field));
+                    }
                 }
                 Tag::Compound(fields)
             }
@@ -446,14 +449,29 @@ impl Writer {
             }
             Tag::Compound(fields) => {
                 self.reserve_elements(fields.len())?;
-                let mut names = std::collections::HashSet::new();
+                let mut positions: std::collections::HashMap<&str, usize> =
+                    std::collections::HashMap::new();
+                let mut entries: Vec<(String, &Tag)> = Vec::with_capacity(fields.len());
                 for (name, field) in fields {
                     if field.tag_type() == TagType::End {
                         return Err(NbtError::InvalidEndTag);
                     }
-                    if !names.insert(name) {
-                        return Err(NbtError::InvalidDuplicateName(name.clone()));
+                    if let Some(&index) = positions.get(name.as_str()) {
+                        entries[index].1 = field;
+                    } else {
+                        positions.insert(name.as_str(), entries.len());
+                        entries.push((name.clone(), field));
                     }
+                }
+                let hashes: Vec<u32> = entries
+                    .iter()
+                    .map(|(name, _)| java_string_hash(name))
+                    .collect();
+                let capacity = java_hash_map_capacity(&hashes);
+                let mut order: Vec<usize> = (0..entries.len()).collect();
+                order.sort_by_key(|&index| (java_hash_bucket(hashes[index], capacity), index));
+                for index in order {
+                    let (name, field) = &entries[index];
                     self.write_type(field.tag_type())?;
                     self.write_string(name)?;
                     self.write_payload(field, depth + 1)?;
@@ -469,6 +487,54 @@ impl Writer {
         }
         Ok(())
     }
+}
+
+/// Java String.hashCode over UTF-16 code units, using wrapping i32 arithmetic.
+fn java_string_hash(value: &str) -> u32 {
+    value.encode_utf16().fold(0u32, |hash, unit| {
+        hash.wrapping_mul(31).wrapping_add(u32::from(unit))
+    })
+}
+
+fn java_hash_bucket(hash: u32, capacity: usize) -> usize {
+    ((hash ^ (hash >> 16)) as usize) & (capacity - 1)
+}
+
+/// Reproduces the table capacity used by the original default Java HashMap.
+/// Resize preserves relative order within each split bucket; iteration then
+/// scans buckets by index and visits each bucket's linked nodes in insertion order.
+fn java_hash_map_capacity(hashes: &[u32]) -> usize {
+    if hashes.is_empty() {
+        return 16;
+    }
+    let mut capacity = 16usize;
+    let mut threshold = 12usize;
+    let mut buckets = vec![0usize; capacity];
+    for (position, &hash) in hashes.iter().enumerate() {
+        let bucket = java_hash_bucket(hash, capacity);
+        let chain_len = buckets[bucket];
+        buckets[bucket] += 1;
+        let inserted = &hashes[..=position];
+        if chain_len >= 8 && capacity < 64 {
+            capacity *= 2;
+            threshold = capacity * 3 / 4;
+            buckets = hash_bucket_counts(inserted, capacity);
+        }
+        if position + 1 > threshold {
+            capacity *= 2;
+            threshold = capacity * 3 / 4;
+            buckets = hash_bucket_counts(inserted, capacity);
+        }
+    }
+    capacity
+}
+
+fn hash_bucket_counts(hashes: &[u32], capacity: usize) -> Vec<usize> {
+    let mut buckets = vec![0usize; capacity];
+    for &hash in hashes {
+        buckets[java_hash_bucket(hash, capacity)] += 1;
+    }
+    buckets
 }
 
 fn encode_modified_utf8(value: &str) -> Result<Vec<u8>, NbtError> {
@@ -556,19 +622,6 @@ mod tests {
         let (decoded, consumed) = read_named(&bytes, Limits::default()).unwrap();
         assert_eq!(consumed, bytes.len());
         assert_eq!(write_named(&decoded, Limits::default()).unwrap(), bytes);
-        if !contains_nan(&value.value) {
-            assert_eq!(decoded, value);
-        }
-    }
-
-    fn contains_nan(value: &Tag) -> bool {
-        match value {
-            Tag::Float(number) => number.is_nan(),
-            Tag::Double(number) => number.is_nan(),
-            Tag::List { values, .. } => values.iter().any(contains_nan),
-            Tag::Compound(fields) => fields.iter().any(|(_, value)| contains_nan(value)),
-            _ => false,
-        }
     }
 
     #[test]
@@ -644,15 +697,46 @@ mod tests {
     }
 
     #[test]
-    fn rejects_duplicate_compound_names_and_mismatched_lists() {
-        let duplicate = named(Tag::Compound(vec![
-            ("x".into(), Tag::Byte(1)),
-            ("x".into(), Tag::Byte(2)),
+    fn duplicate_compound_names_match_original_hash_map_put() {
+        // The original Beta reader accepts duplicate names; HashMap.put keeps
+        // one key and the last value.
+        let duplicate = [10, 0, 0, 1, 0, 1, b'x', 1, 1, 0, 1, b'x', 2, 0];
+        let (parsed, consumed) = read_named(&duplicate, Limits::default()).unwrap();
+        assert_eq!(consumed, duplicate.len());
+        assert_eq!(
+            parsed.value,
+            Tag::Compound(vec![("x".into(), Tag::Byte(2))])
+        );
+        assert_eq!(
+            write_named(&parsed, Limits::default()).unwrap(),
+            [10, 0, 0, 1, 0, 1, b'x', 2, 0]
+        );
+    }
+
+    #[test]
+    fn compound_writer_matches_java_hash_map_bucket_order() {
+        let tree = named(Tag::Compound(vec![
+            ("byte".into(), Tag::Byte(1)),
+            ("short".into(), Tag::Short(2)),
+            ("int".into(), Tag::Int(3)),
+            ("long".into(), Tag::Long(4)),
+            ("float".into(), Tag::Float(5.0)),
+            ("double".into(), Tag::Double(6.0)),
+            ("bytes".into(), Tag::ByteArray(vec![])),
+            ("text".into(), Tag::String("x".into())),
+            (
+                "list".into(),
+                Tag::List {
+                    element_type: TagType::Byte,
+                    values: vec![],
+                },
+            ),
+            ("nested".into(), Tag::Compound(vec![])),
         ]));
-        assert!(matches!(
-            write_named(&duplicate, Limits::default()),
-            Err(NbtError::InvalidDuplicateName(_))
-        ));
+        let encoded = write_named(&tree, Limits::default()).unwrap();
+        let parsed = read_named(&encoded, Limits::default()).unwrap().0;
+        assert_eq!(write_named(&parsed, Limits::default()).unwrap(), encoded);
+
         let mismatch = named(Tag::List {
             element_type: TagType::Byte,
             values: vec![Tag::Int(1)],

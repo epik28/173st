@@ -7,7 +7,9 @@
 - Поддержаны все wire-типы 0–11, именованный корень, big-endian числа, вложенные списки и compound, массивы, сохранение IEEE-754 битов и детерминированная запись.
 - Modified UTF-8 кодирует NUL как `C0 80`, кодирует supplementary code points через UTF-16 surrogate pair и принимает также однобайтовый NUL, который допускает `DataInput.readUTF`. Одиночный surrogate отклоняется, так как `String` Rust не может его представить.
 - Лимиты по умолчанию: глубина 512, строка 65535 encoded bytes, суммарно 2 000 000 элементов, полный payload 64 MiB. Проверки размера payload выполняются до накопления writer output; длина строки проверяется до временного выделения encoded буфера; reader проверяет длины до выделения коллекций.
-- Повторные имена compound пока отвергаются до результата Codex C01 об оригинальном reader. gzip/zlib, `.mcr` и probe не входят в A01.
+- NBT C03 live-run 5200 cases выявил несоответствие в compound writer: оригинальный `nu` использует `java.util.HashMap` и пишет элементы в порядке `values()` iterator. Reader Rust ранее отвергал duplicate names.
+- `javap -private -c ... nu` подтвердил HashMap storage/iteration; прямой вызов NbtOracle на duplicate-name compound показал `HashMap.put` semantics: duplicate принимается, последнее значение заменяет предыдущее.
+- Reader теперь применяет last-value-wins, writer моделирует Java `String.hashCode`, HashMap capacity/resize, bucket iteration order и дубли. Изменение остаётся внутри NBT-001-A01.
 
 ### Изменённые файлы
 - `crates/beta-core/src/nbt.rs`
@@ -19,10 +21,11 @@
 - `cargo test --all-targets --locked --offline` → 38 тестов пройдены (24 library, 5 `chunk_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
 - `git diff --check` → без ошибок.
-- Live NBT parity не запускался: oracle/runner принадлежат Codex и ещё не являются частью текущего коммита; A01 подтверждён обычными тестами, не оригинальным сравнением.
+- Первое live-сравнение после получения Codex C01/C02 запущено на чистом SHA `9db415e` (merge snapshot C02 + agy `c325bff`): `python3 tools/parity/run.py nbt --strict` → FAIL, 5200/5200 mismatches; отчёт `artifacts/parity/nbt/run-znl4a74r/report.json`. Сырые Java/Rust выходы и первый mismatch сохранены; comparator/oracle не менялись.
+- После исправления `cargo test --all-targets --locked --offline` → 43 tests PASS; `python3 tools/check.py` → 37 Python tests и все Rust quality checks PASS. Исправленный код ещё нужно закоммитить и повторно проверить live parity.
 
 ### Следующий шаг
-- После коммита выбрать `NBT-001-A02` через `python3 tools/tasks.py next agy` и реализовать probe по контракту.
+- Закоммитить исправление, повторить NBT parity на чистой ревизии и убедиться, что обе стороны дают точные round-trip bytes и consumed lengths; затем вернуть A01 `done`.
 
 ## NBT-001-A02 — Rust NBT probe
 
@@ -37,11 +40,11 @@
 - `docs/handoffs/agy.md`
 
 ### Проверки
-- `cargo test --all-targets --locked --offline` → 42 теста пройдены (24 library, 5 `chunk_probe`, 4 `nbt_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
+- `cargo test --all-targets --locked --offline` до исправления A01 → 42 теста пройдены; после исправления → 43 PASS (25 library, 5 `chunk_probe`, 4 `nbt_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
 - `python3 -c '…subprocess…'` запускал `cargo run --quiet --locked --offline -p beta-core --example nbt_probe`: валидный root дал точный stdout `smoke<TAB>0<TAB>0a000000<TAB>4<LF>`; неверный root завершился кодом 1 с пустым stdout и ошибкой в stderr.
 - `git diff --check` → без ошибок.
-- Live NBT parity ещё не запускался; C01/C02 присутствуют только в committed snapshot Codex. Их точный merge и live-проверка следующий шаг, а отсутствие сравнения сейчас не объявляется pass.
+- C01/C02 snapshot `07726cfa3913a4a565d8a47623f59b34bb17ae5d` получен обычным merge; первая live parity дала mismatch из-за A01 compound ordering. Этот defect исправляется в A01; итоговый parity ещё не pass.
 
 ### Следующий шаг
 - Статусы обеих agy карточек NBT-001 выставлены `done`; следующую задачу выбирает очередь. Для NBT parity нужен закоммиченный Codex C01/C02 и интеграция обеих сторон.

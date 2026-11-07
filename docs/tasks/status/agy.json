@@ -64,19 +64,20 @@
       ]
     },
     "NBT-001-A01": {
-      "state": "done",
-      "summary": "Реализован beta_core::nbt: safe модель типов NBT 0–11, big-endian reader/writer, modified UTF-8 и проверки глубины, длины строки, общего числа элементов и размера payload. Reader отвергает неизвестные/недопустимые типы, отрицательные длины, дубликаты имён compound, неверные list и trailer; float/double хранят raw IEEE-754 bits. gzip и region формат не входят в карточку.",
+      "state": "in_progress",
+      "summary": "NBT-001-C03 live-запуск на snapshot agy c325bff выявил mismatch 5200/5200: оригинальный nu writer сериализует compound по порядку Java HashMap, Rust сохранял wire order. Javap подтвердил HashMap; оригинальный адаптер подтвердил, что дубликаты имён принимаются и последнее значение заменяет предыдущее. Исправляю reader/writer внутри контракта.",
       "checks": [
-        "cargo test --all-targets --locked --offline → 38 тестов пройдены (24 library, 5 chunk_probe, 5 rng_extended_probe, 4 rng_probe)",
-        "python3 tools/check.py → 37 Python tests, fmt, cargo check, clippy -D warnings, workspace tests и doc tests прошли",
-        "git diff --check → без ошибок"
+        "python3 tools/parity/run.py nbt --strict → FAIL на SHA c325bff: 5200/5200 mismatch, первый case-00000 показывает Java HashMap order; report artifacts/parity/nbt/run-znl4a74r/report.json",
+        "javap -private -c -classpath ../.local/minecraft/client-b1.7.3.jar nu → оригинал хранит compound в java.util.HashMap и пишет values() iteration",
+        "NbtOracle на валидном duplicate-name compound → exit 0; duplicate key заменён последним значением",
+        "cargo test --all-targets --locked --offline → 43 теста PASS после исправления; python3 tools/check.py → 37 Python tests, fmt/check/clippy/all-targets/doc PASS"
       ]
     },
     "NBT-001-A02": {
       "state": "done",
       "summary": "Добавлен crates/beta-core/examples/nbt_probe.rs по зафиксированному C02 протоколу: input case_id<TAB>hex_bytes; output case_id<TAB>0<TAB>round_trip_hex<TAB>consumed_bytes. Вход проверяет hex, ID, дубликаты, поля и лимиты; ошибки — stderr и код 1. encode: намеренно не добавлен до согласования C01.",
       "checks": [
-        "cargo test --all-targets --locked --offline → 42 теста пройдены (24 library, 5 chunk_probe, 4 nbt_probe, 5 rng_extended_probe, 4 rng_probe)",
+        "cargo test --all-targets --locked --offline → 43 теста пройдены (25 library, 5 chunk_probe, 4 nbt_probe, 5 rng_extended_probe, 4 rng_probe)",
         "python3 tools/check.py → 37 Python tests, fmt, cargo check, clippy -D warnings, workspace tests и doc tests прошли",
         "python3 -c subprocess smoke → валидный CLI exact stdout; malformed root exits 1, stdout пустой, диагностика в stderr",
         "git diff --check → без ошибок"
