@@ -27,10 +27,9 @@
 ## NBT-001-A02 — Rust NBT probe
 
 ### Результат
-- Добавлен `crates/beta-core/examples/nbt_probe.rs`: вход `case_id<TAB>hex_bytes`, один полный uncompressed named root на строку; выход `case_id<TAB>consumed_bytes<TAB>canonical_tree`.
-- Канонический вид сохраняет типы, signed числовые значения, raw IEEE-754 bits и element type пустого списка. Имена и строки представлены UTF-8 hex, поля compound сортируются по UTF-8 байтам имени.
+- Добавлен `crates/beta-core/examples/nbt_probe.rs` по уже закоммиченному C02 runner protocol: input `case_id<TAB>hex_bytes`; output `case_id<TAB>0<TAB>round_trip_hex<TAB>consumed_bytes`.
+- Probe разбирает named root библиотечным reader, повторно записывает дерево writer-ом и выдаёт точные байты плюс consumed length. `encode:` не добавлен: этот режим не нужен C02 и его контракт требовал согласования с C01.
 - Проверяются формат TSV/hex, уникальные ASCII ID, пустые/комментарии, ограничения на число случаев и объём входных payload; ошибки завершают CLI с кодом 1 и диагностикой только в stderr.
-- Операция `encode:` не реализована: её входной протокол оставлен до согласования C01. Вход бинарных деревьев не содержит ожидаемых ответов.
 
 ### Изменённые файлы
 - `crates/beta-core/examples/nbt_probe.rs`
@@ -40,9 +39,9 @@
 ### Проверки
 - `cargo test --all-targets --locked --offline` → 42 теста пройдены (24 library, 5 `chunk_probe`, 4 `nbt_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
 - `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
-- `python3 -c '…subprocess…'` запускал `cargo run --quiet --locked --offline -p beta-core --example nbt_probe`: валидный root дал точный stdout `smoke<TAB>4<TAB>:Compound{}<LF>`; неверный root завершился кодом 1 с пустым stdout и ошибкой в stderr.
+- `python3 -c '…subprocess…'` запускал `cargo run --quiet --locked --offline -p beta-core --example nbt_probe`: валидный root дал точный stdout `smoke<TAB>0<TAB>0a000000<TAB>4<LF>`; неверный root завершился кодом 1 с пустым stdout и ошибкой в stderr.
 - `git diff --check` → без ошибок.
-- Live NBT parity не запускался: оригинальный адаптер, корпус и runner ещё не включены в текущую ветку; отсутствие такого сравнения не объявляется pass.
+- Live NBT parity ещё не запускался; C01/C02 присутствуют только в committed snapshot Codex. Их точный merge и live-проверка следующий шаг, а отсутствие сравнения сейчас не объявляется pass.
 
 ### Следующий шаг
 - Статусы обеих agy карточек NBT-001 выставлены `done`; следующую задачу выбирает очередь. Для NBT parity нужен закоммиченный Codex C01/C02 и интеграция обеих сторон.

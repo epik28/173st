@@ -1,15 +1,13 @@
 //! TSV probe for the beta_core NBT parser.
 //!
 //! Input: `case_id<TAB>hex_bytes` (one complete uncompressed named root per line).
-//! Output: `case_id<TAB>consumed_bytes<TAB>canonical_tree`.
-//! String values/names are UTF-8 hex, float values are their raw IEEE-754 bits,
-//! and compound entries are sorted by name for a stable canonical representation.
+//! Output: `case_id<TAB>0<TAB>round_trip_hex<TAB>consumed_bytes`.
 
 use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use std::process::ExitCode;
 
-use beta_core::nbt::{Limits, NamedTag, NbtError, Tag, TagType, read_named};
+use beta_core::nbt::{Limits, read_named, write_named};
 
 const MAX_CASES: usize = 100_000;
 const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
@@ -45,101 +43,13 @@ fn hex_value(byte: u8) -> Option<u8> {
     }
 }
 
-fn hex_string(value: &str) -> String {
-    let mut output = String::with_capacity(value.len() * 2);
-    for byte in value.as_bytes() {
+fn encode_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
         use std::fmt::Write as _;
         write!(output, "{byte:02x}").expect("writing to String cannot fail");
     }
     output
-}
-
-fn tag_type_name(tag_type: TagType) -> &'static str {
-    match tag_type {
-        TagType::End => "End",
-        TagType::Byte => "Byte",
-        TagType::Short => "Short",
-        TagType::Int => "Int",
-        TagType::Long => "Long",
-        TagType::Float => "Float",
-        TagType::Double => "Double",
-        TagType::ByteArray => "ByteArray",
-        TagType::String => "String",
-        TagType::List => "List",
-        TagType::Compound => "Compound",
-        TagType::IntArray => "IntArray",
-    }
-}
-
-fn canonical_tag(tag: &Tag) -> Result<String, NbtError> {
-    Ok(match tag {
-        Tag::End => "End".into(),
-        Tag::Byte(value) => format!("Byte({value})"),
-        Tag::Short(value) => format!("Short({value})"),
-        Tag::Int(value) => format!("Int({value})"),
-        Tag::Long(value) => format!("Long({value})"),
-        Tag::Float(value) => format!("Float({:08x})", value.to_bits()),
-        Tag::Double(value) => format!("Double({:016x})", value.to_bits()),
-        Tag::ByteArray(values) => {
-            let mut out = String::from("ByteArray(");
-            for value in values {
-                use std::fmt::Write as _;
-                write!(out, "{:02x}", *value as u8).expect("writing to String cannot fail");
-            }
-            out.push(')');
-            out
-        }
-        Tag::String(value) => format!("String({})", hex_string(value)),
-        Tag::List {
-            element_type,
-            values,
-        } => {
-            let mut out = format!("List<{}>[", tag_type_name(*element_type));
-            for (index, value) in values.iter().enumerate() {
-                if index != 0 {
-                    out.push(',');
-                }
-                out.push_str(&canonical_tag(value)?);
-            }
-            out.push(']');
-            out
-        }
-        Tag::Compound(fields) => {
-            let mut fields: Vec<_> = fields.iter().collect();
-            fields.sort_by(|left, right| left.0.as_bytes().cmp(right.0.as_bytes()));
-            let mut out = String::from("Compound{");
-            for (index, (name, value)) in fields.into_iter().enumerate() {
-                if index != 0 {
-                    out.push(',');
-                }
-                out.push_str(&hex_string(name));
-                out.push(':');
-                out.push_str(&canonical_tag(value)?);
-            }
-            out.push('}');
-            out
-        }
-        Tag::IntArray(values) => {
-            let mut out = String::from("IntArray[");
-            for (index, value) in values.iter().enumerate() {
-                if index != 0 {
-                    out.push(',');
-                }
-                use std::fmt::Write as _;
-                write!(out, "{value}").expect("writing to String cannot fail");
-            }
-            out.push(']');
-            out
-        }
-    })
-}
-
-fn canonical_named(value: &NamedTag) -> Result<String, NbtError> {
-    Ok(format!(
-        "{}:{}",
-        hex_string(&value.name),
-        canonical_tag(&value.value)?
-    ))
 }
 
 pub fn process_stream<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<(), String> {
@@ -176,21 +86,30 @@ pub fn process_stream<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<
                 "line {line_no}: hex_bytes cannot contain whitespace"
             ));
         }
-        let bytes = decode_hex(hex).map_err(|error| format!("line {line_no}: {error}"))?;
+        if hex.is_empty() || !hex.len().is_multiple_of(2) {
+            return Err(format!(
+                "line {line_no}: hex_bytes must be non-empty and have an even number of digits"
+            ));
+        }
         input_bytes = input_bytes
-            .checked_add(bytes.len())
+            .checked_add(hex.len() / 2)
             .ok_or_else(|| format!("line {line_no}: input byte count overflow"))?;
         if input_bytes > MAX_INPUT_BYTES {
             return Err(format!(
                 "line {line_no}: total input limit {MAX_INPUT_BYTES} exceeded"
             ));
         }
+        let bytes = decode_hex(hex).map_err(|error| format!("line {line_no}: {error}"))?;
         let (tree, consumed) = read_named(&bytes, Limits::default())
             .map_err(|error| format!("line {line_no}, case {case_id:?}: {error}"))?;
-        let canonical = canonical_named(&tree)
+        let round_trip = write_named(&tree, Limits::default())
             .map_err(|error| format!("line {line_no}, case {case_id:?}: {error}"))?;
-        writeln!(writer, "{case_id}\t{consumed}\t{canonical}")
-            .map_err(|error| format!("line {line_no}: write error: {error}"))?;
+        writeln!(
+            writer,
+            "{case_id}\t0\t{}\t{consumed}",
+            encode_hex(&round_trip)
+        )
+        .map_err(|error| format!("line {line_no}: write error: {error}"))?;
     }
     writer
         .flush()
@@ -224,14 +143,14 @@ mod tests {
     }
 
     #[test]
-    fn decodes_and_canonicalizes_trees() {
+    fn round_trips_trees_in_runner_protocol() {
         // Named root Compound("root") containing Int("z")=3 and Byte("a")=-1.
         let input = b"tree\t0a0004726f6f740300017a0000000301000161ff00\n";
         let (result, output) = process(input);
         assert!(result.is_ok());
         assert_eq!(
             output,
-            "tree\t21\t726f6f74:Compound{61:Byte(-1),7a:Int(3)}\n"
+            "tree\t0\t0a0004726f6f740300017a0000000301000161ff00\t21\n"
         );
     }
 
@@ -240,14 +159,14 @@ mod tests {
         // Named root Float("f") with a noncanonical NaN payload.
         let (result, output) = process(b"float\t050001667fc01234\n");
         assert!(result.is_ok());
-        assert_eq!(output, "float\t8\t66:Float(7fc01234)\n");
+        assert_eq!(output, "float\t0\t050001667fc01234\t8\n");
     }
 
     #[test]
     fn accepts_empty_lines_comments_and_rejects_bad_protocol() {
         let (result, output) = process(b"\n# sample\nempty\t0a000000\n");
         assert!(result.is_ok());
-        assert_eq!(output, "empty\t4\t:Compound{}\n");
+        assert_eq!(output, "empty\t0\t0a000000\t4\n");
         for invalid in [
             &b"bad\n"[..],
             &b"id\t0a0000\textra\n"[..],
