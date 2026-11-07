@@ -91,7 +91,7 @@
     },
     "CHUNK-001-C03": {
       "state": "done",
-      "summary": "Принят CHUNK-001: agy 14b50482bc1fa9ef4850d7983780ceda876bb80a, чистая проверенная ревизия 6b0bdfc26a5c53934da9980c4a3ed5051b7910bc. Оригинальный wi: 4182/4182; прежние rng 96/96 и rng-extended 13227/13227; протокол/мутации/error paths PASS. Контейнер данных, без загрузки мира/рендера. Коммит приёмки включается в main.",
+      "summary": "Принят CHUNK-001: agy 14b50482bc1fa9ef4850d7983780ceda876bb80a, чистая проверенная ревизия 6b0bdfc26a5c53934da9980c4a3ed5051b7910bc. Оригинальный wi: 4182/4182; прежние rng 96/96 и rng-extended 13227/13227; протокол/мутации/error paths PASS. Контейнер данных, без загрузки мира/рендера. Коммит приёмки 2c5cb4a принят в main fast-forward; очередь Codex complete.",
       "checks": [
         "python3 tools/check.py → PASS: 37 Python + 31 Rust all-targets, fmt/check/clippy/doc",
         "cargo test --all-targets --locked --offline → 31 PASS; включая from_raw lengths, atomic set и probe",
@@ -101,7 +101,8 @@
         "python3 tools/parity/verify_report.py artifacts/parity/chunk/run-jvj35_be/report.json --protocol → PASS: хеши/native calls, 3 синтетические подмены, 46 TSV executions + missing JAR + synthetic reflection error (48 total)",
         "python3 tools/parity/verify_report.py artifacts/parity/rng/run-5_dm3mel/report.json --protocol → 36 PASS",
         "python3 tools/parity/verify_report.py artifacts/parity/rng-extended/run-epqhsc13/report.json --protocol → 44 PASS",
-        "git diff --check → PASS"
+        "git diff --check → PASS",
+        "git switch main; git merge --ff-only codex/verification; git switch codex/verification → PASS: main 2c5cb4a; git diff --exit-code main HEAD → 0; python3 tools/tasks.py next codex → complete"
       ]
     }
   }

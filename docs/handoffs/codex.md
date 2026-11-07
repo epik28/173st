@@ -381,3 +381,19 @@ pending в общем коммите подготовки, а не отмече�
 - Вклад: Rust контейнер/probe — agy, Java/research/corpus/runner/review/integration — Codex.
   Codex Rust-код не правил. Область — контейнер без NBT/world load/render.
 - После main перечитать очередь: ожидается complete; новых этапов не создавать.
+
+### Фактическое завершение очереди и main
+
+- RNG-002 принят в main коммитом `e11362c518ad75c83edda89076ea1ef44b256415`.
+- CHUNK-001 принят в main коммитом `2c5cb4a6256acb4a29a7beb7b9e0dc9f1197ed4c`.
+  `git switch main; git merge --ff-only codex/verification; git switch codex/verification`
+  → успешно, main e11362c..2c5cb4a. Чужая ветка/worktree не перемещались.
+- `git rev-parse main HEAD` → одинаковые 2c5cb4a...;
+  `git diff --exit-code main HEAD` → 0; `git status --short` → пусто.
+- `python3 tools/tasks.py next codex` → state complete; незавершённой приёмки нет.
+- Этот финальный отчёт дополняет принятую ревизию только документацией/своим статусом
+  и включается в main тем же fast-forward. Проверенный код остаётся идентичным
+  ревизии `6b0bdfc26a5c53934da9980c4a3ed5051b7910bc`.
+- Все шесть новых карточек Codex выполнены, новые этапы вне очереди не открывались.
+  Следующий шаг — отдельные контракты по roadmap; обновить ветку agy до main
+  в её следующей собственной сессии. Публикация удалённых веток не выполнялась.

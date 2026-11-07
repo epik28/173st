@@ -4,7 +4,7 @@
 
 - **RNG-001, RNG-002 и CHUNK-001 приняты**; все карточки текущей очереди выполнены.
   Коммит приёмки RNG-002 `e11362c` включён в main fast-forward. Приёмка CHUNK-001
-  оформлена итоговым коммитом с этим прогрессом для fast-forward в main.
+  `2c5cb4a` также включена в main fast-forward; очередь Codex вернула complete.
 - RNG-001: Java API nextInt на шести seed, 96 результатов.
 - RNG-002: методы bound/long/boolean/float/double/setSeed, общее состояние и
   13227 операций; raw IEEE-биты, invalid_bound/reseed, rejection sampling.
