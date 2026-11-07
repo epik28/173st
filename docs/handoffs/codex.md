@@ -198,3 +198,24 @@ pending в общем коммите подготовки, а не отмече�
 
 Следующий запуск: RNG-002-C01 для Codex и RNG-002-A01 для agy, параллельно.
 Подготовка контрактов сама по себе эти реализации не выполняет.
+
+## RNG-002-C01 — done
+
+- Старт: `0fc4ba9b879bc524fdd5472c7e458921dfc965d8`; итог — коммит с этим разделом.
+  Роль Codex, модель/настройки не менялись, дополнительных агентов нет.
+- Ветка уже на main: `git merge --ff-only main` → Already up to date.
+- Файлы: `tools/oracle/src/RandomExtendedOracle.java`, `RejectionMutation.java`,
+  `tools/oracle/extended_corpus.py`, README oracle, `tests/fixtures/rng/extended.tsv`,
+  `extended.md`, собственные status/handoff. Rust не изменялся.
+- `python3 tools/oracle/extended_corpus.py --write` → PASS: javac, два идентичных
+  выхода (25 случаев / 13227 операций), 17 неверных входов отклонены, 100000
+  операций принято. Проверены неизменность состояния после invalid_bound и
+  эквивалентность reseed новому Random на шести seed. Все операции вызывает
+  настоящий java.util.Random; LCG в Java не переписывался.
+- 2048 последовательных bound=1073741825 при seed=0 отличают синтетический sampler
+  без rejection: 2048 несовпадений, первое (record=0) — Java 516548029 против
+  synthetic 495999535. Мутация в отдельном классе, не используется как live-эталон.
+  Доказательства: `artifacts/oracle-extended-check/audit.json`, reference.stdout.tsv
+  и synthetic-no-rejection.tsv. `git diff --check` → PASS.
+- Заимствований/помощи agy в Java нет; Rust↔Java по RNG-002 ещё не сравнивались.
+  Следующий шаг: RNG-002-C02, расширить runner и стандартный запуск example-тестов.

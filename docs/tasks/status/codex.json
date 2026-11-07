@@ -34,9 +34,13 @@
       ]
     },
     "RNG-002-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Независимый RandomExtendedOracle вызывает Java API. Детерминированный корпус: 25 случаев / 13227 операций; все методы/границы, invalid_bound/reseed и 2048 rejection-вызовов. Синтетическая мутация без rejection обнаружена отдельно. Rust parity ещё не выполнена.",
+      "checks": [
+        "git merge --ff-only main → Already up to date (0fc4ba9)",
+        "python3 tools/oracle/extended_corpus.py --write → PASS: javac, повторяемые 13227 записей, 17 неверных входов отвергнуты, лимит 100000 принят; 2048/2048 synthetic no-rejection mismatches; artifacts/oracle-extended-check/audit.json",
+        "git diff --check → PASS"
+      ]
     },
     "RNG-002-C02": {
       "state": "pending",
