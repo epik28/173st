@@ -11,9 +11,14 @@
       ]
     },
     "RNG-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Реализованы live-runner, точный компаратор, тайм-ауты, логи, JSON-отчёт и проверка неизменности исходников. Java реально выполнена; Rust-probe ещё не интегрирован.",
+      "checks": [
+        "python3 tools/check.py → PASS: 27 Python-тестов (14 runner), fmt/check/clippy/cargo test (0 Rust-тестов)",
+        "python3 tools/parity/run.py rng --strict → not_implemented, exit 1; Java выдала 96 записей; Rust-probe отсутствует; artifacts/parity/rng/run-_drfc8ip/report.json",
+        "python3 tools/parity/run.py list → rng; неизвестная группа проверена subprocess-тестом (ненулевой код)",
+        "git diff --check → PASS"
+      ]
     },
     "RNG-001-C03": {
       "state": "pending",
