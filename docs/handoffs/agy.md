@@ -24,6 +24,29 @@
 ### Следующий шаг
 - После коммита выбрать `NBT-001-A02` через `python3 tools/tasks.py next agy` и реализовать probe по контракту.
 
+## NBT-001-A02 — Rust NBT probe
+
+### Результат
+- Добавлен `crates/beta-core/examples/nbt_probe.rs`: вход `case_id<TAB>hex_bytes`, один полный uncompressed named root на строку; выход `case_id<TAB>consumed_bytes<TAB>canonical_tree`.
+- Канонический вид сохраняет типы, signed числовые значения, raw IEEE-754 bits и element type пустого списка. Имена и строки представлены UTF-8 hex, поля compound сортируются по UTF-8 байтам имени.
+- Проверяются формат TSV/hex, уникальные ASCII ID, пустые/комментарии, ограничения на число случаев и объём входных payload; ошибки завершают CLI с кодом 1 и диагностикой только в stderr.
+- Операция `encode:` не реализована: её входной протокол оставлен до согласования C01. Вход бинарных деревьев не содержит ожидаемых ответов.
+
+### Изменённые файлы
+- `crates/beta-core/examples/nbt_probe.rs`
+- `docs/tasks/status/agy.json`
+- `docs/handoffs/agy.md`
+
+### Проверки
+- `cargo test --all-targets --locked --offline` → 42 теста пройдены (24 library, 5 `chunk_probe`, 4 `nbt_probe`, 5 `rng_extended_probe`, 4 `rng_probe`).
+- `python3 tools/check.py` → 37 Python tests; fmt, cargo check, clippy `-D warnings`, workspace tests и doc tests прошли.
+- `python3 -c '…subprocess…'` запускал `cargo run --quiet --locked --offline -p beta-core --example nbt_probe`: валидный root дал точный stdout `smoke<TAB>4<TAB>:Compound{}<LF>`; неверный root завершился кодом 1 с пустым stdout и ошибкой в stderr.
+- `git diff --check` → без ошибок.
+- Live NBT parity не запускался: оригинальный адаптер, корпус и runner ещё не включены в текущую ветку; отсутствие такого сравнения не объявляется pass.
+
+### Следующий шаг
+- Статусы обеих agy карточек NBT-001 выставлены `done`; следующую задачу выбирает очередь. Для NBT parity нужен закоммиченный Codex C01/C02 и интеграция обеих сторон.
+
 ## Метаданные
 - **Model ID:** Gemini 3.8 Flash (High) via Antigravity
 - **Заимствования:** Нет (реализация контейнера чанка и probe по контракту CHUNK-001)

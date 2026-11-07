@@ -72,6 +72,15 @@
         "git diff --check → без ошибок"
       ]
     },
-    "NBT-001-A02": {"state": "pending", "summary": "", "checks": []}
+    "NBT-001-A02": {
+      "state": "done",
+      "summary": "Добавлен crates/beta-core/examples/nbt_probe.rs: TSV case_id<TAB>hex_bytes для полного named root, выход consumed length и каноническое дерево. Имена/строки выводятся как UTF-8 hex, float/double как raw bits, поля compound сортируются по имени. Вход проверяет hex, ID, дубликаты, поля и лимиты; ошибки — stderr и код 1. encode: намеренно не добавлен до согласования C01.",
+      "checks": [
+        "cargo test --all-targets --locked --offline → 42 теста пройдены (24 library, 5 chunk_probe, 4 nbt_probe, 5 rng_extended_probe, 4 rng_probe)",
+        "python3 tools/check.py → 37 Python tests, fmt, cargo check, clippy -D warnings, workspace tests и doc tests прошли",
+        "python3 -c subprocess smoke → валидный CLI exact stdout; malformed root exits 1, stdout пустой, диагностика в stderr",
+        "git diff --check → без ошибок"
+      ]
+    }
   }
 }
