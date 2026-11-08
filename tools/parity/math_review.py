@@ -70,6 +70,12 @@ def _verify_revision(report, processes):
              "saved source revision is dirty or disagrees with report")
 
 
+def _verify_comparison_summary(report, comparison):
+    _require(comparison["mismatch_count"] == report.get("mismatch_count")
+             and comparison["first_mismatch"] == report.get("first_mismatch"),
+             "saved mismatch summary disagrees with outputs")
+
+
 def _verify_math(report_path, report, protocol=False):
     _require(report.get("suite") == "math" and report.get("status") == "pass",
              "requires a successful math live report")
@@ -99,9 +105,7 @@ def _verify_math(report_path, report, protocol=False):
     if len(cases) != report["case_count"]:
         raise SystemExit("saved case count mismatch")
     compare = compare_math_outputs(raw["java-run"], raw["rust-run"], cases)
-    if (compare["mismatch_count"] != report.get("mismatch_count")
-            or compare["first_mismatch"] != report.get("first_mismatch")):
-        raise SystemExit("saved mismatch summary disagrees with outputs")
+    _verify_comparison_summary(report, compare)
     if compare["mismatch_count"]:
         raise SystemExit("saved outputs no longer match")
 

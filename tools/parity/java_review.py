@@ -68,6 +68,12 @@ def _verify_revision(report, processes):
              "saved source revision is dirty or disagrees with report")
 
 
+def _verify_comparison_summary(report, comparison):
+    _require(comparison["mismatch_count"] == report.get("mismatch_count")
+             and comparison["first_mismatch"] == report.get("first_mismatch"),
+             "saved mismatch summary disagrees with outputs")
+
+
 def _verify_java(report_path, report, protocol=False):
     _require(report.get("suite") == "java" and report.get("status") == "pass",
              "requires a successful Java live report")
@@ -118,9 +124,7 @@ def _verify_java(report_path, report, protocol=False):
     if source_snapshot(ROOT) != report.get("source_hashes"):
         raise SystemExit("sources changed since comparison")
     comparison = compare(raw["java-run"], raw["rust-run"], cases)
-    if (comparison["mismatch_count"] != report.get("mismatch_count")
-            or comparison["first_mismatch"] != report.get("first_mismatch")):
-        raise SystemExit("saved mismatch summary disagrees with outputs")
+    _verify_comparison_summary(report, comparison)
     if comparison["mismatch_count"]:
         raise SystemExit("saved Java/Rust outputs no longer match")
 
