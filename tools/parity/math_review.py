@@ -13,14 +13,81 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_math(report_path, report, protocol=False):
-    if report.get("suite") != "math" or report.get("status") != "pass":
-        raise SystemExit("requires a successful math live report")
+def _require(condition, message):
+    if not condition:
+        raise SystemExit(message)
+
+
+def _saved_processes(report, expected):
+    processes = report.get("processes")
+    _require(isinstance(processes, dict), "saved process records are missing or invalid")
+    logs = report.get("log_paths")
+    _require(isinstance(logs, dict), "saved log_paths are missing or invalid")
+    for label in expected:
+        process = processes.get(label)
+        _require(isinstance(process, dict), f"saved process record {label} is missing")
+        _require(process.get("returncode") == 0 and process.get("timeout") is False
+                 and process.get("error") is None,
+                 f"saved process {label} did not complete successfully")
+        for stream in ("stdout", "stderr"):
+            saved = process.get(stream)
+            _require(isinstance(saved, str) and saved,
+                     f"saved {label} {stream} path is missing")
+            expected_path = logs.get(label, {}).get(stream)
+            _require(expected_path == saved,
+                     f"saved {label} {stream} path disagrees with log_paths")
+            path = Path(saved)
+            _require(path.is_file() and not path.is_symlink(),
+                     f"saved {label} {stream} log is missing or invalid: {path}")
+            _require(sha(path.read_bytes()) == process.get(f"{stream}_sha256"),
+                     f"saved {label} {stream} log hash mismatch")
+    return processes
+
+
+def _verify_artifacts(report, log, processes):
+    classes = Path(log.get("java_classes", ""))
+    adapter = classes / "MathOracle.class"
+    _require(adapter.is_file() and not adapter.is_symlink(),
+             f"saved Java adapter class is missing: {adapter}")
+    _require(sha(adapter.read_bytes()) == report.get("adapter_class_sha256"),
+             "saved Java adapter class hash mismatch")
+    binary = Path(log.get("rust_binary", ""))
+    _require(binary.is_file() and not binary.is_symlink(),
+             f"saved Rust executable is missing: {binary}")
+    _require(sha(binary.read_bytes()) == report.get("rust_binary_sha256"),
+             "saved Rust executable hash mismatch")
+    command = processes["rust-run"].get("command")
+    _require(isinstance(command, list) and command and Path(command[0]) == binary,
+             "saved rust-run executable path disagrees with rust_binary")
+
+
+def _verify_revision(report, processes):
+    revision = Path(processes["git-revision"]["stdout"]).read_text().strip()
+    _require(revision and revision == report.get("rust_revision"),
+             "saved git revision disagrees with report")
+    dirty = Path(processes["git-dirty"]["stdout"]).read_bytes()
+    _require(not dirty and report.get("rust_dirty") is False,
+             "saved source revision is dirty or disagrees with report")
+
+
+def _verify_math(report_path, report, protocol=False):
+    _require(report.get("suite") == "math" and report.get("status") == "pass",
+             "requires a successful math live report")
+    expected = ("git-revision", "git-dirty", "version-java", "version-javac",
+                "version-rustc", "version-cargo", "java-build", "java-run",
+                "java-repeat", "rust-build", "rust-run")
+    processes = _saved_processes(report, expected)
     log = report["log_paths"]
+    _verify_artifacts(report, log, processes)
+    _verify_revision(report, processes)
+    _require(isinstance(log.get("input"), str), "saved input path is missing")
     paths = {"input": Path(log["input"])}
-    paths.update({key: Path(log[key]["stdout"])
+    paths.update({key: Path(processes[key]["stdout"])
                   for key in ("java-run", "java-repeat", "rust-run")})
-    raw = {key: path.read_bytes() for key, path in paths.items()}
+    try:
+        raw = {key: path.read_bytes() for key, path in paths.items()}
+    except OSError as error:
+        raise SystemExit(f"cannot read saved comparison artifact: {error}") from error
     for key, field in (("input", "input_sha256"), ("java-run", "reference_output_sha256"),
                        ("java-repeat", "reference_repeat_output_sha256"),
                        ("rust-run", "rust_output_sha256")):
@@ -32,6 +99,9 @@ def verify_math(report_path, report, protocol=False):
     if len(cases) != report["case_count"]:
         raise SystemExit("saved case count mismatch")
     compare = compare_math_outputs(raw["java-run"], raw["rust-run"], cases)
+    if (compare["mismatch_count"] != report.get("mismatch_count")
+            or compare["first_mismatch"] != report.get("first_mismatch")):
+        raise SystemExit("saved mismatch summary disagrees with outputs")
     if compare["mismatch_count"]:
         raise SystemExit("saved outputs no longer match")
 
@@ -133,3 +203,10 @@ def verify_math(report_path, report, protocol=False):
         }, indent=2) + "\n")
     print(f"PASS: saved math report verified; synthetic mutations={len(rejected) + 1}; protocol checks={len(protocol_results)}")
     return 0
+
+
+def verify_math(report_path, report, protocol=False):
+    try:
+        return _verify_math(report_path, report, protocol)
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        raise SystemExit(f"invalid saved math evidence: {error}") from error
