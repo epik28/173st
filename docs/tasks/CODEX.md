@@ -268,6 +268,9 @@ runner/comparator, hash-bound report verifier и synthetic protocol/error tests.
 разделение, missing/wrong JAR, timeout, malformed TSV, duplicate ID и mutation.
 Без Rust probe strict должен вернуть `not_implemented`/ненулевой exit, не PASS.
 Обычные проверки, evidence, commit C02. Не добавлять pixel-perfect claims.
+Runner обнаруживает `crates/beta-viewer/examples/view_probe.rs` как target
+`cargo build -p beta-viewer --example view_probe`; A02 должен использовать
+этот путь, чтобы strict discovery увидел probe автоматически.
 
 ## VIEW-001-C03 — scene integration and acceptance
 

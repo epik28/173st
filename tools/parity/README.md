@@ -75,3 +75,14 @@ tail/header/trailer cases. Сохраняет отдельный `edge-review-*/
 executions, stdout/stderr и проверкой неизменности inputs. Overlap и oversized
 record отдельно отмечаются как native differences: Java принимает, safe Rust
 отвергает. Эти результаты не увеличивают счётчик 704 настоящих чанков.
+
+VIEW-001: `python3 tools/parity/run.py view --strict` запускает оригинальный
+`uu`/`cv` mapping oracle на отдельной hash-verified 5×5 scene copy дважды и
+сравнивает точные TSV bytes с `view_probe` в
+`crates/beta-viewer/examples/view_probe.rs`, когда probe появится. Пока его нет,
+отчёт честно получает `not_implemented`, а strict команда завершится ненулевым
+кодом. Проверка сохранённого отчёта:
+`python3 tools/parity/verify_report.py <view-report.json> --protocol`.
+Она проверяет JAR/atlas/world/source/class/output hashes, вызовы native mapping,
+повторяемость, malformed/duplicate TSV и искусственную однобайтовую мутацию.
+Вершины, live brightness и pixel parity не измеряются.

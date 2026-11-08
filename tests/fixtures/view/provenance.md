@@ -15,8 +15,9 @@ method; the oracle calls the virtual method so those overrides are retained. For
 example, grass ID 2 over air resolves tiles `2,0,3,3,3,3`; when water or snow is
 above it, its side tile comes from the world-aware override. The fixture records
 the above-block ID for those mappings. It checks neighbor visibility
-through `uu.b(world,nx,ny,nz,face)`, and obtains local/neighbor brightness through
-`uu.d(world,x,y,z)`. Face directions are bottom/top, negative/positive Z,
+through `uu.b(world,nx,ny,nz,face)`. The `uu.d(world,x,y,z)` bytecode path was
+inspected, but C01/C02 do not capture or claim live brightness parity. Face
+directions are bottom/top, negative/positive Z,
 negative/positive X (0..5). The renderer bytecode contains fixed side shade factors
 1.0, 0.5, 0.8 and 0.6, and converts the 16×16 tile into the 16×16 atlas with a
 0.01-pixel inset at the upper UV edge. Native block methods are called in the

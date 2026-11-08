@@ -16,6 +16,9 @@ def main():
     parser.add_argument("--protocol", action="store_true", help="also check live rejection of invalid TSV")
     args = parser.parse_args()
     report = json.loads(args.report.read_text())
+    if report.get("suite") == "view":
+        from view_review import verify_view
+        return verify_view(args.report, report, args.protocol)
     if report["status"] != "pass":
         raise SystemExit("requires a successful live report")
     if report["suite"] == "nbt":

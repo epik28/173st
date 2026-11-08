@@ -56,6 +56,16 @@ class ViewCorpusTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inconsistent"):
             view_corpus.parse_stdout(invalid_alpha.encode())
 
+    def test_view_comparator_rejects_single_byte_mutation_and_malformed_tsv(self):
+        from tools.parity.view_run import compare_view_outputs
+        fixture = (view_corpus.ROOT / "tests/fixtures/view/live.tsv").read_bytes()
+        changed = bytearray(fixture)
+        row = changed.find(b"state\t")
+        changed[row + 6] = ord("9") if changed[row + 6] != ord("9") else ord("8")
+        self.assertEqual(compare_view_outputs(fixture, fixture)["mismatch_count"], 0)
+        self.assertEqual(compare_view_outputs(fixture, bytes(changed))["mismatch_count"], 1)
+        self.assertEqual(compare_view_outputs(fixture, b"bad\n")["mismatch_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

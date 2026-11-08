@@ -691,6 +691,8 @@ Python и parity наборы не запускались повторно, ко
   initial supported opaque-cube filter; 30 remain unsupported.
 - Native calls do not include `cv` vertex emission or a native GPU frame, so the
   fixture proves mapping/material behavior only, not vertex or pixel parity.
+  `uu.d` bytecode was inspected but its live brightness output was not captured;
+  no exact brightness parity is claimed by C01/C02.
   Synthetic metadata, above-block, transparent, partial-model, liquid and boundary
   inputs are separate from live observations.
 - `python3 tools/oracle/view_corpus.py` → PASS repeatable fixture/audit;
@@ -699,3 +701,30 @@ Python и parity наборы не запускались повторно, ко
   `git diff --check` → PASS.
 - Next dependency-ready work: C02 runner/protocol checks and A01 CPU scene/mesher.
   C02 remains Codex-owned; A01 is agy-owned. Viewer/window work follows A01 and C02.
+
+## VIEW-001-C02 — runner and saved-report verification complete
+
+- Added `view` to `python3 tools/parity/run.py`; the native `ViewOracle` runs twice
+  on the marker-guarded WORLD/REGION copied scene. The report binds its 25-slot
+  coordinate input, native output, expected C01 fixture, JAR/atlas/classes, source
+  hashes, copied-world hashes and native call audit. Comparison validates the TSV
+  wire format and then compares every byte in order.
+- `python3 tools/parity/run.py view --strict` → expected
+  `not_implemented`, exit 1, because `crates/beta-viewer/examples/view_probe.rs`
+  is not present on this snapshot. The original Java adapter ran twice and yielded
+  50 mapping cases, 1,617 neighbor pairs and stable output SHA
+  `ef343aab6bd490b27d52ac1e2aef9c272a00c6a67ca93212167dd52949f88453`.
+  Saved report: `artifacts/parity/view/run-wgv2ocai/report.json`.
+- `python3 tools/parity/verify_report.py artifacts/parity/view/run-wgv2ocai/report.json --protocol`
+  → PASS: saved source/JAR/atlas/class/copy/output hashes and native audit;
+  repeated outputs match. Four malformed/duplicate protocol forms, malformed
+  arguments, missing/wrong JAR, wrong atlas, generic subprocess timeout and a
+  one-byte mapping mutation are rejected in separately labelled synthetic checks.
+- `python3 -m unittest tests.python.test_view_corpus -v` → 7 PASS.
+  `python3 tools/check.py` → 82 Python tests; cargo fmt/check/clippy, 40 library
+  and 26 example Rust tests, and docs PASS. `git diff --check` PASS.
+- A02 probe discovery target is fixed at
+  `crates/beta-viewer/examples/view_probe.rs` and built with
+  `cargo build -p beta-viewer --example view_probe`. C02 compares mapping TSV only;
+  native renderer vertex execution and live brightness/pixel parity remain outside
+  evidence. The game completion estimate remains approximately 9%.

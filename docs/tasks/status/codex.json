@@ -236,9 +236,16 @@
       ]
     },
     "VIEW-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен view runner/reviewer с точным native TSV comparator и SHA-bound сохранённым отчётом. Два оригинальных Java запуска подтвердили 50 mapping cases/1617 neighbor pairs; strict без Rust probe честно вернул not_implemented. Синтетические malformed/duplicate TSV, single-byte mutation, неверный/отсутствующий JAR, неверный atlas и timeout проверены отдельно.",
+      "checks": [
+        "python3 tools/parity/run.py view --strict → ожидаемый not_implemented, exit 1: original Java adapter собран и запущен дважды; 50 mapping cases, 1617 neighbor pairs; artifacts/parity/view/run-wgv2ocai/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/view/run-wgv2ocai/report.json --protocol → PASS: JAR/terrain/class/source/world-copy/output hashes, native call audit, repeatability, 4 malformed/duplicate protocol cases, error-review и синтетическая mutation",
+        "python3 -m unittest tests.python.test_view_corpus -v → PASS: 7 fixture/protocol/context/comparator tests",
+        "python3 tools/check.py → PASS: 82 Python tests; cargo fmt/check/clippy; 40 library + 26 example tests; doc tests",
+        "git diff --check → PASS",
+        "`view_probe` discovery target зафиксирован как crates/beta-viewer/examples/view_probe.rs; beta-viewer binary и beta-view crate не смешиваются"
+      ]
     },
     "VIEW-001-C03": {
       "state": "pending",
