@@ -362,8 +362,8 @@ def run_world(root=ROOT, timeout=60):
                     report.update(status="error", reason="runner source files changed during execution")
             if input_dir is not None and evidence is not None:
                 corpus.verify_snapshot(directory, evidence, root)
-                report["input_copy_hashes_after"] = {name: sha256((input_dir/name).read_bytes())
-                                                     for name in evidence["copied"]}
+                report["input_copy_hashes_after"] = {name: sha256((input_dir / name).read_bytes())
+                                                     for name in evidence["copied_before"]}
             if jar is not None and jar_hash is not None and sha256(jar.read_bytes()) != jar_hash:
                 report.update(status="error", reason="original JAR changed during run")
         except (OSError, ValueError, KeyError) as error:
