@@ -266,7 +266,9 @@ mod tests {
         let mut output = Vec::new();
         process_stream(input.as_slice(), &mut output).unwrap();
         assert_eq!(output.as_slice(), expected);
-        assert_eq!(output.iter().filter(|byte| **byte == b'\n').count(), 6_278);
+        let records = input.iter().filter(|byte| **byte == b'\n').count();
+        assert!(records >= 5_000);
+        assert_eq!(output.iter().filter(|byte| **byte == b'\n').count(), records);
     }
 
     #[test]
