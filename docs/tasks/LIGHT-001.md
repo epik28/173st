@@ -103,3 +103,21 @@ Meaningful tests must cover saved metadata, unsupported dimension rejection,
 night/day and Nether brightness, emission minima and legacy mesh compatibility.
 C04 owns beta-view mesh emission plumbing and beta-viewer loader/main only;
 core light/oracle/fixtures remain owned by A01/C01. No new dependencies.
+
+### C04 native packed vertex-color follow-up
+
+Direct original cv.b/nw calls confirm that flat vertex RGB is quantized before
+texture multiplication. Ordinary base faces use `(shade * tint) * brightness`;
+grass side overlays use `(shade * brightness) * tint`. Grass base bottom/sides
+have white tint; top uses palette tint. Each result becomes
+`clamp(trunc(channel * 255.0f),0,255)` in nw.a(FFF)/a(III).
+
+Carry overlay color-order information explicitly in CPU Vertex (false for
+legacy/base helpers). Compute the packed RGB on CPU in native f32 order; upload
+normalized byte RGB and multiply the texture once by that color. Preserve surface
+sRGB fallback conversion, alpha cutoff, depth, UV and numerical brightness APIs.
+Do not quantize in the fragment after texture multiplication. Add a regression
+against direct-call packed-color fixture for stone/grass bases and overlays at
+multiple nontrivial brightness/tint values. GPU byte layout may simplify, but
+legacy probe rows and saved light nibbles remain compatible. Correct comments
+that call palette multipliers linear-light values; they are encoded RGB values.
