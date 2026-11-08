@@ -69,6 +69,19 @@ def corpus():
                  ((.5,.5,.5),(2,.5,.5)), ((-1,.3,.7),(2,.8,.2))]
     for i, (start, end) in enumerate(ray_cases):
         add(f"edge-ray-{i}", "box_ray", *base, *start, *end)
+    # Very thin ray-axis extent with long opposing endpoints makes the native ray
+    # candidates' squared distances nearly equal. Preserve both direction orders.
+    near_tie_cases = [
+        ("x", (0,0,0,1e-6,1,1), (1e6,.5,.5), (-1e6,.5,.5)),
+        ("x", (0,0,0,1e-6,1,1), (-1e6,.5,.5), (1e6,.5,.5)),
+        ("y", (0,0,0,1,1e-6,1), (.5,1e6,.5), (.5,-1e6,.5)),
+        ("y", (0,0,0,1,1e-6,1), (.5,-1e6,.5), (.5,1e6,.5)),
+        ("z", (0,0,0,1,1,1e-6), (.5,.5,1e6), (.5,.5,-1e6)),
+        ("z", (0,0,0,1,1,1e-6), (.5,.5,-1e6), (.5,.5,1e6)),
+    ]
+    for axis, box, start, end in near_tie_cases:
+        direction = "positive-negative" if start["xyz".index(axis)] > 0 else "negative-positive"
+        add(f"ray-neartie-{axis}-{direction}", "box_ray", *box, *start, *end)
     # Vector corners and interpolation threshold behavior.
     vecs = [(0,0,0), (-0.0,0.0,-0.0), (1,2,3), (-1,2,-3), (eps,eps,eps),
             (1e-4,0,0), (1e-3,0,0), (30_000_000,-30_000_000,0)]

@@ -55,6 +55,30 @@ class GeometryCorpusTests(unittest.TestCase):
         self.assertTrue(any(value=="none" for value in ray_values))
         faces={int(value.split(",",1)[0]) for value in ray_values if value!="none"}
         self.assertEqual(faces,set(range(6)))
+        output_by_id={line.split("\t",1)[0]:line.split("\t",1)[1]
+                      for line in lines if line.split("\t",1)[0].startswith("ray-neartie-")}
+        expected_faces={
+            "ray-neartie-x-positive-negative":5,
+            "ray-neartie-x-negative-positive":4,
+            "ray-neartie-y-positive-negative":1,
+            "ray-neartie-y-negative-positive":0,
+            "ray-neartie-z-positive-negative":3,
+            "ray-neartie-z-negative-positive":2,
+        }
+        self.assertEqual(set(output_by_id),set(expected_faces))
+        self.assertEqual({case:int(value.split(",",1)[0]) for case,value in output_by_id.items()},expected_faces)
+        output_by_id={line.split("\t",1)[0]:line.split("\t",1)[1]
+                      for line in lines if line.split("\t",1)[0].startswith("ray-neartie-")}
+        expected_faces={
+            "ray-neartie-x-positive-negative":5,
+            "ray-neartie-x-negative-positive":4,
+            "ray-neartie-y-positive-negative":1,
+            "ray-neartie-y-negative-positive":0,
+            "ray-neartie-z-positive-negative":3,
+            "ray-neartie-z-negative-positive":2,
+        }
+        self.assertEqual(set(output_by_id),set(expected_faces))
+        self.assertEqual({case:int(value.split(",",1)[0]) for case,value in output_by_id.items()},expected_faces)
 
 
 if __name__=="__main__": unittest.main()
