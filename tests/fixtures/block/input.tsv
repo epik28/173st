@@ -1,0 +1,19 @@
+#BLOCK_CASES	1	ray-only
+#id	sx	sy	sz	ex	ey	ez	stop_liquid	block_x	block_y	block_z	block_id	metadata	shape
+face_west	-2.0	0.5	0.5	2.0	0.5	0.5	0	0	0	0	1	0	cube
+face_east	2.0	0.5	0.5	-2.0	0.5	0.5	0	0	0	0	1	0	cube
+face_down	0.5	-2.0	0.5	0.5	2.0	0.5	0	0	0	0	1	0	cube
+face_up	0.5	2.0	0.5	0.5	-2.0	0.5	0	0	0	0	1	0	cube
+face_north	0.5	0.5	-2.0	0.5	0.5	2.0	0	0	0	0	1	0	cube
+face_south	0.5	0.5	2.0	0.5	0.5	-2.0	0	0	0	0	1	0	cube
+miss	-2.0	2.0	0.5	2.0	2.0	0.5	0	0	0	0	1	0	cube
+negative_voxel	-2.0	0.5	0.5	2.0	0.5	0.5	0	-1	0	0	1	0	cube
+tie_corner	-1.0	-1.0	-1.0	2.0	2.0	2.0	0	0	0	0	1	0	cube
+endpoint_before	-2.0	0.5	0.5	-2.220446049250313E-16	0.5	0.5	0	0	0	0	1	0	cube
+endpoint_face	-2.0	0.5	0.5	0.0	0.5	0.5	0	0	0	0	1	0	cube
+shape_slab	-2.0	0.25	0.5	2.0	0.25	0.5	0	0	0	0	44	0	slab
+liquid_stop_false	-2.0	0.5	0.5	2.0	0.5	0.5	0	0	0	0	8	0	liquid
+liquid_stop_true	-2.0	0.5	0.5	2.0	0.5	0.5	1	0	0	0	8	0	liquid
+range_before	0.0	0.5	0.5	4.999	0.5	0.5	0	5	0	0	1	0	cube
+range_at	0.0	0.5	0.5	5.0	0.5	0.5	0	5	0	0	1	0	cube
+range_after	0.0	0.5	0.5	5.001	0.5	0.5	0	5	0	0	1	0	cube

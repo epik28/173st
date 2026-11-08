@@ -918,7 +918,7 @@ def run_region(root=ROOT, timeout=60):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java", "geometry", "movement", "color", "light", "fluid"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java", "geometry", "movement", "color", "light", "fluid", "block"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -939,6 +939,7 @@ def main(argv=None):
         print("light: LIGHT-001 original saved-light tables, clear-weather sun, and emission registry")
         print("movement: MOVE-001 original sn/ls collision and dry travel on synthetic static scenes; custom input via movement_run.py")
         print("fluid: FLUID-001 original cv water geometry from native Tessellator submissions; strict raw-vertex comparison")
+        print("block: BLOCK-001 native ray targeting only; actions remain not_implemented without original action evidence")
         return 0
     try:
         if args.group == "region":
@@ -970,6 +971,9 @@ def main(argv=None):
         elif args.group == "fluid":
             from fluid_run import run_fluid
             report, path = run_fluid(timeout=args.timeout)
+        elif args.group == "block":
+            from block_run import run_block
+            report, path = run_block(timeout=args.timeout)
         else:
             report, path = run_rng(timeout=args.timeout, suite=args.group)
     except (OSError, ValueError) as error:
