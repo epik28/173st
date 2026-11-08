@@ -2,6 +2,34 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "UV-001-C01",
+      "owner": "codex",
+      "title": "Native cube-face UV observations",
+      "card": "docs/tasks/UV-001.md",
+      "depends_on": [
+        "MOVE-001-C03"
+      ]
+    },
+    {
+      "id": "UV-001-A01",
+      "owner": "agy",
+      "title": "Correct per-face UV orientation",
+      "card": "docs/tasks/UV-001.md",
+      "depends_on": [
+        "UV-001-C01"
+      ]
+    },
+    {
+      "id": "UV-001-C02",
+      "owner": "codex",
+      "title": "UV integration and native review",
+      "card": "docs/tasks/UV-001.md",
+      "depends_on": [
+        "UV-001-C01",
+        "UV-001-A01"
+      ]
+    },
+    {
       "id": "MOVE-001-C01",
       "owner": "codex",
       "title": "Original entity collision and dry travel oracle",

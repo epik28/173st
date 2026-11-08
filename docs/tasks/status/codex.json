@@ -2,6 +2,16 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "UV-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "UV-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "MOVE-001-C01": {
       "state": "done",
       "summary": "Native oracle a0069de8 вызывает original sn.b/ls.a_/ls.R в synthetic static dry world, без native World constructors и без переопределения physics methods. Corpus643scenarios/8213states, actual native methods/fields/code-source audit, raw stone/ice properties и registry stdout capture. Авторgpt-6-luna low; coordinator reviewed/integrated and repeated two JVM runs in runner.",

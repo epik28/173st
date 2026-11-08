@@ -2,6 +2,11 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
+    "UV-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "MOVE-001-A01": {
       "state": "done",
       "summary": "Реализован beta_core::motion: pure move_entity по sn.b(DDD), dry_travel по ls.a_(FF), sn.a(FFF) и ls.R(). Включены ordered AABB candidates, no-clip/web, sneak support, allow_slide, step ascent/descent/tie, flags/velocity/fall distance, f32 movement input/yaw/jump/gravity и две friction lookup до native sn.b(DDD), включая air/stone/ice. A02 сравнил все 8213 native states exact-bit.",
