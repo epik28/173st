@@ -453,3 +453,38 @@ Probe tests cover both output shapes, late invalid rows after valid rows, duplic
 IDs, strict lowercase raw hex, missing final LF, non-ASCII input, CRLF and limits.
 The fixture run uses the original local PNG assets and is recorded here; those
 assets are not embedded or committed. No external dependencies were added.
+
+## LIGHT-001-A01 — saved light and clear-weather sky arithmetic
+
+Added `beta_core::light` and its public export in `e195649`. `brightness`
+preserves provider f32 table construction for Overworld (.05) and Nether (.1);
+`combined_light` implements original saved nibble subtraction and block comparison;
+`sample_brightness` applies the native minimum before table lookup. The sky API
+implements Java signed remainder/time normalization, provider-specific celestial
+angle (Overworld smoothed with f64 `Math.cos`, Nether fixed at .5), and clear-weather
+subtraction using the existing native cosine LUT. `emission_level` reflects the
+original registry’s nonzero IDs, including glowstone 89 and jack-o-lantern 91 at
+15. These are scalar APIs only; special neighbor-sampling block IDs, AO, weather
+updates, propagation, fluids, Skylands, and rendering integration remain excluded.
+
+Added strict bounded `light_probe` in `3e5dde0` with the frozen sample/time/
+emission row shapes, canonical decimal and lowercase raw-f32 parsing, ASCII/LF
+validation, unique IDs, no CLI arguments, 100,000-row/16 MiB limits, and buffered
+atomic stdout. After consuming the early C01 snapshot `c610b1a`, added a dynamic
+fixture test in `1da36ad`: it asserts matching input/reference line counts and a
+minimum of 50,000 rows, then compares every integer and f32 raw bit. Final C01
+snapshot `8c8c6d1` was merged as `c46b436`; all 72,928 rows passed. The fixtures
+are from the pinned client JAR SHA-256
+`af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`; native
+provenance, class hashes, bootstrap, calls and corpus scope are recorded in
+`tests/fixtures/light/provenance.md` and `audit.json`. No oracle or fixture files
+were changed by A01.
+
+Verification: `cargo test --locked --offline -p beta-core
+light::tests::all_native_light_fixture_rows_match_raw_values` passed for all
+72,928 rows. Running `light_probe` on the complete input and comparing with the
+native reference via `cmp` passed; both output files have SHA-256
+`44072d43233b6265ebd5246bfe096c88bea5e35c6b2db1c52113bdf1f0fdd2f3`. Probe
+protocol tests, `cargo test --locked --offline --all-targets`, doc tests, workspace
+clippy with `-D warnings`, fmt, and `git diff --check` passed. No dependencies
+were added. Next: Codex C02 strict runner/review and independent live verification.
