@@ -13,6 +13,7 @@ bytemuck.workspace = true
 glam.workspace = true
 image.workspace = true
 pollster.workspace = true
+sha2.workspace = true
 wgpu.workspace = true
 winit.workspace = true
 

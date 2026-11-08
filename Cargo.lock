@@ -142,6 +142,7 @@ dependencies = [
  "glam",
  "image",
  "pollster",
+ "sha2",
  "wgpu",
  "winit",
 ]
