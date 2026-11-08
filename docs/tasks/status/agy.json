@@ -3,9 +3,16 @@
   "role": "agy",
   "tasks": {
     "LIGHT-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлены pure beta_core::light brightness/saved-nibble/clear-weather sky/provider time/emission APIs и strict atomic light_probe. Все 72,928 native fixture rows совпали, включая all provider levels, both dimensions, full Overworld cycle, minima и 256 emission IDs.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core light::tests::all_native_light_fixture_rows_match_raw_values → PASS: dynamic 72,928-row native fixture, exact f32 bits/integers/emission values",
+        "cargo run --quiet --locked --offline -p beta-core --example light_probe < tests/fixtures/light/input.tsv > /tmp/agy-light-probe-final.tsv; cmp ... tests/fixtures/light/reference.tsv → PASS: 72,928 rows exact; output/reference SHA-256 44072d43233b6265ebd5246bfe096c88bea5e35c6b2db1c52113bdf1f0fdd2f3",
+        "cargo test --locked --offline -p beta-core --example light_probe → PASS: output shapes, malformed and late-invalid atomicity, duplicate IDs, strict numeric/raw parsing, range and byte/row limits",
+        "cargo test --locked --offline --all-targets; cargo test --locked --offline --doc → PASS",
+        "cargo clippy --locked --offline --workspace --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "Core API e195649, probe 3e5dde0, fixture regression 1da36ad; C01 snapshots c610b1a and 8c8c6d1 consumed by regular merges. No native oracle/fixture files modified."
+      ]
     },
     "COLOR-001-A01": {
       "state": "done",
