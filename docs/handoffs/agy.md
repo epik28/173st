@@ -1,5 +1,12 @@
 # Отчёт Gemini / agy
 
+### GAME-ORACLE-001-A01 follow-up — ray near-tie squared distance
+
+- Codex review report `artifacts/parity/geometry/run-346l03ct/report.json` identified a concrete mismatch from custom input `/tmp/173st-ray-neartie.tsv`: for a box with X extent `[0, 1e-6]` and a reversed ray from X=`1e6` to `-1e6`, Rust selected face 4 / X=0 while native selected face 5 / X=`3eb0c70000000000`. The bytecode path is `eq.a(bt,bt)` → `bt.d(bt)`, which compares squared distance; the prior `start.length_to(position)` performed an extra MathHelper f32-narrowed square root, collapsing distinct distances into a false tie.
+- Fixed `Aabb::ray_intersect` to compare `Vec3::distance_squared` and retain strict `<` update. Added a regression test for this reversed ray on thin boxes along X, Y, and Z (expected faces 5, 1, 3).
+- Verification: `cargo test --locked --offline -p beta-core geometry::tests::` → 5 PASS; custom probe output exactly matches report native row; full 6278-row fixture is byte-identical; workspace clippy `-D warnings`, all-target tests, fmt and `git diff --check` pass.
+- Only `geometry.rs`, this handoff and own agy status changed. Native oracle/fixtures and shared runner were not modified.
+
 ## GAME-ORACLE-001-A02 — strict geometry_probe
 
 - Добавлен `crates/beta-core/examples/geometry_probe.rs` как thin adapter ко всем 22 операциям замороженного протокола: 6-аргументный box/vector формы, clip по трём осям, ray, distance и intermediate методы. Float параметры принимаются как ровно 16 lowercase hex digits и проверяются на finite и абсолютный диапазон `<= 30,000,000`; ID, exact arity, уникальность, ASCII, обязательный final LF, отсутствие blank rows и лимиты `100000` rows / `32 MiB` строгие. Результаты накапливаются до полного успешного разбора, ошибки идут только в stderr с ненулевым exit.

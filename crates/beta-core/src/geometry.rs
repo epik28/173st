@@ -265,10 +265,12 @@ impl Aabb {
             {
                 continue;
             }
-            let distance = start.length_to(position);
-            if closest.is_none() || distance < closest_distance {
+            // `eq.a(bt,bt)` compares with `bt.d(bt)` (squared distance); using
+            // the narrowed f32 square root can collapse distinct near ties.
+            let distance_squared = start.distance_squared(position);
+            if closest.is_none() || distance_squared < closest_distance {
                 closest = Some(RayHit { face, position });
-                closest_distance = distance;
+                closest_distance = distance_squared;
             }
         }
         closest
@@ -282,15 +284,6 @@ impl Axis {
             1 => Self::Y,
             _ => Self::Z,
         }
-    }
-}
-
-impl Vec3 {
-    fn length_to(self, other: Self) -> f64 {
-        let x = other.x - self.x;
-        let y = other.y - self.y;
-        let z = other.z - self.z;
-        f64::from(sqrt_f64_to_f32(x * x + y * y + z * z))
     }
 }
 
@@ -440,5 +433,35 @@ mod tests {
             b.ray_intersect(Vec3::new(-1.0, 2.0, 0.5), Vec3::new(2.0, 2.0, 0.5)),
             None
         );
+    }
+
+    #[test]
+    fn ray_near_ties_compare_squared_distance_for_thin_boxes_on_every_axis() {
+        let cases = [
+            (
+                Aabb::new([0.0, 0.0, 0.0], [1.0e-6, 1.0, 1.0]),
+                Vec3::new(1.0e6, 0.5, 0.5),
+                Vec3::new(-1.0e6, 0.5, 0.5),
+                5,
+            ),
+            (
+                Aabb::new([0.0, 0.0, 0.0], [1.0, 1.0e-6, 1.0]),
+                Vec3::new(0.5, 1.0e6, 0.5),
+                Vec3::new(0.5, -1.0e6, 0.5),
+                1,
+            ),
+            (
+                Aabb::new([0.0, 0.0, 0.0], [1.0, 1.0, 1.0e-6]),
+                Vec3::new(0.5, 0.5, 1.0e6),
+                Vec3::new(0.5, 0.5, -1.0e6),
+                3,
+            ),
+        ];
+        for (bounds, start, end, expected_face) in cases {
+            assert_eq!(
+                bounds.ray_intersect(start, end).unwrap().face,
+                expected_face
+            );
+        }
     }
 }
