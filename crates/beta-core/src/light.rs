@@ -267,4 +267,79 @@ mod tests {
             assert_eq!(emission_level(id), level, "block id {id}");
         }
     }
+
+    #[test]
+    fn all_native_light_fixture_rows_match_raw_values() {
+        let inputs = include_str!("../../../tests/fixtures/light/input.tsv");
+        let expected = include_str!("../../../tests/fixtures/light/reference.tsv");
+        let input_rows = inputs.lines().count();
+        assert!(
+            input_rows >= 50_000,
+            "native fixture unexpectedly short: {input_rows}"
+        );
+        assert_eq!(input_rows, expected.lines().count());
+
+        for (input, expected) in inputs.lines().zip(expected.lines()) {
+            let input: Vec<_> = input.split('\t').collect();
+            let expected: Vec<_> = expected.split('\t').collect();
+            assert_eq!(input[0], expected[0]);
+            assert_eq!(input[1], expected[1], "case {}", input[0]);
+            match input[1] {
+                "sample" => {
+                    let dimension = match input[2] {
+                        "0" => LightDimension::Overworld,
+                        "-1" => LightDimension::Nether,
+                        other => panic!("unknown fixture dimension {other}"),
+                    };
+                    let block = input[3].parse().unwrap();
+                    let sky = input[4].parse().unwrap();
+                    let subtraction = input[5].parse().unwrap();
+                    let minimum = input[6].parse().unwrap();
+                    let level = combined_light(block, sky, subtraction).unwrap();
+                    let value =
+                        sample_brightness(block, sky, subtraction, minimum, dimension).unwrap();
+                    assert_eq!(level.to_string(), expected[2], "level {}", input[0]);
+                    assert_eq!(
+                        value.to_bits(),
+                        u32::from_str_radix(expected[3], 16).unwrap(),
+                        "brightness {}",
+                        input[0]
+                    );
+                }
+                "time" => {
+                    let dimension = match input[2] {
+                        "0" => LightDimension::Overworld,
+                        "-1" => LightDimension::Nether,
+                        other => panic!("unknown fixture dimension {other}"),
+                    };
+                    let time = input[3].parse().unwrap();
+                    let partial = f32::from_bits(u32::from_str_radix(input[4], 16).unwrap());
+                    let angle = celestial_angle(time, partial, dimension).unwrap();
+                    let subtraction = sky_subtraction(time, partial, dimension).unwrap();
+                    assert_eq!(
+                        angle.to_bits(),
+                        u32::from_str_radix(expected[2], 16).unwrap(),
+                        "celestial angle {}",
+                        input[0]
+                    );
+                    assert_eq!(
+                        subtraction.to_string(),
+                        expected[3],
+                        "sky subtraction {}",
+                        input[0]
+                    );
+                }
+                "emission" => {
+                    let block_id = input[2].parse().unwrap();
+                    assert_eq!(
+                        emission_level(block_id).to_string(),
+                        expected[2],
+                        "emission {}",
+                        input[0]
+                    );
+                }
+                other => panic!("unknown fixture operation {other}"),
+            }
+        }
+    }
 }
