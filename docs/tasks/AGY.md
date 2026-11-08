@@ -1,5 +1,22 @@
 # Карточки роли agy
 
+## MATH-001-A01 — игровые математические функции
+
+После C01 прочитать [MATH-001](MATH-001.md) и использовать только его API.
+Реализовать перечисленные функции в `beta_core::math` с raw-bit tests для
+плавающих результатов, отрицательных floor, LUT-углов, NaN/infinity/signed zero,
+границ целых и деления. Не брать ожидаемые результаты из своей реализации;
+сложные edge cases сверять с committed original corpus. Не менять fixtures или
+oracle. После тестов записать статус/handoff, сделать коммит, затем A02.
+
+## MATH-001-A02 — math probe и протокол
+
+После A01 реализовать `math_probe` по TSV из контракта: все десять операций,
+raw float/double bits, строгий parser, duplicate/unknown rejection, лимиты и
+ненулевой код ошибок без загрязнения stdout. Добавить example regression tests,
+собрать входы C01 и сравнить формат с Java oracle. Выполнить check.py, записать
+handoff и закоммитить результат.
+
 ## WORLD-LOAD-001-A01 — pure read-only world metadata/chunk API
 
 После C01 и получения committed native evidence прочитать

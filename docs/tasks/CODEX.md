@@ -1,5 +1,31 @@
 # Карточки роли codex
 
+## MATH-001-C01 — original MathHelper oracle и корпус
+
+После VIEW-001-C03 и clean main прочитать [MATH-001](MATH-001.md). Проверить
+bytecode и хеш оригинального класса `in`; реализовать Java oracle, который
+рефлексивно вызывает именно закреплённые методы клиентского JAR, не копирует их
+формулы. Создать детерминированный corpus по всем операциям и edge cases контракта,
+зафиксировать Java outputs/audit как fixture. Отдельно доказать покрытие LUT
+индексов и повторяемость двух запусков. Добавить тесты генератора, не менять Rust.
+Закоммитить C01 со статусом и handoff, затем продолжить C02.
+
+## MATH-001-C02 — parity runner и evidence verifier
+
+После C01 реализовать группу `math` в существующем runner: exact typed TSV,
+raw IEEE bits, process errors/timeouts и строгий статус при отсутствии probe.
+Добавить saved report/protocol review и synthetic mutations для типов, битов,
+порядка, числа строк и источников. Выполнить проверки по MATH-001, сохранить
+результаты и коммит; после этого ожидать A01/A02 через очередь для C03.
+
+## MATH-001-C03 — интеграция и приёмка
+
+После C01/C02/A01/A02 взять точный agy SHA из очереди, проверить diff и
+интегрировать его. Выполнить `tools/check.py`, все предыдущие strict suites,
+`math --strict` и saved protocol review. При расхождении дать конкретный repro,
+не изменяя oracle ради Rust. При успехе обновить progress/roadmap/estimate,
+принять пакет в main и синхронизировать idle worktrees.
+
 ## WORLD-LOAD-001-C01 — native metadata oracle и snapshot
 
 После REGION-001-C03 прочитать [WORLD-LOAD-001](WORLD-LOAD-001.md). Зафиксировать
