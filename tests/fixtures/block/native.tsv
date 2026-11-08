@@ -1,0 +1,19 @@
+#BLOCK_NATIVE	1	af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c
+#id	source	kind	x	y	z	side	px	py	pz	px_bits	py_bits	pz_bits
+face_west	live	block	0	0	0	4	0.0	0.5	0.5	0000000000000000	3fe0000000000000	3fe0000000000000
+face_east	live	block	0	0	0	5	1.0	0.5	0.5	3ff0000000000000	3fe0000000000000	3fe0000000000000
+face_down	live	block	0	0	0	0	0.5	0.0	0.5	3fe0000000000000	0000000000000000	3fe0000000000000
+face_up	live	block	0	0	0	1	0.5	1.0	0.5	3fe0000000000000	3ff0000000000000	3fe0000000000000
+face_north	live	block	0	0	0	2	0.5	0.5	0.0	3fe0000000000000	3fe0000000000000	0000000000000000
+face_south	live	block	0	0	0	3	0.5	0.5	1.0	3fe0000000000000	3fe0000000000000	3ff0000000000000
+miss	live	miss	-	-	-	-	-	-	-	-	-	-
+negative_voxel	live	block	-1	0	0	4	-1.0	0.5	0.5	bff0000000000000	3fe0000000000000	3fe0000000000000
+tie_corner	live	block	0	0	0	4	0.0	0.0	0.0	0000000000000000	0000000000000000	0000000000000000
+endpoint_before	live	miss	-	-	-	-	-	-	-	-	-	-
+endpoint_face	live	miss	-	-	-	-	-	-	-	-	-	-
+shape_slab	live	block	0	0	0	4	0.0	0.25	0.5	0000000000000000	3fd0000000000000	3fe0000000000000
+liquid_stop_false	live	miss	-	-	-	-	-	-	-	-	-	-
+liquid_stop_true	live	block	0	0	0	4	0.0	0.5	0.5	0000000000000000	3fe0000000000000	3fe0000000000000
+range_before	live	miss	-	-	-	-	-	-	-	-	-	-
+range_at	live	miss	-	-	-	-	-	-	-	-	-	-
+range_after	live	block	5	0	0	4	5.0	0.5	0.5	4014000000000000	3fe0000000000000	3fe0000000000000

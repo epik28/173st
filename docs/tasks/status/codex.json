@@ -588,9 +588,14 @@
       ]
     },
     "BLOCK-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned native Beta 1.7.3 ray oracle and reproducible isolated in-memory cases; verified fd/vf/bt/uu/ob/pj/iz/gm source/class hashes, native ray/shape methods, and 5.0 controller reach. Native creative break/place remain unverified and are explicitly excluded from evidence.",
+      "checks": [
+        "python3 tools/oracle/block_corpus.py --write → 17 live native ray cases, two independent JVM outputs identical; fixture SHA-256 f7684fde5588475ff109e122c7dd3e8a7139097cf3eadb7cb817d5cd6c5f1bc7",
+        "python3 -m unittest tests.python.test_block_corpus -v → 3 PASS; exact class hashes and JAR code-source checks; six faces, miss, negative voxel, tie, endpoint/range, slab, paired liquid flag; raw double words captured",
+        "Native bytecode: fd.a(bt,bt,boolean,boolean):vf; uu.a(fd,int,int,int,bt,bt):vf; ob.b() returns 5.0f; pj extends ob",
+        "No creative break/place outputs claimed; isolated native Player/controller action adapter not completed"
+      ]
     },
     "BLOCK-001-C02": {
       "state": "pending",

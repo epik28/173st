@@ -1082,3 +1082,33 @@ render-only: lava, liquid ticks/interactions, transparent overlap sorting, pixel
 parity and FPS improvement remain unsupported. FLUID-001 is integrated locally;
 GitHub push is deferred until the requested 30% readiness target. Estimated full
 game readiness is now about 21%, with roughly one point credited to visible water.
+
+## BLOCK-001-C01 — native ray corpus, 2026-11-08
+
+On `codex/verification`, added `tools/oracle/src/BlockOracle.java`, its
+repeat-capture driver `tools/oracle/block_corpus.py`, fixture/audit/provenance
+under `tests/fixtures/block/`, and protocol tests in
+`tests/python/test_block_corpus.py`. Original client JAR SHA-256 is
+`af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`. Audit
+pins the JAR-loaded class hashes for fd/vf/bt/uu/ob/pj/iz/gm and records native
+raytrace and per-block shape-dispatch methods. Bytecode confirms ob.b() = 5.0f
+and pj extends ob.
+
+The two original JVM captures matched byte-for-byte: 17 cases cover six axis
+faces, miss, negative voxel coordinates, corner tie, endpoint boundaries, a
+slab, 5.0 reach boundary, and paired native stop-on-liquid values. Each point
+coordinate includes its raw IEEE-754 word. Fixture SHA-256:
+`f7684fde5588475ff109e122c7dd3e8a7139097cf3eadb7cb817d5cd6c5f1bc7`.
+The harness uses native ray/shape methods on private in-memory scenes, checks
+class code sources and hashes, and does not access source saves/JAR/assets for
+writing. `python3 -m unittest tests.python.test_block_corpus -v` → 3 PASS;
+`python3 tools/oracle/block_corpus.py` → repeat exact; py_compile and
+`git diff --check` → PASS.
+
+The normal fresh-world constructor invokes spawn setup and cannot initialize
+through this isolated headless provider. The oracle instead uses the native
+copy constructor with an in-memory provider and explicitly allocated chunks.
+Creative break/place are **not verified**: no action output, neighbor snapshot,
+or stack change is claimed because a native Player/controller action adapter
+was not completed. Do not treat C01 as action parity. Next assigned work is
+BLOCK-001-C02; it was not started in this commit. Model: gpt-6-luna, low.
