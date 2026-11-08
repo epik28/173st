@@ -15,10 +15,14 @@
     },
     "WORLD-LOAD-001-C02": {
       "state": "in_progress",
-      "summary": "WIP checkpoint: added initial world-runner dispatch, exact TSV parser/comparator, Java oracle launch/copy provenance, native audit/retained-byte binding, saved-report verifier and protocol/mutation review scaffolding. Not accepted: no unit tests, live Rust parity or saved protocol run; implementation still needs review/fixes.",
+      "summary": "Добавлены world runner/verifier и 11 Python-тестов. Исправлена ошибочная классификация разрешённого -0 и усилена проверка input-copy (ровно 5 файлов + 2 маркера, без symlink/лишних записей); verifier выдаёт ясные ошибки для missing logs/JAR. C02 остаётся in_progress: world_probe не закоммичен, поэтому native/probe live parity и исполняемый protocol review ещё не подтверждены.",
       "checks": [
+        "python3 tools/check.py → PASS: 74 Python tests; cargo fmt/check/clippy; 36 beta-core + 22 example tests; doc tests",
+        "python3 -m unittest tests.python.test_world_runner tests.python.test_world_corpus → PASS: 15 tests",
+        "python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tests/python/test_world_runner.py → PASS",
+        "python3 tools/parity/run.py list → PASS: world group is registered",
         "git diff --check → PASS",
-        "python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tools/parity/run.py tools/parity/verify_report.py → PASS (syntax only)"
+        "WORLD Java/Rust live parity and saved --protocol review → NOT RUN: world_probe source/commit absent"
       ]
     },
     "WORLD-LOAD-001-C03": {

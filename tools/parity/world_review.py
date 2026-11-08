@@ -24,8 +24,12 @@ def _read_log(process, side):
     require(result.get("returncode") == 0 and not result.get("timeout") and not result.get("error"),
             f"required process failed: {side}")
     for suffix in ("stdout", "stderr"):
-        path = Path(result[suffix]).resolve(strict=True)
-        require(sha256(path.read_bytes()) == result.get(suffix + "_sha256"), f"saved process log hash mismatch: {side}/{suffix}")
+        try:
+            path = Path(result[suffix]).resolve(strict=True)
+            digest = sha256(path.read_bytes())
+        except (KeyError, OSError, TypeError, ValueError):
+            require(False, f"saved process log missing or invalid: {side}/{suffix}")
+        require(digest == result.get(suffix + "_sha256"), f"saved process log hash mismatch: {side}/{suffix}")
     return result
 
 
@@ -39,6 +43,15 @@ def _copy_for_protocol(source, target):
         shutil.copyfile(item, target / item.name)
 
 
+def _negative_zero_protocol_accepts(output):
+    lines = output.splitlines()
+    if len(lines) != 1:
+        return False
+    fields = lines[0].split(b"\t")
+    return (len(fields) == 17 and fields[0:2] == [b"zero", b"chunk"]
+            and fields[2] in (b"present", b"absent") and fields[3:5] == [b"0", b"0"])
+
+
 def verify_world(report_path, report, protocol=False):
     report_path = Path(report_path).resolve(strict=True)
     directory = report_path.parent
@@ -49,15 +62,21 @@ def verify_world(report_path, report, protocol=False):
                 "java-run", "rust-build", "rust-run", "git-revision", "git-dirty")
     for key in required:
         _read_log(processes, key)
-    expected_jar = Path(report["reference_jar_path"]).resolve(strict=True)
-    require(sha256(expected_jar.read_bytes()) == JAR_SHA256 == report.get("reference_jar_sha256"),
+    try:
+        expected_jar = Path(report["reference_jar_path"]).resolve(strict=True)
+        jar_hash = sha256(expected_jar.read_bytes())
+    except (KeyError, OSError, TypeError, ValueError):
+        require(False, "configured original JAR is missing or invalid")
+    require(jar_hash == JAR_SHA256 == report.get("reference_jar_sha256"),
             "configured original JAR hash differs from pin")
     require(report.get("runtime_versions", {}).get("java"), "Java runtime version missing")
     adapter = directory / "classes/WorldOracle.class"
-    require(adapter.is_file() and sha256(adapter.read_bytes()) == report.get("adapter_class_sha256"),
+    require(adapter.is_file() and not adapter.is_symlink()
+            and sha256(adapter.read_bytes()) == report.get("adapter_class_sha256"),
             "saved WorldOracle class hash mismatch")
     binary = directory / "world_probe"
-    require(binary.is_file() and sha256(binary.read_bytes()) == report.get("rust_binary_sha256"),
+    require(binary.is_file() and not binary.is_symlink()
+            and sha256(binary.read_bytes()) == report.get("rust_binary_sha256"),
             "saved world_probe binary hash mismatch")
     require(Path(report["processes"]["rust-build"]["executable"] if "executable" in report["processes"]["rust-build"] else str(binary)).exists(),
             "saved world probe build artifact missing")
@@ -149,14 +168,30 @@ def _sensitivity_checks(directory, cases, reference, actual, payload_dir, audit)
     payload_name = sorted(p.name for p in payload_dir.glob("*.nbt"))[0]
     raw = (payload_dir / payload_name).read_bytes()
     altered = (raw[:-1] + bytes([raw[-1] ^ 1])) if raw else b"\x00"
+    payload_id = payload_name[:-4]
+    payload_case = next(case for case in cases if case["id"] == payload_id)
+    row_for_payload = next(line for line in reference.splitlines(keepends=True)
+                           if line.startswith(payload_id.encode() + b"\t"))
     altered_path = directory / "synthetic-mutated-payload.nbt"
     altered_path.write_bytes(altered)
-    row_for_payload = next(line for line in reference.splitlines(keepends=True)
-                           if line.startswith(payload_name[:-4].encode() + b"\t"))
-    fields = row_for_payload[:-1].split(b"\t")
-    require(len(altered) != int(fields[-2]) or sha256(altered).encode() != fields[-1], "payload mutation unexpectedly preserved its row hash")
-    mutated_audit = json.loads(json.dumps(audit)); mutated_audit["native_calls"]["qj_a_int_int"] -= 1
-    require(mutated_audit != audit and mutated_audit["native_calls"] != audit["native_calls"], "audit mutation was not detected")
+    payload_detected = False
+    with tempfile.TemporaryDirectory(prefix="payload-mutation-", dir=directory) as tmp:
+        changed_dir = Path(tmp)
+        (changed_dir / payload_name).write_bytes(altered)
+        altered_manifest = {payload_name: {"sha256": sha256(altered), "length": len(altered)}}
+        try:
+            _bind_retained_to_rows(changed_dir, altered_manifest, row_for_payload, [payload_case])
+        except WorldRunError:
+            payload_detected = True
+    require(payload_detected, "retained payload mutation escaped raw-byte verifier")
+    mutated_audit = json.loads(json.dumps(audit))
+    mutated_audit["native_calls"]["qj_a_int_int"] -= 1
+    audit_detected = False
+    try:
+        _validate_audit(mutated_audit, mutated_audit.get("input_sha256"), mutated_audit.get("live_rows"))
+    except WorldRunError:
+        audit_detected = True
+    require(audit_detected, "native audit mutation escaped pinned-call verifier")
     review.extend([{"kind": "synthetic raw payload byte mutation; separate from live parity", "detected": True,
                     "payload": str(altered_path), "original_sha256": sha256(raw), "mutated_sha256": sha256(altered)},
                    {"kind": "synthetic native audit call-count mutation; separate from live parity", "detected": True}])
@@ -177,7 +212,7 @@ def _verify_protocol(directory, report, cases):
                b"bad id\tchunk\tr.0.0.mcr\t0\t0\n", b"same\tchunk\tr.0.0.mcr\t0\t0\nsame\tchunk\tr.0.0.mcr\t1\t0\n",
                b"x\tchunk\t../r.0.0.mcr\t0\t0\n", b"x\tchunk\tr.1.0.mcr\t0\t0\n",
                b"x\tchunk\tr.0.0.mcr\t2147483648\t0\n", b"x\tlevel\tlevel.dat\t0\t0\n",
-               b"x\tunknown\tlevel.dat\t-\t-\n", b"x\tchunk\tr.0.0.mcr\t-0\t0\n"]
+               b"x\tunknown\tlevel.dat\t-\t-\n"]
     valid_control = b"# empty input is valid\n"
     results, failures = [], []
     for index, data in enumerate(invalid + [valid_control]):
@@ -214,8 +249,7 @@ def _verify_protocol(directory, report, cases):
                           else [str(copied), str(retained)])
         try:
             process = subprocess.run(args, input=data, capture_output=True, timeout=30, check=False)
-            accepted = (process.returncode == 0 and len(process.stdout.splitlines()) == 1
-                        and process.stdout.startswith(b"zero\tchunk\t"))
+            accepted = process.returncode == 0 and _negative_zero_protocol_accepts(process.stdout)
             row = {"side": side, "input_hex": data.hex(), "returncode": process.returncode,
                    "stdout_sha256": sha256(process.stdout), "stderr_sha256": sha256(process.stderr),
                    "expected_valid": True, "accepted": accepted}
