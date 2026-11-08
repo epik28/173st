@@ -1,0 +1,27 @@
+{
+  "kind": "native Beta 1.7.3 MathHelper oracle",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "class_name": "in",
+  "class_sha256": "8693f3179fb0ff1df382e1d3388d23ab688ad3e26415454655da88f10b054f63",
+  "operations": 131408,
+  "operations_by_method": {
+    "sin": 65536,
+    "cos": 65536,
+    "sqrt_f32": 16,
+    "floor_f32": 16,
+    "abs_f32": 16,
+    "sqrt_f64_to_f32": 13,
+    "floor_f64": 13,
+    "abs_max_f64": 88,
+    "floor_div_i32": 169,
+    "null_or_empty": 5
+  },
+  "trig_lut_indices_per_method": {
+    "sin": 65536,
+    "cos": 65536
+  },
+  "input_sha256": "18ee45882081ede2178578572c3e16a5467091552870c1a004fc01fcca5c5dbf",
+  "output_sha256": "feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f",
+  "repeat_output_sha256": "feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f",
+  "repeatable": true
+}

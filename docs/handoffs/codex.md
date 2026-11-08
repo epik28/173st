@@ -759,3 +759,28 @@ Python и parity наборы не запускались повторно, ко
   under Xvfb, but a fresh screenshot could not be captured because the sandbox's
   Xvfb socket directory currently has incorrect ownership; the prior visual frame
   remains available, and no pixel-parity claim is added.
+
+## MATH-001-C01 — original MathHelper oracle and corpus
+
+- Pinned client class `in`, JAR SHA
+  `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`, class SHA
+  `8693f3179fb0ff1df382e1d3388d23ab688ad3e26415454655da88f10b054f63`. `MathOracle.java` calls its ten native methods by
+  reflection; it does not reproduce their formulas.
+- Generated a committed behavior corpus of 131,408 operations. `sin` and `cos`
+  each address every one of the original 65,536 LUT entries. Additional cases
+  cover float/double edge bits, floor/sqrt/abs, signed integer division, native
+  arithmetic errors, and null/empty/Unicode strings.
+- `python3 tools/oracle/math_corpus.py --write` → PASS; repeated oracle run → PASS,
+  identical output SHA `feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f`.
+  Input SHA `18ee45882081ede2178578572c3e16a5467091552870c1a004fc01fcca5c5dbf`.
+  Fixture provenance is in `tests/fixtures/math/audit.json`.
+- `python3 -m unittest discover -s tests/python -v` → PASS, 85 tests.
+  `python3 tools/check.py` → PASS: 85 Python tests, fmt/check/clippy, all Rust
+  targets and doc tests. `javac` MathOracle and `git diff --check` → PASS.
+- During workspace checks, the portable world audit fixture exposed a hard-coded
+  local-path assertion; validator now checks the pinned JAR basename. A 50 ms
+  subprocess timeout test was scheduler-flaky, so its startup allowance is now
+  1 second while the child remains a 2 second sleeper.
+- C01 oracle/corpus does not claim Rust parity; C02 runner and A01/A02 remain.
+  Whole-game estimate stays approximately 10%; this data-only package adds no
+  accepted gameplay capability yet.

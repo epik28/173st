@@ -172,7 +172,7 @@ class RegionProtocolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             result = runner.run_process([sys.executable, "-c", "import time; print('start', flush=True); time.sleep(2)"],
-                                        cwd=ROOT, directory=directory, label="region-timeout", timeout=0.05)
+                                        cwd=ROOT, directory=directory, label="region-timeout", timeout=1.0)
             self.assertTrue(result["timeout"])
             self.assertIsNone(result["returncode"])
             self.assertEqual(Path(result["stdout"]).read_bytes(), b"start\n")

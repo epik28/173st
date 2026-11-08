@@ -26,8 +26,10 @@ cosine, `c(F)F` sqrt(float), `a(D)F` sqrt(double)->float, `d(F)I` floor(float),
 `sqrt_f64_to_f32(f64)`, `floor_f32(f32)`, `floor_f64(f64)`, `abs_f32(f32)`,
 `abs_max_f64(f64,f64)`, `floor_div_i32(i32,i32) -> Result<i32, MathError>` и
 `is_null_or_empty(Option<&str>)`. `floor_div_i32` возвращает
-`DivisionByZero` для делителя 0 и `Overflow` для `i32::MIN / -1`, matching the
-original Java exceptions without panicking.
+`DivisionByZero` для делителя 0; `i32::MIN / -1` возвращает `i32::MIN`, как Java.
+Оригинальный метод корректирует округление вниз только при отрицательном
+числителе, поэтому при отрицательном делителе может отличаться от математического
+floor. Сверяем поведение напрямую, не заменяя его общей формулой деления.
 Никаких зависимостей добавлять не нужно.
 
 Probe — `crates/beta-core/examples/math_probe.rs`, протокол TSV:
@@ -58,7 +60,7 @@ Codex C01 генерирует сохранённый детерминирова
 - abs для обоих нулей, отрицательных значений и NaN; abs-max с равными числами,
   знаками, нулями и NaN;
 - floor-div для знаковых комбинаций, точных/неточных частных, `MIN`, `MAX`,
-  делителей ±1 и ошибок деления на ноль;
+  делителей обоих знаков, ±1 и нуля (native arithmetic error);
 - null/empty/non-empty строки, включая Unicode и пробелы.
 
 Добавить отдельно размеченные invalid protocol inputs. В отчёте показать количество

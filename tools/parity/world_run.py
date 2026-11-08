@@ -387,9 +387,9 @@ def _validate_audit(audit, source_hashes, row_count):
             or audit.get("chunk_present") != 704 or audit.get("chunk_absent") != 44
             or audit.get("input_sha256") != source_hashes):
         raise WorldRunError("native call/class/source audit does not match pinned C01 evidence")
-    if any(Path(path).name != "client-b1.7.3.jar" or ".local/minecraft/" not in path
-           for path in audit.get("code_sources", {}).values()) or len(audit.get("code_sources", {})) != 4:
-        raise WorldRunError("native classes did not load from the pinned local JAR")
+    code_sources = audit.get("code_sources", {})
+    if len(code_sources) != 4 or set(code_sources.values()) != {"client-b1.7.3.jar"}:
+        raise WorldRunError("native classes did not load from the pinned client JAR")
 
 
 def _retained_manifest(path, audit, prefix="native"):
