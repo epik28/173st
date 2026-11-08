@@ -1,5 +1,27 @@
 # Карточки роли codex
 
+## JAVA-001-C01 — Java oracle и conversion/hash corpus
+
+После MATH-001-C03 прочитать [JAVA-001](JAVA-001.md). Создать JavaOracle с
+прямыми cast expressions и `String.hashCode()`, deterministic raw-bit/Unicode
+корпус, независимый повтор двух oracle runs и audit JVM/source/input/output.
+Зафиксировать только ожидаемые TSV fixtures, без JAR/source от игры. Добавить
+тесты генератора и commit C01; после него открыть C02/A01.
+
+## JAVA-001-C02 — parity runner и evidence review
+
+Добавить `java` suite в parity runner: strict ordered decimal comparator,
+SHA-bound saved report, повтор Java output, timeout/process failure, malformed
+protocol и синтетические type/order/row/hash mutations. Runner сверяет pinned
+fixture и source snapshot. Сохранить проверки и коммит C02.
+
+## JAVA-001-C03 — интеграция и приёмка
+
+После C01/C02/A01/A02 проверить точный agy SHA из очереди; выполнить полный
+workspace check, `java --strict`, saved protocol review и все принятые strict
+suites. Исправить concrete расхождения внутри контракта; при успехе принять в
+main, обновить прогресс и estimate, синхронизировать свободные worktrees.
+
 ## MATH-001-C01 — original MathHelper oracle и корпус
 
 После VIEW-001-C03 и clean main прочитать [MATH-001](MATH-001.md). Проверить

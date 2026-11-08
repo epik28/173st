@@ -1,5 +1,21 @@
 # Карточки роли agy
 
+## JAVA-001-A01 — Java-совместимые примитивы
+
+После JAVA-001-C01 прочитать [JAVA-001](JAVA-001.md). Добавить чистый модуль
+`beta_core::java_compat` с четырьмя float-to-int/long conversions и
+`string_hash_code`; тестировать каждую строку committed original Java fixture.
+Не добавлять зависимости или I/O. Изменять только `crates/beta-core/src/` и
+свой handoff/status. Выполнить обычные Rust checks и commit A01.
+
+## JAVA-001-A02 — Java compatibility probe
+
+После A01 добавить `java_compat_probe` по контрактному TSV: strict raw-bit input,
+UTF-8 hex, decimal results, bounded rows/bytes, unique IDs и atomic errors.
+Добавить probe regression tests для всех C01 строк и malformed inputs. Не менять
+Java oracle, fixtures, parity runner или общий API/контракт. Выполнить `tools/check.py`,
+записать команды/результаты и commit A02.
+
 ## MATH-001-A01 — игровые математические функции
 
 После C01 прочитать [MATH-001](MATH-001.md) и использовать только его API.

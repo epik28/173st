@@ -2,6 +2,9 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "JAVA-001-C01": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-C02": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-C03": {"state": "pending", "summary": "", "checks": []},
     "WORLD-LOAD-001-C01": {
       "state": "done",
       "summary": "Добавлены оригинальный WorldOracle на ij/nu/ei/qj, пять-file snapshot и 749 координатных live cases. На копиях выполнено два идентичных запуска: 704 present + 44 absent; native calls отдельно зафиксированы как qj=748, ij=705, ei=1, native_chunk_loads=0. Отдельный generated self-test проверил defaults, wrong types, границы, unknown/list data и strict chunk errors; Rust parity не выполнялась.",

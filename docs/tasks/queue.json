@@ -2,6 +2,41 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "JAVA-001-C01",
+      "owner": "codex",
+      "title": "Java oracle and primitive conversion/hash corpus",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["MATH-001-C03"]
+    },
+    {
+      "id": "JAVA-001-C02",
+      "owner": "codex",
+      "title": "Java compatibility parity runner and evidence review",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["JAVA-001-C01"]
+    },
+    {
+      "id": "JAVA-001-A01",
+      "owner": "agy",
+      "title": "Java-compatible primitive conversions and String hash",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["JAVA-001-C01"]
+    },
+    {
+      "id": "JAVA-001-A02",
+      "owner": "agy",
+      "title": "Java compatibility probe and protocol tests",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": ["JAVA-001-A01"]
+    },
+    {
+      "id": "JAVA-001-C03",
+      "owner": "codex",
+      "title": "Java compatibility integration and acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": ["JAVA-001-C01", "JAVA-001-C02", "JAVA-001-A01", "JAVA-001-A02"]
+    },
+    {
       "id": "MATH-001-C01",
       "owner": "codex",
       "title": "Original MathHelper oracle and behavior corpus",

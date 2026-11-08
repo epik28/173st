@@ -8,6 +8,8 @@ VIEW-001 принят: реализован CPU mesher и локальный wgp
 opaque cube блоки. Это первый графический milestone, не полная визуальная parity.
 MATH-001 принят: проверены оригинальные функции MathHelper, включая полную
 65 536-entry sin/cos LUT, Java float edge cases и signed integer division.
+Следующим открыт JAVA-001 для прямых JVM-проверок float/double casts и
+UTF-16 `String.hashCode`; Rust-реализация пакета пока не принята.
 
 Оценка готовности **полной игры — около 11%** после MATH-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).

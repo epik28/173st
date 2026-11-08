@@ -2,6 +2,8 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
+    "JAVA-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-A02": {"state": "pending", "summary": "", "checks": []},
     "WORLD-LOAD-001-A01": {
       "state": "done",
       "summary": "Реализован beta_core::world: bounded gzip load_level_gzip и typed load_chunk_nbt с exact NBT types, metadata defaults, byte!=0 booleans, player/root/raw NBT retention, required coords и все пять chunk-array lengths. Повреждения, mismatch, wrong type и limits возвращают явные WorldError; filesystem/engine code и новые зависимости отсутствуют.",
