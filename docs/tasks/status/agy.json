@@ -3,9 +3,15 @@
   "role": "agy",
   "tasks": {
     "COLOR-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлены exact native-compatible scalar ClimateSampler, климатические grass/foliage palette helpers, hash-pinned original PNG loader и strict atomic bounded color_probe. Все 1280 native climate rows совпадают raw-bit, а полный probe output совпадает с native на 1600 строках.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core biome::tests → PASS; включает все 1280 climate fixtures с raw f64 bit equality",
+        "cargo run --quiet --locked --offline -p beta-viewer --example color_probe -- /home/andrew/173st/.local/minecraft/grasscolor.png /home/andrew/173st/.local/minecraft/foliagecolor.png < tests/fixtures/color/cases.tsv > /tmp/agy-color-probe.tsv; cmp ... tests/fixtures/color/native.tsv → PASS, 1600 exact rows; output/reference SHA-256 09301df08d99dfbe094b348d3e6127479090f614e2cbd9542ea1aa284d385944",
+        "cargo test --locked --offline -p beta-viewer --example color_probe → PASS: both output forms, malformed and late-invalid atomicity, duplicate IDs, strict hex/LF/ASCII, row and byte limits",
+        "cargo test --locked --offline --all-targets → PASS; cargo clippy --locked --offline --workspace --all-targets -- -D warnings → PASS; cargo fmt --all -- --check; git diff --check → PASS",
+        "Core API commit 9dfc4f2; viewer loader/probe API commit 212c79e; consumed C01 snapshot 6eb78c6 via regular merge. Native fixtures/oracle not modified."
+      ]
     },
     "UV-001-A01": {
       "state": "done",
