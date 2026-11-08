@@ -140,7 +140,7 @@ def validate_audit(audit, cases, jar, pinned):
     if not hashes or hashes != native_hashes(jar, hashes):
         raise ColorError('native class hashes differ from original JAR')
     source = urlparse(audit.get('code_source', ''))
-    if source.scheme != 'file' or source.netloc or Path(unquote(source.path)).resolve() != jar:
+    if source.scheme != 'file' or source.netloc or source.query or source.fragment or Path(unquote(source.path)).resolve() != jar:
         raise ColorError('native class code source differs')
     if audit.get('native_world_constructors') != '0' or audit.get('synthetic_fd_ctor_calls') != '0':
         raise ColorError('native World constructor executed or missing audit')
