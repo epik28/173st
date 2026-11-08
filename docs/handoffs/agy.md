@@ -279,3 +279,13 @@
 - Проверки: `cargo test --locked --offline -p beta-core java_compat::tests::` → 3 PASS; `python3 tools/check.py` → PASS (workspace fmt/check/clippy/all-target/doc plus Python tests); `git diff --check` → PASS.
 - Ограничение: подтверждено поведение для committed fixture, созданной текущей JVM; прямой probe subprocess и live parity относятся к A02/C02/C03.
 - Следующий шаг: JAVA-001-A02 — TSV probe; текущий A01 commit содержит только библиотечный модуль, unit tests и собственные status/handoff.
+
+## JAVA-001-A02 — java_compat_probe
+
+- Добавлен `crates/beta-core/examples/java_compat_probe.rs`, thin stdin/stdout adapter к `beta_core::java_compat` для всех пяти contract operations. Строгий вход: ровно `case_id<TAB>operation<TAB>argument`; conversion arguments имеют точную ширину lowercase raw hex (8 для f32, 16 для f64), строки — lowercase hex UTF-8 (empty разрешён). Выход `case_id<TAB>decimal_result` с LF.
+- Проверяются ASCII stdin с обязательным final LF, exact field count, ID `[A-Za-z0-9_.:-]{1,96}`, unique IDs, operation name, raw-bit width/characters, decoded UTF-8 validity, row limit 100000 и input limit 16 MiB. Результаты накапливаются до полного successful parse, поэтому invalid protocol не оставляет partial stdout; ошибки и неожиданные CLI arguments дают failure code и stderr diagnostics.
+- Example regression tests сверяют все 18493 committed C01 rows с `reference.tsv` побайтно, проверяют все пять operations и LF/decimal formatting, wrong arity, duplicate ID, unknown operation, wrong/uppercase raw bits, malformed/odd/invalid-UTF8 string hex, blank/comment rows, missing final LF, CRLF, позднюю ошибку с empty stdout и оба лимита.
+- Изменены только `crates/beta-core/examples/java_compat_probe.rs`, `docs/tasks/status/agy.json` и этот handoff. Java oracle, fixture, parity runner, shared contract, API и зависимости не менялись.
+- Проверки: `cargo test --locked --offline -p beta-core --example java_compat_probe` → 4 PASS; `python3 tools/check.py` → PASS (workspace formatting/check/clippy/all-target/doc and Python checks); `git diff --check` → PASS.
+- Subprocess C01: Rust probe выдал 18493 строки и byte-identical committed reference, SHA-256 `397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8`. Java `JavaCompatOracle` был отдельно скомпилирован и запущен на тех же входах; `cmp` Java/Rust outputs прошёл с тем же SHA. Восемь malformed subprocess streams и unexpected command-line arg завершились ненулевым кодом с пустым stdout и диагностикой в stderr.
+- Native parity подтверждена на 18493 conversion/hash fixture rows для pinned oracle/runtime; подключение в игровую логику и интеграционный saved-report review находятся вне A02.
