@@ -609,9 +609,16 @@
       ]
     },
     "BLOCK-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Integrated exact agy BLOCK-001 snapshot 170033d. Native ray targeting matches all 17 pinned cases; bounded creative break/place and full-scene mesh/GPU rebuild are covered and wired into the viewer. Source saves remain read-only. Action parity against original is not claimed because C01 could not safely initialize an isolated native controller.",
+      "checks": [
+        "python3 tools/check.py → PASS: 180 Python tests (18 opt-in skips), locked workspace check, fmt, clippy -D warnings, all-target and doc tests",
+        "python3 tools/parity/run.py block --strict → PASS: all 17 native ray cases exact",
+        "Legacy strict suites rng, rng-extended, chunk, nbt, region, world, view, math, java, geometry, movement, color, light, fluid → PASS. One NBT attempt during 14 concurrent JVM suites had a scenario-protocol error; isolated serial rerun passed exactly.",
+        "Viewer Xvfb screenshot smoke on Agy snapshot → 640x480 RGB rendered scene visually reviewed; GUI mouse automation unavailable, so break/place clicks were not visually exercised",
+        "Native action parity remains unavailable; Rust unit tests cover edits, bounds, atomicity, dirty-chunk reporting. No save persistence, survival mining, inventory, or orientation claim.",
+        "Read-only integration fast-forwarded agy/development snapshot 170033d into main; estimate updated from about 21% to about 23%; push deferred until 30%."
+      ]
     }
   }
 }

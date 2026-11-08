@@ -1,5 +1,27 @@
 # Отчёт Codex
 
+## BLOCK-001-C03 — принят, 2026-11-08
+
+- В `main` fast-forward интегрирован чистый agy snapshot `170033d`.
+- `python3 tools/check.py` → PASS: 180 Python tests (18 opt-in skips), fmt,
+  workspace check, clippy `-D warnings`, all-target Rust и doc tests.
+- `python3 tools/parity/run.py block --strict` → PASS: 17/17 native ray cases.
+  Старые strict suites `rng`, `rng-extended`, `chunk`, `nbt`, `region`, `world`,
+  `view`, `math`, `java`, `geometry`, `movement`, `color`, `light`, `fluid`
+  прошли. Одна параллельная NBT попытка выдала scenario-protocol error; отдельный
+  последовательный запуск прошёл exact.
+- Agy Xvfb screenshot smoke: 640×480 RGB scene визуально проверена; viewer
+  сообщает 25 chunks, 334776 opaque и 9768 water vertices. GUI break/place click
+  automation недоступна, поэтому действие не подтверждалось ручным вводом.
+- В C01 не получилось безопасно построить изолированный native controller
+  oracle. Поэтому ray имеет native parity, break/place — только Rust test
+  coverage и viewer wiring; action parity не заявлена. Изменения локальны и не
+  сохраняются в пользовательский мир.
+- Estimate повышена примерно с 21% до 23% за прицеливание и редактирование мира.
+  GitHub push остаётся отложен до 30% по указанию пользователя.
+- Workspace и status карточки обновлены; следующая задача требует нового
+  контракта. За BLOCK-001 commit здесь принят `170033d`.
+
 ## REGION-001-C03 — принят, внутренние агенты и интеграция
 
 - Исполнители: `gpt-6-luna low`, отдельные роли Rust/runner, отдельные worktree.

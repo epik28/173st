@@ -375,7 +375,8 @@ ID/meta и stack count. Сохранить reviewable run artifact и commit C02
 
 После C01/C02/A01/A02 проверить точный agy commit, API и отсутствие записи в
 источник. Запустить `python3 tools/check.py`, прежние strict suites и
-`python3 tools/parity/run.py block --strict`. Запустить viewer на disposable
-fixed scene, проверить прицеливание, break/place и перестройку mesh. Повторно
-сверить source hashes, сохранить evidence и ограничения, обновить оценку и
-принять BLOCK-001 в main.
+`python3 tools/parity/run.py block --strict`. Интегрировано из `agy/development`
+fast-forward до `170033d`; все проверки прошли. Xvfb screenshot smoke показал
+рабочий кадр, GUI break/place clicks не автоматизировались. Native action parity
+не заявляется; unit coverage и in-memory-only viewer edits зафиксированы.
+BLOCK-001 принят, estimate ≈23%, GitHub push ждёт 30%.

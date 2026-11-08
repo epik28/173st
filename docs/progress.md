@@ -17,16 +17,24 @@ LEAF-001 и LIGHT-001 приняты: листья, biome tint и нативно
 FLUID-001 принят: вода ID 8/9 побитово совпадает с native геометрией в 44 сценах и
 рисуется отдельным alpha-blended проходом. Lava и симуляция жидкости не поддержаны.
 
-Следующий пакет BLOCK-001 описывает native raycast на дальности 5 блоков и
-локальные creative break/place с проверкой стороны попадания, ID/metadata и
-перестроения mesh. Контракт и очередь подготовлены; реализация ещё не начата.
+BLOCK-001 принят: exact native ray targeting на поддержанных формах, локальный
+creative break/place тестового полного блока и пересборка видимой сцены после
+изменения. Strict runner сверяет 17 native ray cases; действия не имеют native
+oracle и подтверждены Rust tests, без заявления action parity. Источник save
+не изменяется. Survival mining, инвентарь, ориентация блоков и light propagation
+остаются вне пакета.
 
-Оценка готовности **полной игры — около 21%** после FLUID-001.
+Оценка готовности **полной игры — около 23%** после BLOCK-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
+BLOCK-001: `170033d` интегрирован в main. Проверены 17 native ray cases,
+bounded viewer break/place и полная пересборка сцены; edits остаются в памяти.
+См. подробности в [completion-estimate.md](completion-estimate.md).
+
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
-  VIEW-001, MATH-001, JAVA-001 и GAME-ORACLE-001 приняты**.
+  VIEW-001, MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT,
+  FLUID-001 и BLOCK-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
