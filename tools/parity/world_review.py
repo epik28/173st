@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 from world_run import (CLASS_SHA256, JAR_SHA256, MARK_REGION, MARK_WORLD, PROBE,
-                       _bind_retained_to_rows, _check_copy, _retained_manifest,
+                       WorldRunError, _bind_retained_to_rows, _check_copy, _retained_manifest,
                        _validate_audit, compare_world_outputs, parse_world_fixture,
                        sha256, valid_world_record)
 
