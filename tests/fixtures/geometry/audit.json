@@ -131,7 +131,7 @@
     "box_intersects": 285,
     "box_contains": 289,
     "box_average_edge": 289,
-    "box_ray": 290,
+    "box_ray": 296,
     "vec_new": 288,
     "vec_to": 284,
     "vec_cross": 284,
@@ -144,9 +144,9 @@
     "vec_intermediate_y": 285,
     "vec_intermediate_z": 285
   },
-  "case_count": 6278,
-  "input_sha256": "96ae74999477cd2cd59e3f153927b8449400e146152051b1b6b05052d63de0c6",
-  "output_sha256": "84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73",
-  "repeat_output_sha256": "84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73",
+  "case_count": 6284,
+  "input_sha256": "7fcb3f9785687555251162a59eff22e4f268c0d23a69424bf5f88cbfb13736c8",
+  "output_sha256": "7b1f74e1eab2d95ed8802a9bf842e045bb8b58e34e1fb46fb02cb4a8ad094af5",
+  "repeat_output_sha256": "7b1f74e1eab2d95ed8802a9bf842e045bb8b58e34e1fb46fb02cb4a8ad094af5",
   "oracle_sha256": "e36ba6a69d65ebc315d7826ab277a325fccd2efcc3bbb6b1a7e540ca3818c407"
 }
