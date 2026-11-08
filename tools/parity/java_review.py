@@ -12,13 +12,86 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_java(report_path, report, protocol=False):
-    if report.get("suite") != "java" or report.get("status") != "pass":
-        raise SystemExit("requires a successful Java live report")
+def _require(condition, message):
+    if not condition:
+        raise SystemExit(message)
+
+
+def _saved_processes(report, expected):
+    processes = report.get("processes")
+    _require(isinstance(processes, dict), "saved process records are missing or invalid")
+    logs = report.get("log_paths")
+    _require(isinstance(logs, dict), "saved log_paths are missing or invalid")
+    for label in expected:
+        process = processes.get(label)
+        _require(isinstance(process, dict), f"saved process record {label} is missing")
+        _require(process.get("returncode") == 0 and process.get("timeout") is False
+                 and process.get("error") is None,
+                 f"saved process {label} did not complete successfully")
+        for stream in ("stdout", "stderr"):
+            saved = process.get(stream)
+            _require(isinstance(saved, str) and saved,
+                     f"saved {label} {stream} path is missing")
+            _require(logs.get(label, {}).get(stream) == saved,
+                     f"saved {label} {stream} path disagrees with log_paths")
+            path = Path(saved)
+            _require(path.is_file() and not path.is_symlink(),
+                     f"saved {label} {stream} log is missing or invalid: {path}")
+            _require(sha(path.read_bytes()) == process.get(f"{stream}_sha256"),
+                     f"saved {label} {stream} log hash mismatch")
+    return processes
+
+
+def _verify_artifacts(report, log, processes):
+    classes = Path(log.get("java_classes", ""))
+    adapter = classes / "JavaCompatOracle.class"
+    _require(adapter.is_file() and not adapter.is_symlink(),
+             f"saved Java adapter class is missing: {adapter}")
+    _require(sha(adapter.read_bytes()) == report.get("oracle_class_sha256"),
+             "saved Java adapter class hash mismatch")
+    binary = Path(log.get("rust_binary", ""))
+    _require(binary.is_file() and not binary.is_symlink(),
+             f"saved Rust executable is missing: {binary}")
+    _require(sha(binary.read_bytes()) == report.get("rust_binary_sha256"),
+             "saved Rust executable hash mismatch")
+    command = processes["rust-run"].get("command")
+    _require(isinstance(command, list) and command and Path(command[0]) == binary,
+             "saved rust-run executable path disagrees with rust_binary")
+
+
+def _verify_revision(report, processes):
+    revision = Path(processes["git-revision"]["stdout"]).read_text().strip()
+    _require(revision and revision == report.get("rust_revision"),
+             "saved git revision disagrees with report")
+    dirty = Path(processes["git-dirty"]["stdout"]).read_bytes()
+    _require(not dirty and report.get("rust_dirty") is False,
+             "saved source revision is dirty or disagrees with report")
+
+
+def _verify_comparison_summary(report, comparison):
+    _require(comparison["mismatch_count"] == report.get("mismatch_count")
+             and comparison["first_mismatch"] == report.get("first_mismatch"),
+             "saved mismatch summary disagrees with outputs")
+
+
+def _verify_java(report_path, report, protocol=False):
+    _require(report.get("suite") == "java" and report.get("status") == "pass",
+             "requires a successful Java live report")
+    expected = ("git-revision", "git-dirty", "version-java", "version-javac",
+                "version-rustc", "version-cargo", "java-build", "java-run",
+                "java-repeat", "rust-build", "rust-run")
+    processes = _saved_processes(report, expected)
     log = report["log_paths"]
+    _verify_artifacts(report, log, processes)
+    _verify_revision(report, processes)
+    _require(isinstance(log.get("input"), str), "saved input path is missing")
     paths = {"input": Path(log["input"])}
-    paths.update({key: Path(log[key]["stdout"]) for key in ("java-run", "java-repeat", "rust-run")})
-    raw = {key: path.read_bytes() for key, path in paths.items()}
+    paths.update({key: Path(processes[key]["stdout"])
+                  for key in ("java-run", "java-repeat", "rust-run")})
+    try:
+        raw = {key: path.read_bytes() for key, path in paths.items()}
+    except OSError as error:
+        raise SystemExit(f"cannot read saved comparison artifact: {error}") from error
     for key, field in (("input", "input_sha256"), ("java-run", "reference_output_sha256"),
                        ("java-repeat", "reference_repeat_output_sha256"),
                        ("rust-run", "rust_output_sha256")):
@@ -51,6 +124,7 @@ def verify_java(report_path, report, protocol=False):
     if source_snapshot(ROOT) != report.get("source_hashes"):
         raise SystemExit("sources changed since comparison")
     comparison = compare(raw["java-run"], raw["rust-run"], cases)
+    _verify_comparison_summary(report, comparison)
     if comparison["mismatch_count"]:
         raise SystemExit("saved Java/Rust outputs no longer match")
 
@@ -123,3 +197,10 @@ def verify_java(report_path, report, protocol=False):
         }, ensure_ascii=False, indent=2) + "\n")
     print(f"PASS: saved Java report verified; mutations={len(rejected) + 1}; protocol checks={len(protocol_results)}")
     return 0
+
+
+def verify_java(report_path, report, protocol=False):
+    try:
+        return _verify_java(report_path, report, protocol)
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        raise SystemExit(f"invalid saved Java evidence: {error}") from error
