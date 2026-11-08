@@ -4,12 +4,14 @@
   "tasks": {
     "GAME-ORACLE-001-A01": {
       "state": "done",
-      "summary": "Добавлен чистый beta_core::geometry с Vec3, Axis, Aabb и RayHit по pinned native bytecode eq/bt/vf. Сохранены порядок арифметики, f32-narrowed sqrt, thresholds, signed-zero semantics, clipping/intersection edges и native ray face tie order; API экспортирован без новых зависимостей.",
+      "summary": "Добавлен чистый beta_core::geometry с Vec3, Axis, Aabb и RayHit по pinned native bytecode eq/bt/vf. Сохранены порядок арифметики, f32-narrowed sqrt, thresholds, signed-zero semantics, clipping/intersection edges и native ray face tie order. Follow-up исправил выбор ray hit: native сравнивает squared distance через bt.d(bt), без f32 sqrt.",
       "checks": [
         "cargo test --locked --offline -p beta-core geometry::tests:: → PASS: 4 unit tests на signed zero, MathHelper length/normalize, threshold boundary, AABB contact/clipping, все ray faces, tie order и start-inside",
         "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
-        "cargo test --all-targets --locked --offline → PASS: 51 beta-core library + 35 example + 5 beta-view + 5 beta-viewer loader + 1 viewer binary tests",
-        "cargo fmt --all -- --check; git diff --check → PASS"
+        "cargo test --all-targets --locked --offline → PASS: 52 beta-core library + 39 example + 5 beta-view + 5 beta-viewer loader + 1 viewer binary tests",
+        "cargo fmt --all -- --check; git diff --check → PASS",
+        "Follow-up repro /tmp/173st-ray-neartie.tsv → exact native `face 5, 3eb0c70000000000, 3fe0000000000000, 3fe0000000000000`; added thin-box reversed-ray tests for X/Y/Z axes",
+        "After fix, geometry fixture subprocess + cmp → all 6278 rows byte-identical; cargo test --locked --offline -p beta-core geometry::tests:: → 5 PASS"
       ]
     },
     "GAME-ORACLE-001-A02": {
