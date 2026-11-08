@@ -3,6 +3,7 @@
 //! This initial crate establishes the workspace boundary. Game behavior and Java
 //! compatibility will be added in small, independently verified tasks.
 
+pub mod biome;
 pub mod chunk;
 pub mod geometry;
 pub mod java_compat;
