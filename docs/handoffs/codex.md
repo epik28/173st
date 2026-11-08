@@ -881,3 +881,7 @@ Java/Rust protocol executions. Previous strict suites passed: RNG 96,
 RNG-extended 13,227, chunk 4,182, NBT 5,250, region 748, world 749, and view
 50 mappings plus 1,617 neighbor tuples. JAVA-001 is accepted; rounded full-game
 estimate remains about 11% because this is a narrow compatibility foundation.
+
+## GAME-ORACLE-001-C01
+
+Integrated exact oracle snapshot 21198eed5ad7566d431fb5a1679d585fddfe8967, produced by gpt-6-luna low. Coordinator repeated corpus generation/verification and two Python tests: PASS. 6278 native cases, 22 operations, all six ray faces; repeat output SHA 84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73. Rust A01 snapshot ab1422f4cdbd878a88634980511c7473cecd6e63 integrated; actual live parity awaits A02 probe. No game JAR/resources/decompiled code committed.

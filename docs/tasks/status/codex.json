@@ -3,9 +3,14 @@
   "role": "codex",
   "tasks": {
     "GAME-ORACLE-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native reflection oracle для eq/bt/vf/in и corpus 6278 случаев по всем 22 операциям; два direct JAR runs идентичны. Runtime audit фиксирует реальные Method.invoke, descriptors, class hashes и code source. Агент gpt-6-luna low, snapshot 21198eed. Rust parity ещё не принята.",
+      "checks": [
+        "python3 tools/oracle/geometry_corpus.py → PASS: 6278 cases; output SHA 84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73; all 22 op counts match native invocation audit",
+        "python3 -m unittest tests.python.test_geometry_corpus -v → PASS: 2 tests; deterministic input, native hashes/methods/counts",
+        "Agent C01 malformed protocol checks → nonzero exit and empty stdout for unknown op after valid row, duplicate ID, infinity and missing LF",
+        "git diff --check → PASS"
+      ]
     },
     "GAME-ORACLE-001-C02": {
       "state": "pending",
