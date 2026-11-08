@@ -202,6 +202,52 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
     )?;
     Ok(input)
 }
+
+/// Builds tile-isolated mip levels so minification does not alias and neighboring
+/// terrain atlas tiles cannot bleed into one another at lower levels.
+fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
+    debug_assert_eq!(base.dimensions(), (256, 256));
+    let mut levels = vec![base.clone()];
+    for level in 1..=4 {
+        let previous = levels.last().expect("base atlas level exists");
+        let tile_size = 16_u32 >> level;
+        let source_tile_size = tile_size * 2;
+        let dimension = 256_u32 >> level;
+        let mut next = image::RgbaImage::new(dimension, dimension);
+        for tile_y in 0..16 {
+            for tile_x in 0..16 {
+                for y in 0..tile_size {
+                    for x in 0..tile_size {
+                        let sx = tile_x * source_tile_size + x * 2;
+                        let sy = tile_y * source_tile_size + y * 2;
+                        let samples = [
+                            previous.get_pixel(sx, sy),
+                            previous.get_pixel(sx + 1, sy),
+                            previous.get_pixel(sx, sy + 1),
+                            previous.get_pixel(sx + 1, sy + 1),
+                        ];
+                        let mut rgba = [0_u8; 4];
+                        for (channel, value) in rgba.iter_mut().enumerate() {
+                            let total: u16 = samples
+                                .iter()
+                                .map(|pixel| u16::from(pixel.0[channel]))
+                                .sum();
+                            *value = ((total + 2) / 4) as u8;
+                        }
+                        next.put_pixel(
+                            tile_x * tile_size + x,
+                            tile_y * tile_size + y,
+                            image::Rgba(rgba),
+                        );
+                    }
+                }
+            }
+        }
+        levels.push(next);
+    }
+    levels
+}
+
 struct App {
     mesh: Mesh,
     loaded_chunks: usize,
@@ -286,6 +332,7 @@ impl App {
             Ok::<_, Box<dyn std::error::Error>>((d, q, c))
         })?;
         surface.configure(&device, &config);
+        let atlas_mips = build_atlas_mips(&self.atlas);
         let tex = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Beta terrain.png"),
             size: wgpu::Extent3d {
@@ -293,36 +340,42 @@ impl App {
                 height: 256,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
+            mip_level_count: atlas_mips.len() as u32,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &tex,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            self.atlas.as_raw(),
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(1024),
-                rows_per_image: Some(256),
-            },
-            wgpu::Extent3d {
-                width: 256,
-                height: 256,
-                depth_or_array_layers: 1,
-            },
-        );
+        for (level, mip) in atlas_mips.iter().enumerate() {
+            let (width, height) = mip.dimensions();
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &tex,
+                    mip_level: level as u32,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                mip.as_raw(),
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
         let view = tex.create_view(&Default::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 4.0,
             ..Default::default()
         });
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -652,6 +705,43 @@ impl ApplicationHandler for App {
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
         if let Some(w) = &self.window {
             w.request_redraw()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_atlas_mips;
+
+    #[test]
+    fn atlas_mips_preserve_tile_colors_without_neighbor_bleed() {
+        let mut atlas = image::RgbaImage::new(256, 256);
+        for tile_y in 0..16_u32 {
+            for tile_x in 0..16_u32 {
+                let color = image::Rgba([(tile_x + tile_y * 16) as u8, 80, 160, 255]);
+                for y in tile_y * 16..tile_y * 16 + 16 {
+                    for x in tile_x * 16..tile_x * 16 + 16 {
+                        atlas.put_pixel(x, y, color);
+                    }
+                }
+            }
+        }
+
+        let levels = build_atlas_mips(&atlas);
+        assert_eq!(levels.len(), 5);
+        for (level, mip) in levels.iter().enumerate() {
+            let tile_size = 16_u32 >> level;
+            assert_eq!(mip.dimensions(), (256 >> level, 256 >> level));
+            for tile_y in 0..16_u32 {
+                for tile_x in 0..16_u32 {
+                    let expected = image::Rgba([(tile_x + tile_y * 16) as u8, 80, 160, 255]);
+                    for y in tile_y * tile_size..tile_y * tile_size + tile_size {
+                        for x in tile_x * tile_size..tile_x * tile_size + tile_size {
+                            assert_eq!(*mip.get_pixel(x, y), expected);
+                        }
+                    }
+                }
+            }
         }
     }
 }
