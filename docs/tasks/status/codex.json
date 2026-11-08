@@ -14,9 +14,12 @@
       ]
     },
     "WORLD-LOAD-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "in_progress",
+      "summary": "WIP checkpoint: added initial world-runner dispatch, exact TSV parser/comparator, Java oracle launch/copy provenance, native audit/retained-byte binding, saved-report verifier and protocol/mutation review scaffolding. Not accepted: no unit tests, live Rust parity or saved protocol run; implementation still needs review/fixes.",
+      "checks": [
+        "git diff --check → PASS",
+        "python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tools/parity/run.py tools/parity/verify_report.py → PASS (syntax only)"
+      ]
     },
     "WORLD-LOAD-001-C03": {
       "state": "pending",
