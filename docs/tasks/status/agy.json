@@ -2,6 +2,16 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
+    "MOVE-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MOVE-001-A02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "GAME-ORACLE-001-A01": {
       "state": "done",
       "summary": "Добавлен чистый beta_core::geometry с Vec3, Axis, Aabb и RayHit по pinned native bytecode eq/bt/vf. Сохранены порядок арифметики, f32-narrowed sqrt, thresholds, signed-zero semantics, clipping/intersection edges и native ray face tie order. Follow-up исправил выбор ray hit: native сравнивает squared distance через bt.d(bt), без f32 sqrt.",

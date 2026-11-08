@@ -2,6 +2,65 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "MOVE-001-C01",
+      "owner": "codex",
+      "title": "Original entity collision and dry travel oracle",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C03"
+      ]
+    },
+    {
+      "id": "MOVE-001-C02",
+      "owner": "codex",
+      "title": "Movement live runner and retained evidence",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C03"
+      ]
+    },
+    {
+      "id": "MOVE-001-A01",
+      "owner": "agy",
+      "title": "Original-compatible entity collision and dry travel",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C03"
+      ]
+    },
+    {
+      "id": "MOVE-001-A02",
+      "owner": "agy",
+      "title": "Movement protocol probe and exact native traces",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "MOVE-001-A01",
+        "MOVE-001-C01"
+      ]
+    },
+    {
+      "id": "MOVE-001-C04",
+      "owner": "codex",
+      "title": "Fixed-step viewer walking integration",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C03"
+      ]
+    },
+    {
+      "id": "MOVE-001-C03",
+      "owner": "codex",
+      "title": "Movement integration and viewer acceptance",
+      "card": "docs/tasks/MOVE-001.md",
+      "depends_on": [
+        "MOVE-001-C01",
+        "MOVE-001-C02",
+        "MOVE-001-A01",
+        "MOVE-001-A02",
+        "MOVE-001-C04"
+      ]
+    },
+    {
       "id": "GAME-ORACLE-001-C01",
       "owner": "codex",
       "title": "Native geometry oracle and deterministic behavior corpus",

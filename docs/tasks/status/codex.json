@@ -2,6 +2,26 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "MOVE-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MOVE-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MOVE-001-C04": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MOVE-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "GAME-ORACLE-001-C01": {
       "state": "done",
       "summary": "Native reflection oracle для eq/bt/vf/in и corpus 6278 случаев по всем 22 операциям; два direct JAR runs идентичны. Runtime audit фиксирует реальные Method.invoke, descriptors, class hashes и code source. Агент gpt-6-luna low, snapshot 21198eed. Rust parity ещё не принята.",
