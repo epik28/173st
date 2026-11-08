@@ -267,6 +267,21 @@
         "Clean `view --strict` after mipmap follow-up → PASS 50 mappings + 1617 neighbors; artifacts/parity/view/run-bfyl2hef/report.json; protocol verifier and view_review → PASS",
         "Post-follow-up window startup smoke stayed open under Xvfb; a second frame capture was unavailable because the current sandbox Xvfb socket directory has incorrect ownership"
       ]
+    },
+    "MATH-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MATH-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MATH-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
