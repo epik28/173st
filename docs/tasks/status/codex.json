@@ -225,8 +225,8 @@
       ]
     },
     "VIEW-001-C01": {
-      "state": "pending",
-      "summary": "",
+      "state": "in_progress",
+      "summary": "Исследуется native mapping рендера и готовится dependency lock.",
       "checks": []
     },
     "VIEW-001-C02": {
