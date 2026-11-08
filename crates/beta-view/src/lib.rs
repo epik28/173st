@@ -263,16 +263,16 @@ impl Scene {
         }) {
             return Err(ViewError::InvalidColliderQuery);
         }
-        let world_min_x = self.bounds.min_chunk_x * 16;
-        let world_min_z = self.bounds.min_chunk_z * 16;
-        let world_max_x = world_min_x + i32::from(self.bounds.width) * 16;
-        let world_max_z = world_min_z + i32::from(self.bounds.depth) * 16;
-        let x0 = (area.min[0].floor() as i32).max(world_min_x);
-        let x1 = (area.max[0].ceil() as i32).min(world_max_x);
+        let world_min_x = i64::from(self.bounds.min_chunk_x) * 16;
+        let world_min_z = i64::from(self.bounds.min_chunk_z) * 16;
+        let world_max_x = world_min_x + i64::from(self.bounds.width) * 16;
+        let world_max_z = world_min_z + i64::from(self.bounds.depth) * 16;
+        let x0 = (area.min[0].floor() as i64).max(world_min_x);
+        let x1 = (area.max[0].ceil() as i64).min(world_max_x);
         let y0 = (area.min[1].floor() as i32).clamp(0, WORLD_HEIGHT as i32);
         let y1 = (area.max[1].ceil() as i32).clamp(0, WORLD_HEIGHT as i32);
-        let z0 = (area.min[2].floor() as i32).max(world_min_z);
-        let z1 = (area.max[2].ceil() as i32).min(world_max_z);
+        let z0 = (area.min[2].floor() as i64).max(world_min_z);
+        let z1 = (area.max[2].ceil() as i64).min(world_max_z);
         if x1.saturating_sub(x0) > 32 || y1.saturating_sub(y0) > 32 || z1.saturating_sub(z0) > 32 {
             return Err(ViewError::InvalidColliderQuery);
         }
@@ -280,11 +280,11 @@ impl Scene {
         for x in x0..x1 {
             for y in y0..y1 {
                 for z in z0..z1 {
-                    let block = self.block(x, y, z)?;
+                    let block = self.block(x as i32, y, z as i32)?;
                     if block.id == 0 {
                         continue;
                     }
-                    let above = self.block(x, y + 1, z)?.id;
+                    let above = self.block(x as i32, y + 1, z as i32)?.id;
                     if self.is_supported_cube(block.id, block.metadata, above) {
                         result.push(Aabb::new(
                             [x as f64, y as f64, z as f64],
@@ -299,12 +299,12 @@ impl Scene {
 
     /// Finds a nearby column with a confirmed solid floor and two clear blocks.
     pub fn safe_spawn_near(&self, spawn: [i32; 3]) -> Result<[f64; 3], ViewError> {
-        let min_x = self.bounds.min_chunk_x * 16;
-        let min_z = self.bounds.min_chunk_z * 16;
-        let max_x = min_x + i32::from(self.bounds.width) * 16 - 1;
-        let max_z = min_z + i32::from(self.bounds.depth) * 16 - 1;
-        let center_x = spawn[0].clamp(min_x, max_x);
-        let center_z = spawn[2].clamp(min_z, max_z);
+        let min_x = i64::from(self.bounds.min_chunk_x) * 16;
+        let min_z = i64::from(self.bounds.min_chunk_z) * 16;
+        let max_x = min_x + i64::from(self.bounds.width) * 16 - 1;
+        let max_z = min_z + i64::from(self.bounds.depth) * 16 - 1;
+        let center_x = i64::from(spawn[0]).clamp(min_x, max_x);
+        let center_z = i64::from(spawn[2]).clamp(min_z, max_z);
         for radius in 0_i32..=16 {
             for dx in -radius..=radius {
                 let dz_abs = radius - dx.abs();
@@ -313,8 +313,8 @@ impl Scene {
                 } else {
                     vec![-dz_abs, dz_abs]
                 } {
-                    let x = center_x + dx;
-                    let z = center_z + dz;
+                    let x = center_x + i64::from(dx);
+                    let z = center_z + i64::from(dz);
                     if x < min_x || x > max_x || z < min_z || z > max_z {
                         continue;
                     }
@@ -323,12 +323,12 @@ impl Scene {
                         .rev()
                         .chain(start_y + 1..WORLD_HEIGHT as i32 - 2)
                     {
-                        let floor = self.block(x, y - 1, z)?;
+                        let floor = self.block(x as i32, y - 1, z as i32)?;
                         if floor.id == 0 {
                             continue;
                         }
-                        let above = self.block(x, y, z)?;
-                        let head = self.block(x, y + 1, z)?;
+                        let above = self.block(x as i32, y, z as i32)?;
+                        let head = self.block(x as i32, y + 1, z as i32)?;
                         if above.id == 0 && head.id == 0 {
                             let floor_above = above.id;
                             if self.is_supported_cube(floor.id, floor.metadata, floor_above) {
@@ -345,7 +345,13 @@ impl Scene {
     pub fn surface_below(&self, body: Aabb) -> Result<beta_core::motion::Surface, ViewError> {
         let x = ((body.min[0] + body.max[0]) * 0.5).floor() as i32;
         let z = ((body.min[2] + body.max[2]) * 0.5).floor() as i32;
-        let y = body.min[1].floor() as i32 - 1;
+        let Some(y) = (body.min[1].floor() as i64).checked_sub(1) else {
+            return Ok(beta_core::motion::Surface::Air);
+        };
+        if !(0..WORLD_HEIGHT as i64).contains(&y) {
+            return Ok(beta_core::motion::Surface::Air);
+        }
+        let y = y as i32;
         let block = self.block(x, y, z)?;
         let above = self.block(x, y + 1, z)?.id;
         if block.id == 0 || !self.is_supported_cube(block.id, block.metadata, above) {
@@ -976,6 +982,38 @@ mod tests {
                 .unwrap()
                 .safe_spawn_near([0, 64, 0])
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn valid_upper_i32_scene_bounds_do_not_overflow_exclusive_edges() {
+        let bounds = SceneBounds::new(134_217_727, 0, 1, 1).unwrap();
+        let scene = Scene::new(bounds, vec![], vec![]).unwrap();
+        let max = f64::from(i32::MAX);
+        assert!(
+            scene
+                .colliders_in(Aabb::new([max, 0.0, 0.0], [max + 1.0, 1.0, 1.0]))
+                .unwrap()
+                .is_empty()
+        );
+        assert!(scene.safe_spawn_near([i32::MAX, 64, 0]).is_err());
+        assert_eq!(
+            scene
+                .surface_below(Aabb::new(
+                    [max, f64::from(i32::MIN), 0.0],
+                    [max + 1.0, f64::from(i32::MIN) + 1.0, 1.0]
+                ))
+                .unwrap(),
+            beta_core::motion::Surface::Air
+        );
+        assert_eq!(
+            scene
+                .surface_below(Aabb::new(
+                    [0.0, -f64::MAX, 0.0],
+                    [1.0, -f64::MAX + 1.0, 1.0],
+                ))
+                .unwrap(),
+            beta_core::motion::Surface::Air
         );
     }
 
