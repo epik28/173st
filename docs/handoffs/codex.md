@@ -751,3 +751,11 @@ Python и parity наборы не запускались повторно, ко
 - Updated overall estimate to approximately **10%**: the fixed-scene renderer is
   the first accepted graphics capability, while gameplay, simulation, general
   world loading, save writing and most rendering features remain unimplemented.
+- Follow-up review of user-supplied screenshot led to agy commit `c98e227`:
+  four tile-isolated mip levels and linear mip-level blending reduce texture
+  minification aliasing without neighbor-tile bleed. Regression test covers all
+  mip sizes and tile color isolation. `tools/check.py`, viewer tests/clippy and
+  clean view strict/protocol/review all pass (`run-bfyl2hef`). The window started
+  under Xvfb, but a fresh screenshot could not be captured because the sandbox's
+  Xvfb socket directory currently has incorrect ownership; the prior visual frame
+  remains available, and no pixel-parity claim is added.

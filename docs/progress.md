@@ -45,7 +45,9 @@ chunk 4182, NBT 5250, region 748, world 749, view 50 mappings + 1617 neighbor
 tuples. Для view выполнены saved protocol/hash review и Xvfb GUI smoke; локальный
 скриншот `/tmp/beta-viewer-smoke.png` просмотрен. Renderer пока ограничен
 фиксированной сценой и подтверждёнными полными opaque cubes; native brightness,
-AO и pixel parity остаются вне покрытия.
+AO и pixel parity остаются вне покрытия. По пользовательскому кадру добавлены
+tile-isolated atlas mipmaps для уменьшения minification aliasing; тесты и повторная
+view parity прошли. Xvfb sandbox после этого не позволил сохранить новый кадр.
 
 ## Последняя независимая приёмка
 

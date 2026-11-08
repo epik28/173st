@@ -249,7 +249,7 @@
     },
     "VIEW-001-C03": {
       "state": "done",
-      "summary": "VIEW-001 принят на чистом agy snapshot 973de0be1bc36f20ce5d136475cd7226ff884ebb и включён fast-forward в main. Native mapping parity 50/50 и neighbor visibility 1617/1617 точные; зафиксирована локальная textured GUI smoke-сцена. Покрытие ограничено фиксированным 5×5 snapshot и поддержанными opaque cubes; native brightness/AO и pixel parity не заявляются.",
+      "summary": "VIEW-001 принят на чистом agy snapshot 973de0be1bc36f20ce5d136475cd7226ff884ebb и включён fast-forward в main; follow-up c98e227 добавил tile-isolated mipmaps для atlas minification. Native mapping parity 50/50 и neighbor visibility 1617/1617 точные. Покрытие ограничено фиксированным 5×5 snapshot и поддержанными opaque cubes; native brightness/AO и pixel parity не заявляются.",
       "checks": [
         "python3 tools/check.py → PASS: 82 Python tests, fmt/check/clippy -D warnings, 40 beta-core + 5 beta-view + 5 beta-viewer loader tests, example/all-target and doc tests",
         "cargo test --all-targets --locked --offline → PASS; cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
@@ -262,7 +262,10 @@
         "python3 tools/parity/run.py view --strict → PASS 50/50 mapping cases + 1617/1617 neighbor tuples; artifacts/parity/view/run-r_35l3w0/report.json; rust_dirty=false",
         "python3 tools/parity/verify_report.py artifacts/parity/view/run-r_35l3w0/report.json --protocol → PASS: pinned scene/JAR/atlas/source/copy/output hashes; python3 tools/parity/view_review.py ... → PASS",
         "Xvfb viewer smoke → PASS: inspected /tmp/beta-viewer-smoke.png shows textured terrain; camera/resize handlers reviewed, no native pixel parity claimed",
-        "git diff --check → PASS; source-world and copied-input hashes unchanged"
+        "git diff --check → PASS; source-world and copied-input hashes unchanged",
+        "Follow-up c98e227: mip chain test passes for all tile dimensions and no neighboring color bleed; `python3 tools/check.py` and beta-viewer clippy/tests → PASS",
+        "Clean `view --strict` after mipmap follow-up → PASS 50 mappings + 1617 neighbors; artifacts/parity/view/run-bfyl2hef/report.json; protocol verifier and view_review → PASS",
+        "Post-follow-up window startup smoke stayed open under Xvfb; a second frame capture was unavailable because the current sandbox Xvfb socket directory has incorrect ownership"
       ]
     }
   }
