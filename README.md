@@ -47,6 +47,10 @@ The viewer reads the original save, verifies pinned hashes, and renders from a l
 working copy under ignored `artifacts/`. Original JARs, resources and saves are not
 stored in Git.
 
+The fixed scene includes fancy leaves and original biome grass/foliage colors.
+Flat lighting uses saved time and native brightness tables. Weather, ambient
+occlusion, light propagation and loading Nether regions remain future work.
+
 ## Project notes
 
 - [Requirements and stages](docs/project-requirements.md)

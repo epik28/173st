@@ -999,3 +999,41 @@ Fresh root two-JVM retained capture artifacts/leaf-review-dgf6nlww/report.json
 PASS; native GL_LEQUAL515 and alphaGREATER516,.1 verified viajavap.
 Renderer C04 in separate /173st/leaf-viewer worktree stillinprogress.
 COLOR estimate stays16% pending visibleintegration. No push until +5–10pp.
+
+
+## COLOR/LEAF/LIGHT — combined acceptance, 2026-11-08
+
+- Clean tested source755d6dd. Native LIGHT c610b1a/8c8c6d1; Rust core/probe
+  a39fda2; native leaf01dfacd; renderer8a12289/ec3759c/ff84905/2072705;
+  vertex capture08c44c3; runner6bc6eaf hardened755d6dd.
+- All delegated implementers gpt-6-luna low. Coordinator reviewed/merged exact
+  snapshots and requested parser/artifact/type/revision/color fixes; direct Rust
+  engine contribution by coordinator: none. Speculative leaf bytecode notes were
+  corrected by actual native calls before implementation; packed nw integers in
+  supplemental fixture are little-endian ABGR (visible RGB low-byte-first).
+- Final tools/check.py PASS161 Python cases17 explicit opt-in skips;148 Rust,
+  fmt/check/clippy/doc tests. Log /tmp/173st-light-accepted-check.log.
+- LIGHT strict72928 exact and saved --protocol45 executions:
+  artifacts/parity/light/run-mncwexld/report.json. Live runner suite10/10 PASS.
+  Root independently reviewed this final saved report. Additional2048 custom
+  signed-i64/randompartial rows run-cdjcng_7 strict +saved review PASS;
+  emission-only singleton run-50vjjc8e strict+saved PASS (zero synthetic worlds).
+- COLOR fresh1600 exact run-8sshr63k, saved4mutations/24malformed PASS;
+  VIEW fresh50mappings/1617neighbors run-ibpvecb1 strict+savedprotocol PASS;
+  MATH131408 run-o17qdyaa and JAVA18493 run-8og1c7c0 strict PASS.
+  Native leaf3 live tests PASS, native UV336-corner regression PASS.
+- Supplemental native vertex capture repeated independently by root:
+  artifacts/vertex-color-review-bx9ziix0/report.json,504 vertices12calls,
+  both JVM outputs equal committed fixture. Synthetic proxy supplies brightness;
+  exact native saved-light behavior is tested separately by LIGHT oracle.
+- Final cargo build beta-viewer and Xvfb screenshot /tmp/beta-viewer-smoke.png
+  inspected: green terrain/canopies; no startup error, Mesa software DRI3 warnings.
+  GPU evidence is smoke-only, no original pixel parity claim.
+- Static saved-time clear weather only; no AO/light propagation/weather/fluid or
+  special stair/slab lighting. Current pinned copy is Overworld; supporting
+  Nether scalar tables does not claim DIM-1 scene loading. Source JAR/save/assets
+  remain read-only and ignored. No new dependencies.
+- Full-game estimate≈20% (graphics+3pp, biome climate/palettes+1pp), not test-count
+  progress. Local main accepts this package; push interval still anchored16%.
+  No GitHub push until cumulative requested5–10pp gain. Next capability priorities:
+  biome/terrain generation and broader block models/interaction under new contracts.

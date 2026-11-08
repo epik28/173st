@@ -127,6 +127,7 @@ VIEW-001 и MATH-001 приняты. Следом готовим JAVA-001/GAME-O
 - UV-001 — принят: user screenshot 2026-11-08, исправлены faces1/3;
   все6 faces проверены по actual native Tessellator buffer.
 - COLOR-001 — принят: exact scalar climate + grass/foliage palettes.
-- LEAF-001 — renderer проверен локально: biome tint, листья/alpha-test; финальная приёмка вместе с LIGHT-001.
-- LIGHT-001 — в работе: native scalar saved-light arithmetic, clear-weather sun и static saved-time viewer.
+- LEAF-001 — принят: biome tint, листья/alpha-test и native encoded vertex colors.
+- LIGHT-001 — принят: native scalar saved-light arithmetic, clear-weather sun и static saved-time viewer.
+  Динамическое распространение света остаётся будущим LIGHT-UPDATE-001.
   Не смешивать эти дефекты с UV-ориентацией; каждый имеет отдельную приёмку.

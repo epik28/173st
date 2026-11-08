@@ -13,9 +13,9 @@ CLI с пользовательскими входами, Rust geometry свер
 EVIDENCE-001 усилил сохранённые доказательства. MOVE-001 принят: native dry
 movement и фиксированный игровой шаг подключены к viewer. UV-001 принят: исправлена ориентация UV на верхней грани и грани +Z по
 оригинальному Tessellator buffer. COLOR-001 принят: scalar biome climate и палитры точно сверены с оригиналом.
-LEAF-001 подключает их к viewer вместе с листьями и alpha-test.
+LEAF-001 и LIGHT-001 приняты: листья, biome tint и нативное плоское освещение подключены к viewer.
 
-Оценка готовности **полной игры — около 16%** после MOVE-001.
+Оценка готовности **полной игры — около 20%** после COLOR/LEAF/LIGHT.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
@@ -47,14 +47,34 @@ LEAF-001 подключает их к viewer вместе с листьями и
 
 ## Последняя независимая приёмка
 
+COLOR/LEAF/LIGHT совместно приняты на чистой ревизии `755d6dd`.
+Rust LIGHT `a39fda2`, renderer `8a12289`/`ec3759c`/`ff84905`/`2072705`.
+Все72928 native light records exact; дополнительно2048 custom time rows и
+emission-only singleton совпали. Saved evidence review +45 live protocol
+executions PASS, проверены actual sources/revision/JAR/classes/binary/audits.
+Нативный цвет вершины подтверждён504 packed submissions (12 renderer calls),
+два независимых JVM запуска совпали. Графический путь сохраняет исходный порядок
+f32 и byte quantization. Native leaf/UV, fresh COLOR1600 и legacy VIEW50/1617,
+previous MATH131408/JAVA18493, полный check161 Python cases (17 skips)/148 Rust
+прошли. Xvfb после финальной8-float GPU layout показывает зелёную траву/кроны.
+
+Ограничения: фиксированная5×5 сцена из проверенного Overworld save, static saved
+time, flat light, без AO/погоды/распространения света/полного pixel parity.
+Nether проверен численно; DIM-1 regions viewer пока не загружает. Оригинальные
+ресурсы/мир только читаются и отсутствуют в Git. Прямых правок Rust координатором
+в этом пакете нет; реализация делегирована `gpt-6-luna low`.
+Оценка≈20%, прирост≈4pp от последнего push16%; новый push пока не выполняется.
+
+### Предыдущая приёмка COLOR-001
+
 COLOR-001 принят: Rust snapshot `ea8bcfc`, clean tested source `c332ebb`.
 1280 climate +320 palette rows exact, включая raw f64 и полныйARGB. Дополнительно
 320 custom rows across64 diverse seeds и singleton newseed точно совпали с JVM.
 Проверены retained artifacts/processes/commands/sources/resources,4 output
 mutations,24 malformed executions; full workspace check147 Python cases15 skips
 и прежние RNG/math/java strict suites PASS. Core APIs Java-free, PNG palette
-resources читаются локально с проверкойSHA. Видимый tint/leaf renderer ещё
-принимается отдельно LEAF-001; оценка пока остаётся около16%.
+resources читаются локально с проверкойSHA. На момент этой отдельной приёмки видимый renderer ещё ожидал LEAF-001;
+историческая оценка составляла около16%.
 
 
 UV-001 принят: Rust snapshot `6312bcf`, clean merged test revision `a3ca583`.
@@ -123,6 +143,26 @@ tile-isolated atlas mipmaps для уменьшения minification aliasing; �
 view parity прошли. Xvfb sandbox после этого не позволил сохранить новый кадр.
 
 ## Последняя независимая приёмка
+
+COLOR/LEAF/LIGHT совместно приняты на чистой ревизии `755d6dd`.
+Rust LIGHT `a39fda2`, renderer `8a12289`/`ec3759c`/`ff84905`/`2072705`.
+Все72928 native light records exact; дополнительно2048 custom time rows и
+emission-only singleton совпали. Saved evidence review +45 live protocol
+executions PASS, проверены actual sources/revision/JAR/classes/binary/audits.
+Нативный цвет вершины подтверждён504 packed submissions (12 renderer calls),
+два независимых JVM запуска совпали. Графический путь сохраняет исходный порядок
+f32 и byte quantization. Native leaf/UV, fresh COLOR1600 и legacy VIEW50/1617,
+previous MATH131408/JAVA18493, полный check161 Python cases (17 skips)/148 Rust
+прошли. Xvfb после финальной8-float GPU layout показывает зелёную траву/кроны.
+
+Ограничения: фиксированная5×5 сцена из проверенного Overworld save, static saved
+time, flat light, без AO/погоды/распространения света/полного pixel parity.
+Nether проверен численно; DIM-1 regions viewer пока не загружает. Оригинальные
+ресурсы/мир только читаются и отсутствуют в Git. Прямых правок Rust координатором
+в этом пакете нет; реализация делегирована `gpt-6-luna low`.
+Оценка≈20%, прирост≈4pp от последнего push16%; новый push пока не выполняется.
+
+### Предыдущая приёмка COLOR-001
 
 WORLD-LOAD-001: clean Rust snapshot `a7aa6856f81da7f3e008b4c1d7ad9ac89cffac18`,
 объединённая ревизия `8292470d5cdcba84ad42527496226e2c1ca33f8d`; Rust↔Java

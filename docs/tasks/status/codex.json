@@ -12,14 +12,25 @@
       ]
     },
     "LIGHT-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Retained native/Rust runner6bc6eaf with review hardening755d6dd accepted: exact typed TSV, two original JVM traces, constructor/counter provenance, source/class/binary/command/log hashes, strict missing/error handling. Reviewer binds actual captured Git sources while allowing unchanged-source documentation descendants.",
+      "checks": [
+        "python3 tools/parity/run.py light --strict →72928/72928 exact; clean755d6dd; artifacts/parity/light/run-mncwexld/report.json",
+        "Saved verify_report --protocol →PASS45 executions; BETA_LIVE_LIGHT=1 runner tests10/10 PASS, including retained artifact/report mutations",
+        "Independent read-only C02 review of6bc6eaf passed; coordinator caught and requested extra-row parser, exact artifact paths, bool-count rejection and historical source binding fixes",
+        "2048 custom time cases strict +savedreview PASS artifacts/parity/light/run-cdjcng_7/report.json; emission-only singleton ID95 PASS run-50vjjc8e (no world/provider instances)"
+      ]
     },
     "LIGHT-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted combined native LIGHT numerical and graphical snapshots on755d6dd, with COLOR/LEAF final integration and legacy regressions. Acceptance documentation is merged to local main; full-game estimate≈20%, below next5pp push interval from16%.",
+      "checks": [
+        "python3 tools/check.py →PASS161 Python cases17 explicit opt-in skips,148 Rust tests, fmt/check/clippy -D warnings/doc tests; /tmp/173st-light-accepted-check.log",
+        "Clean merged tested revision755d6dd; fresh COLOR strict1600 exact +saved review4mutations/24malformed PASS run-8sshr63k",
+        "Fresh VIEW strict50 mappings/1617 neighbor tuples +saved protocol review PASS run-ibpvecb1; native UV336-corner regression remains PASS",
+        "Previous MATH strict131408 PASS run-o17qdyaa; JAVA strict18493 PASS run-8og1c7c0; native leaf live3 tests PASS /tmp/173st-leaf-native-final.log",
+        "Source save/JAR/resources remain read-only; original assets/worlds and local evidence are ignored, not committed"
+      ]
     },
     "LEAF-001-C01": {
       "state": "done",
@@ -42,9 +53,15 @@
       ]
     },
     "LEAF-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted native leaf/grass materials, biome tint, encoded-color pipeline and exact scalar light integration together. Opaque legacy view protocol/UV preserved, visible green grass and canopies verified. Renderer implemented by delegated gpt-6-luna low; coordinator made no direct Rust engine edits.",
+      "checks": [
+        "python3 tools/check.py →PASS161 Python cases17 explicit opt-in skips,148 Rust tests, fmt/check/clippy -D warnings/doc tests; /tmp/173st-light-accepted-check.log",
+        "Clean merged tested revision755d6dd; fresh COLOR strict1600 exact +saved review4mutations/24malformed PASS run-8sshr63k",
+        "Fresh VIEW strict50 mappings/1617 neighbor tuples +saved protocol review PASS run-ibpvecb1; native UV336-corner regression remains PASS",
+        "Previous MATH strict131408 PASS run-o17qdyaa; JAVA strict18493 PASS run-8og1c7c0; native leaf live3 tests PASS /tmp/173st-leaf-native-final.log",
+        "Source save/JAR/resources remain read-only; original assets/worlds and local evidence are ignored, not committed"
+      ]
     },
     "COLOR-001-C01": {
       "state": "done",
@@ -528,9 +545,14 @@
       ]
     },
     "LIGHT-001-C04": {
-      "state": "pending",
-      "summary": "Saved-time static clear-weather viewer integration frozen in LIGHT-001 C04; delegated separate leaf-viewer worktree.",
-      "checks": []
+      "state": "done",
+      "summary": "Renderer ff84905 +2072705 uses saved-time clear-weather native brightness and source emission minimum. CPU packs vertex RGB in original base/overlay f32 order before GPU texture multiplication. Legacy mesh/probes retain compatibility.",
+      "checks": [
+        "148 Rust tests PASS in final workspace check; native packed-color regression504/504 vertices across12 original cv calls",
+        "Independent root2-JVM vertex-color repeat exact: artifacts/vertex-color-review-bx9ziix0/report.json; raw integer words are little-endian ABGR, decoded to RGB low-byte-first",
+        "Final cargo build beta-viewer +Xvfb startup/screenshot PASS; image inspected after final8-float GPU layout. No original pixel parity claim",
+        "Current preview reads pinned Overworld region scene; Nether scalar numerical API tested, actual Nether region loading is not claimed. Time is static saved time, no AO/weather/propagation"
+      ]
     }
   }
 }
