@@ -13,9 +13,16 @@
       ]
     },
     "GAME-ORACLE-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен строгий atomic crates/beta-core/examples/geometry_probe.rs для всех 22 frozen operations. Raw f64 аргументы проверяются по формату, конечности и ±30,000,000; fixture C01 сравнивается всеми 6278 строками exact bits.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example geometry_probe → PASS: 4 теста, включая exact 6278-row native fixture, malformed atomic rejection, row/byte limits и output shapes",
+        "cargo run --quiet --locked --offline -p beta-core --example geometry_probe < tests/fixtures/geometry/input.tsv > /tmp/agy-geometry-probe.tsv; cmp /tmp/agy-geometry-probe.tsv tests/fixtures/geometry/reference.tsv → PASS",
+        "Invalid late-error binary subprocess → exit nonzero, stdout empty, stderr diagnostic present",
+        "python3 -m unittest tests.python.test_geometry_corpus -v → PASS: 2 C01 fixture/audit tests",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS; cargo test --all-targets --locked --offline → PASS",
+        "cargo fmt --all -- --check; git diff --check; python3 -m json.tool docs/tasks/status/agy.json → PASS"
+      ]
     },
     "JAVA-001-A01": {
       "state": "done",
