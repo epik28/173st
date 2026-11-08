@@ -1,5 +1,14 @@
 # Отчёт Gemini / agy
 
+## GAME-ORACLE-001-A02 — strict geometry_probe
+
+- Добавлен `crates/beta-core/examples/geometry_probe.rs` как thin adapter ко всем 22 операциям замороженного протокола: 6-аргументный box/vector формы, clip по трём осям, ray, distance и intermediate методы. Float параметры принимаются как ровно 16 lowercase hex digits и проверяются на finite и абсолютный диапазон `<= 30,000,000`; ID, exact arity, уникальность, ASCII, обязательный final LF, отсутствие blank rows и лимиты `100000` rows / `32 MiB` строгие. Результаты накапливаются до полного успешного разбора, ошибки идут только в stderr с ненулевым exit.
+- Unit tests byte-for-byte сверяют все 6278 строк C01 `input.tsv`/`reference.tsv`; остальные cases проверяют все shapes/raw-bit output, malformed и позднюю ошибку без partial stdout, nonfinite/uppercase/out-of-range args, duplicates, final LF, IDs, row/byte limits. Native corpus не выявил расхождений в `geometry.rs`; его не менял.
+- Изменены только `crates/beta-core/examples/geometry_probe.rs`, собственные `docs/tasks/status/agy.json` и этот handoff. C01 oracle/fixtures/audit, shared contract, runner, зависимости и соседний worktree не менялись.
+- Проверки: `cargo test --locked --offline -p beta-core --example geometry_probe` → 4 PASS; `cargo run --quiet --locked --offline -p beta-core --example geometry_probe < tests/fixtures/geometry/input.tsv > /tmp/agy-geometry-probe.tsv` + `cmp ... tests/fixtures/geometry/reference.tsv` → exact byte match; invalid late-error subprocess → failure/empty stdout/stderr diagnostic; `python3 -m unittest tests.python.test_geometry_corpus -v` → 2 PASS; workspace `cargo clippy --workspace --all-targets --locked --offline -- -D warnings`, `cargo test --all-targets --locked --offline`, fmt, JSON parse and `git diff --check` → PASS.
+- C01 confirms native method parity only for this geometry corpus/JAR; this is not player simulation, loaded-world parity, or full game behavior. Next step: Codex C02 runner and saved-review integration.
+- Model ID: **gpt-6-luna low** по назначению задачи; дополнительных агентов, ручных заимствований и зависимостей нет; token/cost telemetry недоступна.
+
 ## GAME-ORACLE-001-A01 — beta_core::geometry
 
 - Реализован `crates/beta-core/src/geometry.rs` с `Axis`, `Vec3`, `Aabb` и `RayHit`, модуль экспортирован в `lib.rs`. API повторяет зафиксированные методы `eq`, `bt` и `vf`; новых dependencies и заимствованного кода нет.
