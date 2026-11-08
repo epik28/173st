@@ -7,11 +7,12 @@ selected behavior against the original client and uses local, hash-pinned game d
 
 The Rust workspace contains verified RNG, chunk, NBT, McRegion and read-only world
 data components. A local wgpu viewer renders a fixed 5×5 scene using the original
-terrain atlas and a confirmed subset of full opaque blocks. This is an early visual
-milestone; gameplay, world simulation, save writing and full visual parity are not
-implemented yet.
+terrain atlas, native seeded grass/foliage palettes, and fancy cutout leaf cubes.
+This is an early visual milestone; gameplay, world simulation, save writing and full
+visual parity are not implemented yet.
 
-The viewer includes a 20 Hz walking subset against confirmed opaque full cubes;
+The viewer includes a 20 Hz walking subset against confirmed solid full cubes and
+the full-cube leaves enabled for rendering;
 fluids, ladders, and other unsupported collision shapes remain outside this scope.
 
 ## Build and checks
@@ -23,9 +24,11 @@ python3 tools/parity/run.py view --strict
 ```
 
 To run the viewer, copy `config/local.example.toml` to `config/local.toml`, set the
-local Prism instance and Minecraft resource paths, then run:
+local Prism instance and Minecraft resource paths, and prepare the hash-verified
+palette PNGs beside `terrain.png`:
 
 ```bash
+python3 tools/prepare_assets.py
 cargo run --locked --offline -p beta-viewer
 ```
 

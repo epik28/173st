@@ -105,6 +105,8 @@ struct ParsedScene {
     min_z: i32,
 }
 
+type LoadedSceneInputs = (Scene, [i32; 3], i64, Vec<SceneChunk>, ParsedScene);
+
 fn read_regular(path: &Path, label: &str) -> Result<Vec<u8>, ProbeError> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata.file_type().is_symlink() || !metadata.is_file() {
@@ -252,7 +254,7 @@ fn parse_scene(path: &Path, spawn: [i32; 3]) -> Result<ParsedScene, ProbeError> 
 fn load_scene(
     files: &BTreeMap<String, Vec<u8>>,
     coords: &ParsedScene,
-) -> Result<(Scene, [i32; 3], Vec<SceneChunk>), ProbeError> {
+) -> Result<(Scene, [i32; 3], i64, Vec<SceneChunk>), ProbeError> {
     let level = load_level_gzip(&files["level.dat"], WorldLimits::default())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let spawn = level.spawn;
@@ -295,11 +297,11 @@ fn load_scene(
     let analysis_chunks = chunks.clone();
     let scene =
         Scene::new(bounds, chunks, mappings).map_err(|e| ProbeError::Core(e.to_string()))?;
-    Ok((scene, spawn, analysis_chunks))
+    Ok((scene, spawn, level.seed, analysis_chunks))
 }
 
 fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, ProbeError> {
-    let (scene, spawn, scene_data, parsed) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, spawn, _, scene_data, parsed) = load_scene_inputs(input, terrain, scene_file)?;
     let (states, neighbors) = observed_rows(&scene_data, parsed.min_x, parsed.min_z)?;
     // CPU mesh construction validates that the same loaded scene can feed the renderer.
     let mesh = scene
@@ -355,14 +357,14 @@ fn load_scene_inputs(
     input: &Path,
     terrain: &Path,
     scene_file: &Path,
-) -> Result<(Scene, [i32; 3], Vec<SceneChunk>, ParsedScene), ProbeError> {
+) -> Result<LoadedSceneInputs, ProbeError> {
     let files = validate_copy(input)?;
     validate_terrain(terrain)?;
     let metadata = load_level_gzip(&files["level.dat"], WorldLimits::default())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let parsed = parse_scene(scene_file, metadata.spawn)?;
-    let (scene, spawn, scene_data) = load_scene(&files, &parsed)?;
-    Ok((scene, spawn, scene_data, parsed))
+    let (scene, spawn, seed, scene_data) = load_scene(&files, &parsed)?;
+    Ok((scene, spawn, seed, scene_data, parsed))
 }
 
 /// Load and validate the fixed scene for a graphical viewer.
@@ -371,8 +373,18 @@ pub fn load_scene_for_viewer(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, [i32; 3]), ProbeError> {
-    let (scene, spawn, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, spawn, _, _, _) = load_scene_inputs(input, terrain, scene_file)?;
     Ok((scene, spawn))
+}
+
+/// Load the fixed viewer scene and return the saved level seed for native biome tint.
+pub fn load_scene_for_viewer_with_seed(
+    input: &Path,
+    terrain: &Path,
+    scene_file: &Path,
+) -> Result<(Scene, [i32; 3], i64), ProbeError> {
+    let (scene, spawn, seed, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    Ok((scene, spawn, seed))
 }
 
 fn observed_rows(

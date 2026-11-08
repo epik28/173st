@@ -8,12 +8,14 @@ struct VertexIn {
     @location(1) uv: vec2<f32>,
     @location(2) shade: f32,
     @location(3) saved_light: f32,
+    @location(4) tint: vec3<f32>,
 };
 struct VertexOut {
     @builtin(position) clip: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) shade: f32,
     @location(2) saved_light: f32,
+    @location(3) tint: vec3<f32>,
 };
 @vertex fn vs_main(input: VertexIn) -> VertexOut {
     var out: VertexOut;
@@ -21,11 +23,13 @@ struct VertexOut {
     out.uv = input.uv;
     out.shade = input.shade;
     out.saved_light = input.saved_light;
+    out.tint = input.tint;
     return out;
 }
 @fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
     let color = textureSample(atlas, atlas_sampler, input.uv);
+    if color.a <= 0.1 { discard; }
     // This bounded approximation uses saved nibble light. It does not reproduce
     // native packed uu.d brightness conversion or per-corner ambient occlusion.
-    return vec4<f32>(color.rgb * input.shade * input.saved_light, color.a);
+    return vec4<f32>(color.rgb * input.tint * input.shade * input.saved_light, 1.0);
 }

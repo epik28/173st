@@ -193,6 +193,7 @@ pub struct Scene {
     bounds: SceneBounds,
     chunks: BTreeMap<(i32, i32), ChunkData>,
     mappings: BTreeMap<BlockStateKey, BlockMapping>,
+    fancy_leaves: bool,
 }
 
 impl Scene {
@@ -241,6 +242,7 @@ impl Scene {
             bounds,
             chunks: chunk_map,
             mappings: mapping_map,
+            fancy_leaves: false,
         })
     }
 
@@ -251,6 +253,11 @@ impl Scene {
     #[must_use]
     pub fn loaded_chunks(&self) -> usize {
         self.chunks.len()
+    }
+
+    /// Enables native fancy leaf cube rendering and full-cube leaf collision.
+    pub fn enable_fancy_leaves(&mut self) {
+        self.fancy_leaves = true;
     }
 
     /// Returns confirmed opaque full-cube obstacles overlapping a bounded local
@@ -285,7 +292,7 @@ impl Scene {
                         continue;
                     }
                     let above = self.block(x as i32, y + 1, z as i32)?.id;
-                    if self.is_supported_cube(block.id, block.metadata, above) {
+                    if self.is_collision_cube(block.id, block.metadata, above) {
                         result.push(Aabb::new(
                             [x as f64, y as f64, z as f64],
                             [(x + 1) as f64, (y + 1) as f64, (z + 1) as f64],
@@ -331,7 +338,7 @@ impl Scene {
                         let head = self.block(x as i32, y + 1, z as i32)?;
                         if above.id == 0 && head.id == 0 {
                             let floor_above = above.id;
-                            if self.is_supported_cube(floor.id, floor.metadata, floor_above) {
+                            if self.is_collision_cube(floor.id, floor.metadata, floor_above) {
                                 return Ok([x as f64 + 0.5, y as f64, z as f64 + 0.5]);
                             }
                         }
@@ -354,7 +361,7 @@ impl Scene {
         let y = y as i32;
         let block = self.block(x, y, z)?;
         let above = self.block(x, y + 1, z)?.id;
-        if block.id == 0 || !self.is_supported_cube(block.id, block.metadata, above) {
+        if block.id == 0 || !self.is_collision_cube(block.id, block.metadata, above) {
             Ok(beta_core::motion::Surface::Air)
         } else if block.id == 79 {
             Ok(beta_core::motion::Surface::Ice)
@@ -439,9 +446,31 @@ impl Scene {
             .is_some_and(BlockMapping::is_renderable_cube)
     }
 
+    fn is_collision_cube(&self, id: u8, metadata: u8, above_id: u8) -> bool {
+        (self.fancy_leaves && id == 18) || self.is_supported_cube(id, metadata, above_id)
+    }
+
     /// Deterministic face mesh in world block coordinates. Unsupported states are omitted
     /// and counted once per occupied block. Adjacent supported full cubes share no face.
     pub fn mesh(&self, limits: MeshLimits) -> Result<Mesh, ViewError> {
+        self.mesh_impl(limits, None)
+    }
+
+    /// Builds the extended render mesh using exact palette colors supplied by the caller.
+    /// The callback receives block ID, metadata, and signed world X/Z; this crate does not
+    /// compute climate, load palettes, or perform I/O.
+    pub fn mesh_with_tint<F>(&self, limits: MeshLimits, mut tint: F) -> Result<Mesh, ViewError>
+    where
+        F: FnMut(u8, u8, i32, i32) -> u32,
+    {
+        self.mesh_impl(limits, Some(&mut tint))
+    }
+
+    fn mesh_impl(
+        &self,
+        limits: MeshLimits,
+        mut tint: Option<&mut dyn FnMut(u8, u8, i32, i32) -> u32>,
+    ) -> Result<Mesh, ViewError> {
         let mut mesh = Mesh::default();
         let vertex_limit = limits.max_vertices.min(MAX_MESH_VERTICES);
         let index_limit = limits.max_indices.min(MAX_MESH_INDICES);
@@ -472,28 +501,52 @@ impl Scene {
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
                             let wz = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
                             let above_id = self.block(wx, i32::from(y) + 1, wz)?.id;
-                            let Some(mapping) =
-                                self.mapping_for(block.id, block.metadata, above_id)
-                            else {
-                                mesh.unsupported_blocks += 1;
-                                continue;
-                            };
-                            if !mapping.is_renderable_cube() {
+                            let fancy_leaf = self.fancy_leaves && block.id == 18;
+                            let mapping = self.mapping_for(block.id, block.metadata, above_id);
+                            if !fancy_leaf && !mapping.is_some_and(BlockMapping::is_renderable_cube)
+                            {
                                 mesh.unsupported_blocks += 1;
                                 continue;
                             }
+                            let block_tint = if let Some(sample) = tint.as_deref_mut() {
+                                if fancy_leaf || block.id == 2 {
+                                    Some(color_tint(sample(block.id, block.metadata, wx, wz)))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
                             for face in 0..6_u8 {
                                 let (dx, dy, dz) = face_delta(face)?;
                                 let neighbor = self.block(wx + dx, i32::from(y) + dy, wz + dz)?;
                                 let neighbor_above =
                                     self.block(wx + dx, i32::from(y) + dy + 1, wz + dz)?.id;
-                                if self.is_supported_cube(
-                                    neighbor.id,
-                                    neighbor.metadata,
-                                    neighbor_above,
-                                ) {
+                                if !(self.fancy_leaves && neighbor.id == 18)
+                                    && self.is_supported_cube(
+                                        neighbor.id,
+                                        neighbor.metadata,
+                                        neighbor_above,
+                                    )
+                                {
                                     continue;
                                 }
+                                let tile = if fancy_leaf {
+                                    if block.metadata & 3 == 1 { 132 } else { 52 }
+                                } else {
+                                    mapping.expect("renderable mapping checked above").tiles
+                                        [usize::from(face)]
+                                };
+                                let top_grass = block.id == 2 && face == 1;
+                                let overlay_grass = tint.is_some()
+                                    && block.id == 2
+                                    && (2..=5).contains(&face)
+                                    && tile == 3;
+                                let face_tint = if fancy_leaf || top_grass {
+                                    block_tint.unwrap_or([1.0; 3])
+                                } else {
+                                    [1.0; 3]
+                                };
                                 if mesh.vertices.len().saturating_add(4) > vertex_limit
                                     || mesh.indices.len().saturating_add(6) > index_limit
                                 {
@@ -502,14 +555,34 @@ impl Scene {
                                         indices: mesh.indices.len() + 6,
                                     });
                                 }
-                                append_face(
+                                append_face_tinted(
                                     &mut mesh,
                                     [wx, i32::from(y), wz],
                                     face,
-                                    mapping.tiles[usize::from(face)],
+                                    tile,
                                     neighbor.block_light,
                                     neighbor.sky_light,
+                                    face_tint,
                                 )?;
+                                if overlay_grass {
+                                    if mesh.vertices.len().saturating_add(4) > vertex_limit
+                                        || mesh.indices.len().saturating_add(6) > index_limit
+                                    {
+                                        return Err(ViewError::MeshLimitExceeded {
+                                            vertices: mesh.vertices.len() + 4,
+                                            indices: mesh.indices.len() + 6,
+                                        });
+                                    }
+                                    append_face_tinted(
+                                        &mut mesh,
+                                        [wx, i32::from(y), wz],
+                                        face,
+                                        38,
+                                        neighbor.block_light,
+                                        neighbor.sky_light,
+                                        block_tint.unwrap_or([1.0; 3]),
+                                    )?;
+                                }
                             }
                         }
                     }
@@ -544,6 +617,8 @@ pub struct Vertex {
     pub sky_light: u8,
     /// Native renderer's standard-cube directional shade for this face.
     pub shade: f32,
+    /// Linear multiplier from the exact native palette ARGB/RGB result.
+    pub tint: [f32; 3],
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -576,6 +651,7 @@ pub const fn face_shade(face: u8) -> Result<f32, ViewError> {
     }
 }
 
+#[cfg(test)]
 fn append_face(
     mesh: &mut Mesh,
     origin: [i32; 3],
@@ -583,6 +659,26 @@ fn append_face(
     tile: u16,
     block_light: u8,
     sky_light: u8,
+) -> Result<(), ViewError> {
+    append_face_tinted(mesh, origin, face, tile, block_light, sky_light, [1.0; 3])
+}
+
+fn color_tint(argb: u32) -> [f32; 3] {
+    [
+        ((argb >> 16) & 0xff) as f32 / 255.0,
+        ((argb >> 8) & 0xff) as f32 / 255.0,
+        (argb & 0xff) as f32 / 255.0,
+    ]
+}
+
+fn append_face_tinted(
+    mesh: &mut Mesh,
+    origin: [i32; 3],
+    face: u8,
+    tile: u16,
+    block_light: u8,
+    sky_light: u8,
+    tint: [f32; 3],
 ) -> Result<(), ViewError> {
     let tile = usize::from(tile);
     let tx = (tile % 16) as f32 * TILE_SIZE;
@@ -651,6 +747,7 @@ fn append_face(
             block_light,
             sky_light,
             shade,
+            tint,
         });
     }
     mesh.indices
@@ -837,6 +934,29 @@ mod tests {
             bounds,
             vec![SceneChunk { x: 0, z: 0, data }],
             vec![mapping(1)],
+        )
+        .unwrap()
+    }
+
+    fn blocks_scene(blocks: &[(u8, u8, u8, u8, u8)], mappings: Vec<BlockMapping>) -> Scene {
+        let mut data = ChunkData::new();
+        for &(x, y, z, id, metadata) in blocks {
+            data.set(
+                x,
+                y,
+                z,
+                beta_core::chunk::BlockData {
+                    id,
+                    metadata,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        Scene::new(
+            SceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![SceneChunk { x: 0, z: 0, data }],
+            mappings,
         )
         .unwrap()
     }
@@ -1031,6 +1151,195 @@ mod tests {
     fn adjacent_confirmed_cubes_cull_shared_face_and_missing_neighbors_are_air() {
         let mesh = one_block_scene(true).mesh(MeshLimits::default()).unwrap();
         assert_eq!(mesh.visible_faces, 10);
+    }
+
+    #[test]
+    fn fancy_leaf_tiles_tint_and_occlusion_match_native_fixture() {
+        let leaf = blocks_scene(&[(0, 1, 0, 18, 1)], vec![]);
+        assert_eq!(
+            leaf.mesh(MeshLimits::default()).unwrap().unsupported_blocks,
+            1
+        );
+
+        let mut leaf = leaf;
+        leaf.enable_fancy_leaves();
+        let color = 0x0012_3456;
+        let mesh = leaf
+            .mesh_with_tint(MeshLimits::default(), |id, meta, x, z| {
+                assert_eq!((id, meta, x, z), (18, 1, 0, 0));
+                color
+            })
+            .unwrap();
+        assert_eq!(mesh.visible_faces, 6);
+        assert!(mesh.vertices.iter().all(|v| v.tint == color_tint(color)));
+        let tile132_u0 = (132 % 16) as f32 * TILE_SIZE / ATLAS_SIZE;
+        assert_eq!(mesh.vertices[0].uv[0], tile132_u0);
+
+        let mut two_leaves = blocks_scene(&[(0, 1, 0, 18, 1), (1, 1, 0, 18, 0)], vec![]);
+        two_leaves.enable_fancy_leaves();
+        let mesh = two_leaves.mesh(MeshLimits::default()).unwrap();
+        assert_eq!(mesh.visible_faces, 12, "fancy leaves retain shared faces");
+
+        let mut leaf_and_stone =
+            blocks_scene(&[(0, 1, 0, 18, 1), (1, 1, 0, 1, 0)], vec![mapping(1)]);
+        leaf_and_stone.enable_fancy_leaves();
+        assert_eq!(
+            leaf_and_stone
+                .mesh(MeshLimits::default())
+                .unwrap()
+                .visible_faces,
+            11,
+            "opaque stone faces are retained against nonopaque fancy leaves"
+        );
+
+        let stale_opaque_leaf_mapping = BlockMapping {
+            key: BlockStateKey {
+                id: 18,
+                metadata: 0,
+                above_id: None,
+            },
+            ..mapping(18)
+        };
+        let mut two_leaves = blocks_scene(
+            &[(0, 1, 0, 18, 0), (1, 1, 0, 18, 0)],
+            vec![stale_opaque_leaf_mapping],
+        );
+        two_leaves.enable_fancy_leaves();
+        assert_eq!(
+            two_leaves
+                .mesh(MeshLimits::default())
+                .unwrap()
+                .visible_faces,
+            12,
+            "fancy mode must override a stale opaque mapping for leaves"
+        );
+    }
+
+    #[test]
+    fn fancy_leaf_tile_selection_matches_native_metadata_fixture() {
+        for metadata in 0_u8..=15 {
+            let scene = blocks_scene(&[(0, 1, 0, 18, metadata)], vec![]);
+            let mut scene = scene;
+            scene.enable_fancy_leaves();
+            let mesh = scene.mesh(MeshLimits::default()).unwrap();
+            assert_eq!(mesh.visible_faces, 6);
+            for face in 0_u8..6 {
+                let row = include_str!("../../../tests/fixtures/leaf/native.tsv")
+                    .lines()
+                    .find(|line| {
+                        let fields: Vec<_> = line.split('\t').collect();
+                        fields.len() == 6
+                            && fields[0] == "leaf"
+                            && fields[1] == "1"
+                            && fields[2].parse::<u8>().ok() == Some(metadata)
+                            && fields[3].parse::<u8>().ok() == Some(face)
+                            && fields[4] == "0"
+                    })
+                    .expect("native fixture has every fancy metadata/face case");
+                let native_tile = row.split('\t').nth(5).unwrap().parse::<u16>().unwrap();
+                let u0 = (native_tile % 16) as f32 * TILE_SIZE / ATLAS_SIZE;
+                let v0 = (native_tile / 16) as f32 * TILE_SIZE / ATLAS_SIZE;
+                let u1 = u0 + (TILE_SIZE - TILE_INSET) / ATLAS_SIZE;
+                let v1 = v0 + (TILE_SIZE - TILE_INSET) / ATLAS_SIZE;
+                let vertices = &mesh.vertices[usize::from(face) * 4..usize::from(face) * 4 + 4];
+                assert!(
+                    vertices.iter().all(|vertex| {
+                        vertex.uv[0] >= u0 - 1.0e-6
+                            && vertex.uv[0] <= u1 + 1.0e-6
+                            && vertex.uv[1] >= v0 - 1.0e-6
+                            && vertex.uv[1] <= v1 + 1.0e-6
+                    }),
+                    "metadata {metadata} face {face}: expected native tile {native_tile}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn grass_palette_tints_top_and_native_side_overlays_only() {
+        let mut grass_mapping = mapping(2);
+        grass_mapping.tiles = [2, 0, 3, 3, 3, 3];
+        let scene = blocks_scene(&[(0, 1, 0, 2, 0)], vec![grass_mapping]);
+        let legacy_mesh = scene.mesh(MeshLimits::default()).unwrap();
+        assert_eq!(legacy_mesh.visible_faces, 6);
+        assert!(legacy_mesh.vertices.iter().all(|v| v.tint == [1.0; 3]));
+        let color = 0x00a1_b2c3;
+        let mesh = scene
+            .mesh_with_tint(MeshLimits::default(), |id, meta, x, z| {
+                assert_eq!((id, meta, x, z), (2, 0, 0, 0));
+                color
+            })
+            .unwrap();
+        assert_eq!(mesh.visible_faces, 10);
+        assert_eq!(mesh.vertices.len(), 40);
+        assert_eq!(
+            &mesh.vertices[0..4]
+                .iter()
+                .map(|v| v.tint)
+                .collect::<Vec<_>>(),
+            &vec![[1.0; 3]; 4]
+        );
+        assert!(
+            mesh.vertices[4..8]
+                .iter()
+                .all(|v| v.tint == color_tint(color))
+        );
+        for side in 2_u8..6 {
+            let base = (usize::from(side) + usize::from(side - 2)) * 4;
+            assert!(
+                mesh.vertices[base..base + 4]
+                    .iter()
+                    .all(|v| v.tint == [1.0; 3])
+            );
+            let overlay = base + 4;
+            assert!(
+                mesh.vertices[overlay..overlay + 4]
+                    .iter()
+                    .all(|v| v.tint == color_tint(color))
+            );
+            assert_eq!(
+                mesh.vertices[base..base + 4]
+                    .iter()
+                    .map(|v| v.position)
+                    .collect::<Vec<_>>(),
+                mesh.vertices[overlay..overlay + 4]
+                    .iter()
+                    .map(|v| v.position)
+                    .collect::<Vec<_>>()
+            );
+            let overlay_u0 = (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE;
+            assert!(
+                mesh.vertices[overlay..overlay + 4]
+                    .iter()
+                    .all(|v| v.uv[0] >= overlay_u0)
+            );
+        }
+        assert!(
+            scene
+                .mesh_with_tint(
+                    MeshLimits {
+                        max_vertices: 39,
+                        max_indices: 100
+                    },
+                    |_, _, _, _| color,
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn fancy_leaf_collision_remains_full_cube() {
+        let mut scene = blocks_scene(&[(0, 1, 0, 18, 0)], vec![]);
+        scene.enable_fancy_leaves();
+        let unit = Aabb::new([0.0, 1.0, 0.0], [1.0, 2.0, 1.0]);
+        assert_eq!(scene.colliders_in(unit).unwrap(), vec![unit]);
+        assert_eq!(scene.safe_spawn_near([0, 2, 0]).unwrap(), [0.5, 2.0, 0.5]);
+        assert_eq!(
+            scene
+                .surface_below(Aabb::new([0.2, 2.0, 0.2], [0.8, 3.8, 0.8]))
+                .unwrap(),
+            beta_core::motion::Surface::Stone
+        );
     }
 
     #[test]
