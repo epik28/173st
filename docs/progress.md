@@ -6,12 +6,15 @@ WORLD-LOAD-001 принят: read-only metadata и typed chunk data из Beta 1.
 VIEW-001 принят: реализован CPU mesher и локальный wgpu viewer фиксированной
 5×5 сцены с оригинальной terrain-текстурой; окно показывает рельеф и поддержанные
 opaque cube блоки. Это первый графический milestone, не полная визуальная parity.
+MATH-001 принят: проверены оригинальные функции MathHelper, включая полную
+65 536-entry sin/cos LUT, Java float edge cases и signed integer division.
 
-Оценка готовности **полной игры — около 10%** после VIEW-001.
+Оценка готовности **полной игры — около 11%** после MATH-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
-- **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001 и WORLD-LOAD-001 приняты**.
+- **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
+  VIEW-001 и MATH-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
@@ -37,6 +40,17 @@ opaque cube блоки. Это первый графический milestone, н
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+MATH-001: agy snapshot `aaebed54d22a9149894792e305ed264d9a2b1a36` объединён и
+принят. Rust MathHelper совпал с исходным классом Beta 1.7.3 по 131 408
+операциям и raw IEEE-754 bits; `sin` и `cos` покрывают каждый из 65 536 LUT
+индексов. Saved report `artifacts/parity/math/run-lgbtghq2/report.json` имеет
+`rust_dirty=false`; protocol review проверил 10 отказов некорректных входов и
+синтетические изменения type/bit/order/row count/source. `python3 tools/check.py`
+прошёл с 89 Python-тестами и всеми Rust workspace, clippy, fmt и doc checks.
+Семь предыдущих strict suites также прошли. Набор функций не включает игровой
+цикл, генерацию или физику; готовность полной игры увеличена примерно на один
+пункт до 11%.
 
 VIEW-001 принят с clean agy snapshot `973de0be1bc36f20ce5d136475cd7226ff884ebb`.
 `python3 tools/check.py` и все Rust all-target/doc, fmt/check/clippy проверки прошли.

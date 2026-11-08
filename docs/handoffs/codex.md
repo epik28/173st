@@ -805,3 +805,28 @@ Python и parity наборы не запускались повторно, ко
   `git diff --check` → PASS. Live strict run is recorded below after completion.
 - C02 adds the repeatable differential harness, not gameplay behavior; overall
   estimate remains approximately 10% until MathHelper and its probe are accepted.
+
+## MATH-001-C03 — integration and acceptance
+
+- Reviewed and merged exact agy snapshot `aaebed54d22a9149894792e305ed264d9a2b1a36`.
+  `beta_core::math` and `math_probe` reproduce the original `in` class across
+  131,408 operations using exact raw float/double bits; all 65,536 sine and
+  cosine LUT entries are covered. Java/Rust output SHA is
+  `feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f`.
+- Final `python3 tools/parity/run.py math --strict` passed cleanly with
+  `rust_dirty=false`; report `artifacts/parity/math/run-lgbtghq2/report.json`.
+  `verify_report.py --protocol` verified pinned JAR/class, all report/source/
+  binary/output hashes, detected five synthetic mutations and observed ten
+  malformed-protocol rejections. The contract now records original
+  `floor_div_i32(i32::MIN, -1) = 2147483646`; division by zero remains an error.
+- All prior suites passed: rng 96, rng-extended 13227, chunk 4182, nbt 5250,
+  region 748, world 749 and view 50 mappings plus 1617 neighbor tuples. World
+  verification exposed absolute class-source paths; the validator now accepts
+  the pinned JAR basename independent of checkout location, with regression
+  coverage. World saved review passed 22 protocol executions and retained-byte
+  checks; view saved review passed for all 50 mappings.
+- Final `python3 tools/check.py` → PASS: 89 Python tests; fmt, workspace
+  check/clippy, all-target tests and doc tests. MATH-001 is accepted in `main`.
+  Updated full-game estimate from approximately 10% to **11%** for the first
+  accepted implementation of game math; world simulation, movement, generation,
+  interaction and most presentation remain unimplemented.

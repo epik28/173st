@@ -293,9 +293,19 @@
       ]
     },
     "MATH-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Проверен и интегрирован точный agy snapshot aaebed54d22a9149894792e305ed264d9a2b1a36. MathHelper Rust output совпал с pinned Beta 1.7.3 MathHelper по всем 131408 raw-bit операциям; saved review и 10 protocol checks прошли. Все прежние семь parity suites и полный workspace check прошли; MATH-001 принят в main.",
+      "checks": [
+        "python3 tools/check.py → PASS: 89 Python tests; cargo fmt, workspace check/clippy -D warnings, all-target tests and doc tests",
+        "python3 tools/parity/run.py math --strict → PASS: 131408/131408 exact records; rust_dirty=false; report artifacts/parity/math/run-lgbtghq2/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/math/run-lgbtghq2/report.json --protocol → PASS: source/JAR/class/binary/output hashes; 5 synthetic mutations detected; 10 malformed protocol executions rejected",
+        "Strict previous suites → PASS: rng 96; rng-extended 13227; chunk 4182; nbt 5250; region 748; world 749; view 50 mappings + 1617 neighbor tuples",
+        "python3 tools/parity/run.py world --strict → PASS after portable absolute-JAR path validator fix; report artifacts/parity/world/run-0a837tb_/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/world/run-0a837tb_/report.json --protocol → PASS: saved source/JAR/class/binary hashes, native audit, 749 ordered rows, retained bytes; 22 protocol executions",
+        "python3 tools/parity/verify_report.py artifacts/parity/view/run-0sjdslv_/report.json --protocol → PASS: saved native view report and 50 mappings",
+        "python3 tools/oracle/math_corpus.py → PASS: 131408 rows; full 65536-entry sin/cos table coverage; unchanged reference SHA feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f",
+        "git diff --check → PASS"
+      ]
     }
   }
 }
