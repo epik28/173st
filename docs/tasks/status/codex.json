@@ -3,14 +3,24 @@
   "role": "codex",
   "tasks": {
     "MOVE-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native oracle a0069de8 вызывает original sn.b/ls.a_/ls.R в synthetic static dry world, без native World constructors и без переопределения physics methods. Corpus643scenarios/8213states, actual native methods/fields/code-source audit, raw stone/ice properties и registry stdout capture. Авторgpt-6-luna low; coordinator reviewed/integrated and repeated two JVM runs in runner.",
+      "checks": [
+        "python3 -m unittest tests.python.test_movement_corpus -v → 4 PASS: generator/domain/flags/scenario edges/nativeaudit/hash",
+        "python3 tools/parity/run.py movement --strict → expected not_implemented before A02, but two actual native traces/audits match all8213states and pinned fixture exactly; artifacts/parity/movement/run-z4959fkd/report.json",
+        "Native primary invocations: move1045,travel7168,jump192;collision_queries8680;native_world_constructors0;112 travel sequences64frames,68 have ground-air-landing transitions",
+        "Agent11 malformed/limit/atomicity native subprocess cases PASS; no game resources/JAR or decompiled source committed"
+      ]
     },
     "MOVE-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Typed per-frame raw-bit movement runner/reviewer и custom-input CLI реализованы; проверяют state18 fields, ordering, counts, source/build inputs, commands/processes, native audit/code-source/registry capture и retained executables. Parser tests/strict not_implemented/timeout paths проверены; liveRust and saved mutation/protocol evidence deferred C03 after A02.",
+      "checks": [
+        "python3 -m unittest tests.python.test_movement_runner -v → 7 unit tests PASS; explicit opt-in native test skipped until A02",
+        "python3 tools/parity/run.py movement --strict → native oracle repeat PASS, expected Rust not_implemented; report run-z4959fkd",
+        "python3 tools/parity/movement_run.py --timeout0.001 → captured timeout/error, report artifacts/parity/movement/run-5vqjkiog/report.json",
+        "git diff --check → PASS"
+      ]
     },
     "MOVE-001-C04": {
       "state": "pending",
