@@ -3,11 +3,11 @@
 ## Текущее состояние
 
 WORLD-LOAD-001 принят: read-only metadata и typed chunk data из Beta 1.7.3 save.
-VIEW-001 C01 завершён: зафиксированы оригинальный renderer oracle, scene corpus,
-texture provenance и GPU dependency lock. Открыты C02 (runner) и A01 (CPU mesher);
-окно и графический рендер ещё не реализованы.
+VIEW-001 принят: реализован CPU mesher и локальный wgpu viewer фиксированной
+5×5 сцены с оригинальной terrain-текстурой; окно показывает рельеф и поддержанные
+opaque cube блоки. Это первый графический milestone, не полная визуальная parity.
 
-Оценка готовности **полной игры — около 9%** после WORLD-LOAD-001.
+Оценка готовности **полной игры — около 10%** после VIEW-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
@@ -35,6 +35,17 @@ texture provenance и GPU dependency lock. Открыты C02 (runner) и A01 (C
 - JAR/ресурсы/дизассемблированный код и пользовательский мир в Git не включены.
   Проверки читают копии; работа с `.mcr` остаётся read-only. C01 закрепляет
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
+
+## Последняя независимая приёмка
+
+VIEW-001 принят с clean agy snapshot `973de0be1bc36f20ce5d136475cd7226ff884ebb`.
+`python3 tools/check.py` и все Rust all-target/doc, fmt/check/clippy проверки прошли.
+Все семь strict suites на принятом снимке прошли: RNG 96, RNG-extended 13227,
+chunk 4182, NBT 5250, region 748, world 749, view 50 mappings + 1617 neighbor
+tuples. Для view выполнены saved protocol/hash review и Xvfb GUI smoke; локальный
+скриншот `/tmp/beta-viewer-smoke.png` просмотрен. Renderer пока ограничен
+фиксированной сценой и подтверждёнными полными opaque cubes; native brightness,
+AO и pixel parity остаются вне покрытия.
 
 ## Последняя независимая приёмка
 
@@ -91,7 +102,7 @@ NBT parity относится к общей области оригинальн�
 сохранены. Java DataOutput нормализует NaN; входные биты остаются в evidence.
 Root-End/trailing-byte/TSV guards принадлежат адаптеру, не оригиналу.
 
-Игровая логика, симуляция мира, запись сохранения, графика и производительность
-игры ещё не проверялись. WORLD-LOAD-001 даёт безопасные typed metadata/chunk
-данные и сохраняет исходные NBT; он не загружает игровой World и не запускает тики.
-Следующий пакет — VIEW-001: native oracle и фиксированная тестовая сцена (C01).
+Игровая логика, симуляция мира, запись сохранения, большая часть графики,
+производительности и игровой цикл ещё не реализованы. VIEW-001 показывает только
+фиксированный участок и не загружает игровой World в полноценный renderer.
+Следующий пакет нужно выбирать после принятия VIEW-001 и синхронизации веток.

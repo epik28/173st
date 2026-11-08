@@ -728,3 +728,26 @@ Python и parity наборы не запускались повторно, ко
   `cargo build -p beta-viewer --example view_probe`. C02 compares mapping TSV only;
   native renderer vertex execution and live brightness/pixel parity remain outside
   evidence. The game completion estimate remains approximately 9%.
+
+## VIEW-001-C03 — integration and acceptance
+
+- Reviewed and accepted clean agy snapshot `973de0be1bc36f20ce5d136475cd7226ff884ebb`;
+  fast-forwarded it into `main`. The accepted viewer loads only the pinned 5×5
+  read-only world copy, renders supported full opaque cubes with the original
+  terrain atlas, and reports unsupported states. Fixed-scene GPU smoke was
+  inspected at `/tmp/beta-viewer-smoke.png`; the Xvfb Mesa backend emitted only
+  its software DRI3 fallback warning. Camera and resize event paths were reviewed;
+  interactive-control automation was not part of this smoke.
+- `python3 tools/check.py`, all-target/doc tests, fmt/check/clippy `-D warnings`
+  and `git diff --check` passed. Seven strict parity groups passed on the accepted
+  clean snapshot: rng 96, rng-extended 13227, chunk 4182, nbt 5250, region 748,
+  world 749, and view 50 mappings plus 1617 neighbor tuples.
+- View report `artifacts/parity/view/run-r_35l3w0/report.json` has
+  `rust_dirty=false`; `verify_report.py --protocol` and `view_review.py` passed.
+  Pinned JAR, atlas, scene and source/copy hashes matched; original save source
+  files were unchanged. Evidence covers CPU mapping and neighbor visibility plus
+  a visual smoke frame, not native vertex execution, packed brightness/AO, or
+  pixel parity. Only the confirmed opaque-cube subset is rendered.
+- Updated overall estimate to approximately **10%**: the fixed-scene renderer is
+  the first accepted graphics capability, while gameplay, simulation, general
+  world loading, save writing and most rendering features remain unimplemented.
