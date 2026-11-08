@@ -1,7 +1,9 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.CodingErrorAction;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -63,7 +65,7 @@ public final class MathOracle {
       }
       case "null_or_empty" -> {
         if (a.length != 1) throw new IllegalArgumentException("arity");
-        String value = a[0].equals("null") ? null : new String(hex(a[0]), StandardCharsets.UTF_8);
+        String value = a[0].equals("null") ? null : decodeUtf8(hex(a[0]));
         yield (boolean) method("a", String.class).invoke(null, value) ? "1" : "0";
       }
       default -> throw new IllegalArgumentException("unknown operation");
@@ -75,6 +77,13 @@ public final class MathOracle {
     byte[] out = new byte[s.length() / 2];
     for (int i = 0; i < out.length; i++) out[i] = (byte) Integer.parseInt(s.substring(2*i, 2*i+2), 16);
     return out;
+  }
+
+  private static String decodeUtf8(byte[] bytes) throws java.nio.charset.CharacterCodingException {
+    return StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes)).toString();
   }
 
   public static void main(String[] args) throws Exception {
