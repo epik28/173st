@@ -3,9 +3,13 @@
   "role": "codex",
   "tasks": {
     "LIGHT-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native LightOracle c610b1a + 8c8c6d1 captures unchanged original provider/world/chunk light behavior; synthetic lookups and zero weather are explicitly audited. No original world constructors or rewritten Java numerical formulas.",
+      "checks": [
+        "BETA_LIVE_LIGHT=1 python3 -m unittest tests.python.test_light_corpus -v →4 PASS; two native JVM outputs/audits identical",
+        "72928 rows:24608 samples,48064 time rows,256 emission IDs; minima0/7/15, both dimensions, full Overworld cycle, boundary times",
+        "Native output SHA44072d43233b6265ebd5246bfe096c88bea5e35c6b2db1c52113bdf1f0fdd2f3; direct counters distinguish uninstrumented internals"
+      ]
     },
     "LIGHT-001-C02": {
       "state": "pending",
@@ -28,9 +32,14 @@
       ]
     },
     "LEAF-001-C04": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Rust renderer8a12289 + numeric color-space followup ec3759c integrated. Fancy leaves retain native shared faces, alpha cutoff and collision; native biome tint feeds grass top/side overlays and leaves. Atlas/surface avoid unintended sRGB decoding. Explicitly delegated renderer work; no direct Rust edits by coordinator.",
+      "checks": [
+        "python3 tools/check.py →PASS147 Python cases15 opt-in skips, workspace fmt/check/clippy/all-target/doc tests; /tmp/173st-leaf-check.log",
+        "BETA_LIVE_COLOR=1 BETA_LIVE_UV=1 python3 -m unittest tests.python.test_color_runner.LiveColorEvidenceTests tests.python.test_uv_native -v →6 PASS",
+        "Gamma followup cargo viewer tests15, workspace check/clippy/fmt →PASS",
+        "Rebuilt viewer and Xvfb screenshot /tmp/beta-viewer-smoke.png inspected: green grass/canopies; startup stayed open. Software Mesa DRI3 warnings only; no original pixel parity claim"
+      ]
     },
     "LEAF-001-C03": {
       "state": "pending",
@@ -517,6 +526,11 @@
         "python3 tools/oracle/math_corpus.py → PASS: 131408 rows; full 65536-entry sin/cos table coverage; unchanged reference SHA feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f",
         "git diff --check → PASS"
       ]
+    },
+    "LIGHT-001-C04": {
+      "state": "pending",
+      "summary": "Saved-time static clear-weather viewer integration frozen in LIGHT-001 C04; delegated separate leaf-viewer worktree.",
+      "checks": []
     }
   }
 }
