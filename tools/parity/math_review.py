@@ -17,7 +17,9 @@ def verify_math(report_path, report, protocol=False):
     if report.get("suite") != "math" or report.get("status") != "pass":
         raise SystemExit("requires a successful math live report")
     log = report["log_paths"]
-    paths = {key: Path(log[key]) for key in ("input", "java-run", "java-repeat", "rust-run")}
+    paths = {"input": Path(log["input"])}
+    paths.update({key: Path(log[key]["stdout"])
+                  for key in ("java-run", "java-repeat", "rust-run")})
     raw = {key: path.read_bytes() for key, path in paths.items()}
     for key, field in (("input", "input_sha256"), ("java-run", "reference_output_sha256"),
                        ("java-repeat", "reference_repeat_output_sha256"),
