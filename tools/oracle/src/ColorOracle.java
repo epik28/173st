@@ -27,12 +27,12 @@ public final class ColorOracle {
   static final String FOLIAGE_SHA = "644a527dd7daea5a195bbed056a6a41e295b6043a05621f4c5c263a25fb171cc";
   static final int MAX_INPUT = 4 * 1024 * 1024;
   static final int MAX_ROWS = 4096;
-  static int seedReads, directClimateCalls, grassCalls, foliageCalls;
+  static int seedReads, directClimateCalls, grassCalls, foliageCalls, managerConstructors, syntheticFdConstructors;
   static int directGrassPaletteCalls, directFoliagePaletteCalls;
 
   static final class SeedOnlyWorld extends fd {
     long selectedSeed;
-    SeedOnlyWorld() { super((wt)null, "", 0L); }
+    SeedOnlyWorld() { super((wt)null, "", 0L); syntheticFdConstructors++; }
     @Override public long s() { seedReads++; return selectedSeed; }
   }
 
@@ -143,7 +143,7 @@ public final class ColorOracle {
   static xv manager(long seed, Map<Long, xv> cache) throws Exception {
     xv found = cache.get(seed);
     if (found != null) return found;
-    xv created = new xv(synthetic(seed)); cache.put(seed, created); return created;
+    xv created = new xv(synthetic(seed)); managerConstructors++; cache.put(seed, created); return created;
   }
 
   static void verifyMethods() throws Exception {
@@ -151,7 +151,11 @@ public final class ColorOracle {
         wp.class.getMethod("b", xp.class, int.class, int.class, int.class).getDeclaringClass() != wp.class ||
         bk.class.getMethod("b", xp.class, int.class, int.class, int.class).getDeclaringClass() != bk.class ||
         ia.class.getMethod("a", double.class, double.class).getDeclaringClass() != ia.class ||
-        jh.class.getMethod("a", double.class, double.class).getDeclaringClass() != jh.class)
+        jh.class.getMethod("a", double.class, double.class).getDeclaringClass() != jh.class ||
+        ia.class.getMethod("a", int[].class).getDeclaringClass() != ia.class ||
+        jh.class.getMethod("a", int[].class).getDeclaringClass() != jh.class ||
+        fd.class.getMethod("s").getDeclaringClass() != fd.class ||
+        SeedOnlyWorld.class.getMethod("s").getDeclaringClass() != SeedOnlyWorld.class)
       throw new IOException("unexpected native declaring class/signature");
   }
 
@@ -213,10 +217,11 @@ public final class ColorOracle {
       for (Class<?> type : audited) hashes.append(type.getName()).append(':').append(classSha(type)).append(',');
       String audit = "COLOR_NATIVE_AUDIT\t1\tjar=" + JAR_SHA + "\tcode_source=" + nativeCodeSource +
         "\tgrass=" + GRASS_SHA + "\tfoliage=" + FOLIAGE_SHA + "\tclasses=" + hashes +
-        "\tseed_only_world=Unsafe.allocateInstance(fd_subclass)\tworld_ctor_calls=0\tmanager_ctor_calls=" + managers.size() +
+        "\tseed_only_world=Unsafe.allocateInstance(fd_subclass)\tnative_world_constructors=0\tsynthetic_fd_ctor_calls=" + syntheticFdConstructors +
+        "\tmanager_ctor_calls=" + managerConstructors + "\tpalette_dimensions=256x256\tpalette_order=ImageIO_ARGB_row_major" +
         "\txv_seed_reads=" + seedReads + "\txv_explicit_samples=" + directClimateCalls +
         "\twp_b=" + grassCalls + "\tbk_b=" + foliageCalls + "\tia_explicit_DD=" + directGrassPaletteCalls +
-        "\tjh_explicit_DD=" + directFoliagePaletteCalls + "\tcounts_scope=oracle_direct_calls_only" +
+        "\tjh_explicit_DD=" + directFoliagePaletteCalls + "\tia_setter_calls=1\tjh_setter_calls=1\tcounts_scope=oracle_direct_calls_only" +
         "\tinternal_block_calls=not_instrumented\tclimate_rows=" + climateRows + "\tpalette_rows=" + paletteRows +
         "\tapi=xv.a(IIII):[Lkd;,fields=xv.a:[D/xv.b:[D,wp.b(xp,III):I,bk.b(xp,III):I,ia.a(DD):I,jh.a(DD):I" +
         "\tbootstrap_bytes=" + bootstrap.size() + "\tbootstrap_sha=" + sha(bootstrap.toByteArray()) +
