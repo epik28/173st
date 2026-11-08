@@ -19,6 +19,9 @@ def main():
     if report.get("suite") == "color":
         from color_review import verify_color
         return verify_color(args.report, report, args.protocol)
+    if report.get("suite") == "light":
+        from light_review import verify_light
+        return verify_light(args.report, report, args.protocol)
     if report.get("suite") == "movement":
         from movement_review import verify_movement
         return verify_movement(args.report, report, args.protocol)
