@@ -1063,3 +1063,22 @@ COLOR estimate stays16% pending visibleintegration. No push until +5–10pp.
 Added `tools/parity/fluid_run.py`, the `fluid` dispatch in `tools/parity/run.py`, and `fluid_review.py` for retained evidence validation. The strict runner captures the original renderer twice, requires byte-identical output against the committed 44-scene / 1,242-vertex C01 fixture, and when A02 adds `fluid_probe`, compares ordered case rows and all eight raw words per vertex. Reports bind JAR, oracle/classes, inputs, sources, processes, logs and Rust binary/output hashes. Before the probe exists, `fluid --strict` correctly returns `not_implemented` after native verification.
 
 Verification: 8 relevant Python tests pass (1 opt-in live test skipped); `python3 tools/check.py` passes all Python and workspace checks; strict native run produced and retained a 44-case report and `fluid_review.py` verified its evidence; `git diff --check` passes. Commit: `7934634`.
+
+## FLUID-001-C03 — water integration acceptance
+
+Accepted the exact agy snapshot `0cd7321caeb35db67cace8b1d4826c684ae2b41d`
+after independent review. `python3 tools/check.py` passed; strict parity for
+RNG, RNG-extended, chunk, NBT, McRegion, world, view, and fluid all passed. The
+retained fluid report `artifacts/parity/fluid/run-ywu68m6b/report.json` passed
+`python3 tools/parity/fluid_review.py`: 44 cases, 1,242 vertices, eight verified
+processes, clean revision binding and native SHA-256
+`92625f8caffbe29bf19325937725ddab85590207217b6cde7b4bea53703146c1`.
+
+The separate viewer pass smoke rendered 25 chunks, 334,776 opaque vertices and
+9,768 water vertices; the 640×480 capture is `artifacts/fluid-viewer.png`
+(SHA-256 `67f69d0afed0bbb3f44be16e0e074a7461c808199946340c21aaaffdb17e1009`).
+The five pinned source-save hashes were unchanged before/after smoke. Water is
+render-only: lava, liquid ticks/interactions, transparent overlap sorting, pixel
+parity and FPS improvement remain unsupported. FLUID-001 is integrated locally;
+GitHub push is deferred until the requested 30% readiness target. Estimated full
+game readiness is now about 21%, with roughly one point credited to visible water.

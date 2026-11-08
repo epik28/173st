@@ -14,8 +14,10 @@ EVIDENCE-001 усилил сохранённые доказательства. M
 movement и фиксированный игровой шаг подключены к viewer. UV-001 принят: исправлена ориентация UV на верхней грани и грани +Z по
 оригинальному Tessellator buffer. COLOR-001 принят: scalar biome climate и палитры точно сверены с оригиналом.
 LEAF-001 и LIGHT-001 приняты: листья, biome tint и нативное плоское освещение подключены к viewer.
+FLUID-001 принят: вода ID 8/9 побитово совпадает с native геометрией в 44 сценах и
+рисуется отдельным alpha-blended проходом. Lava и симуляция жидкости не поддержаны.
 
-Оценка готовности **полной игры — около 20%** после COLOR/LEAF/LIGHT.
+Оценка готовности **полной игры — около 21%** после FLUID-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
@@ -46,6 +48,16 @@ LEAF-001 и LIGHT-001 приняты: листья, biome tint и нативно
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+FLUID-001 принят на clean agy revision `0cd7321caeb35db67cace8b1d4826c684ae2b41d`.
+Pure water mesh и bounded `fluid_probe` совпадают с original `cv.b` на 44 сценах /
+1,242 вершинах по raw словам; retained report прошёл отдельную проверку источников,
+процессов и выходов. Viewer вынес воду в отдельный alpha pass; Xvfb capture показывает
+25 чанков, 334,776 opaque и 9,768 water vertices. `tools/check.py` и все предыдущие
+strict parity suites прошли. Хеши пяти pinned save-файлов не изменились при smoke.
+Это только визуальная вода: fluid simulation, lava, transparent sorting и pixel
+parity не заявляются. Оценка полной игры — около 21%; push отложен до 30% по указанию
+пользователя.
 
 COLOR/LEAF/LIGHT совместно приняты на чистой ревизии `755d6dd`.
 Rust LIGHT `a39fda2`, renderer `8a12289`/`ec3759c`/`ff84905`/`2072705`.
