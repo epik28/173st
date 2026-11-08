@@ -3,12 +3,15 @@
 //! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
-use beta_core::motion::MotionState;
+use beta_core::{
+    biome::{Climate, ClimateSampler, foliage_color, grass_color},
+    motion::MotionState,
+};
 use beta_view::{Camera, Mesh, Scene};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
-use std::{fs, sync::Arc, time::Instant};
+use std::{collections::HashMap, fs, sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
@@ -47,10 +50,32 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let input = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
-    let (scene, spawn) = loader::load_scene_for_viewer(&input, &terrain_path, &scene_path)?;
+    let (mut scene, spawn, seed) =
+        loader::load_scene_for_viewer_with_seed(&input, &terrain_path, &scene_path)?;
+    let palette_dir = terrain_path
+        .parent()
+        .ok_or("terrain atlas path has no parent for color palettes")?;
+    let color_maps = beta_viewer::colors::load_color_maps(
+        &palette_dir.join("grasscolor.png"),
+        &palette_dir.join("foliagecolor.png"),
+    )?;
+    scene.enable_fancy_leaves();
+    let mut climate_sampler = ClimateSampler::new(seed);
+    let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
+    let mesh = scene.mesh_with_tint(beta_view::MeshLimits::default(), |id, metadata, x, z| {
+        let climate = *climate_cache
+            .entry((x, z))
+            .or_insert_with(|| climate_sampler.sample(x, z));
+        match id {
+            2 => grass_color(&color_maps.grass, climate)
+                .expect("native climate sampler returns a valid palette climate"),
+            18 => foliage_color(&color_maps.foliage, climate, metadata)
+                .expect("native climate sampler returns a valid palette climate"),
+            _ => 0x00ff_ffff,
+        }
+    })?;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
     let loaded_chunks = scene.loaded_chunks();
-    let mesh = scene.mesh(beta_view::MeshLimits::default())?;
     let event = EventLoop::new()?;
     let mut app = App {
         mesh,
@@ -479,9 +504,9 @@ impl App {
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: 28,
+                    array_stride: 40,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32,3=>Float32],
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32,3=>Float32,4=>Float32x3],
                 })],
             },
             fragment: Some(wgpu::FragmentState {
@@ -498,7 +523,7 @@ impl App {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -506,8 +531,8 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
-        let packed: Vec<[f32; 7]> = if self.mesh.vertices.is_empty() {
-            vec![[0.0; 7]]
+        let packed: Vec<[f32; 10]> = if self.mesh.vertices.is_empty() {
+            vec![[0.0; 10]]
         } else {
             self.mesh
                 .vertices
@@ -521,13 +546,16 @@ impl App {
                         v.uv[1],
                         v.shade,
                         (f32::from(v.sky_light.max(v.block_light)) / 15.0).max(0.08),
+                        v.tint[0],
+                        v.tint[1],
+                        v.tint[2],
                     ]
                 })
                 .collect()
         };
         let vertex_bytes = packed
             .len()
-            .checked_mul(std::mem::size_of::<[f32; 7]>())
+            .checked_mul(std::mem::size_of::<[f32; 10]>())
             .ok_or("vertex buffer size overflow")?;
         let index_bytes = self
             .mesh
