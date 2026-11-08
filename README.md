@@ -1,54 +1,47 @@
 # 173st
 
-Реализация Minecraft Java Edition **Beta 1.7.3** на Rust с проверками против оригинала.
-Цель — воспроизвести внешний вид и поведение, затем улучшать измеренную производительность.
+Minecraft Java Edition **Beta 1.7.3** reimplementation in Rust. The project checks
+selected behavior against the original client and uses local, hash-pinned game data.
 
-Проект находится на этапе подготовки: создан минимальный Rust workspace и описаны
-первые задачи. Игровые механики, RNG и сравнительный runner ещё не реализованы.
+## Current state
 
-## Начало работы
+The Rust workspace contains verified RNG, chunk, NBT, McRegion and read-only world
+data components. A local wgpu viewer renders a fixed 5×5 scene using the original
+terrain atlas and a confirmed subset of full opaque blocks. This is an early visual
+milestone; gameplay, world simulation, save writing and full visual parity are not
+implemented yet.
+
+## Build and checks
 
 ```bash
 python3 tools/doctor.py
 python3 tools/check.py
+python3 tools/parity/run.py view --strict
 ```
 
-Проверки включают изоляцию параллельных сессий в Git worktree и сборку каркаса.
-Тестов игровых механик и сравнений с Minecraft пока нет.
+To run the viewer, copy `config/local.example.toml` to `config/local.toml`, set the
+local Prism instance and Minecraft resource paths, then run:
 
-Нужны Git, Python 3.11+, Rust 1.95+ с rustfmt и clippy. Для Java-эталонов нужны
-`java` и `javac`; исходная среда подготовки — OpenJDK 17. Точные версии записываются
-в отчёты. `rust-toolchain.toml` использует установленный канал stable, а `rust-version`
-задаёт нижнюю границу: это не фиксация точной версии компилятора для будущих замеров.
-Зависимостей crates.io в начальном workspace нет, проверки выполняются offline.
+```bash
+cargo run --locked --offline -p beta-viewer
+```
 
-При необходимости скопировать `config/local.example.toml` в `config/local.toml`
-и указать локальные пути. Этот конфиг исключён из Git. Пример должен оставаться
-без токенов и других учётных данных.
+The viewer reads the original save, verifies pinned hashes, and renders from a local
+working copy under ignored `artifacts/`. Original JARs, resources and saves are not
+stored in Git.
 
-## Документы
+## Project notes
 
-- [Общие требования](docs/project-requirements.md).
-- [Самостоятельная очередь задач по ролям](TASKS.md).
-- [Роли Codex и agy, ветки и интеграция](docs/workflow.md).
-- [Проверки соответствия](docs/parity-testing.md).
-- [Текущий прогресс](docs/progress.md).
-- [Первая задача RNG-001](docs/tasks/RNG-001.md).
-- [Источники](docs/references.md).
+- [Requirements and stages](docs/project-requirements.md)
+- [Agent workflow](docs/workflow.md)
+- [Parity testing](docs/parity-testing.md)
+- [Current progress](docs/progress.md)
+- [Task queue](docs/tasks/queue.json)
+- [Task cards](docs/tasks/)
+- [References](docs/references.md)
 
-Codex открывает `/home/andrew/173st/codex` и начинает с `AGENTS.md`.
-Gemini/Antigravity открывает `/home/andrew/173st/agy` и начинает с `GEMINI.md`.
-Оба работают одновременно в отдельных worktree и своих ветках по общему контракту.
-Каждый сам выбирает следующую карточку: `python3 tools/tasks.py next codex`
-или `python3 tools/tasks.py next agy`. Полный порядок — в `TASKS.md`.
-Перед изменениями: `python3 tools/agent_session.py start codex` либо `start agy`.
-После коммита: `python3 tools/agent_session.py finish codex` либо `finish agy`.
-Статус локальной сессии: `python3 tools/agent_session.py status`.
-Занятие одного worktree не блокирует второй. Команда не переключает ветки автоматически.
+The workspace uses separate `codex/verification` and `agy/development` worktrees
+under `/home/andrew/173st/`. Agent-specific instructions are in [AGENTS.md](AGENTS.md)
+and [GEMINI.md](GEMINI.md).
 
-## Исходные ресурсы
-
-Оригинальные JAR, ресурсы и рабочие копии миров размещаются локально, вне истории Git.
-Java используется в инструментах проверки; конечная игра должна работать на Rust без JVM.
-
-Лицензия репозитория: [GPLv3](LICENSE). Заимствования и их лицензии учитываются отдельно.
+License: [GPLv3](LICENSE).

@@ -25,7 +25,6 @@
 
 ```text
 /home/andrew/173st/
-  START_HERE.md
   .repo.git/          # общие Git-объекты, refs и настройки
   .local/            # локальные оригинальные JAR и исходники для исследования
   codex/             # Codex, ветка codex/verification
@@ -80,7 +79,8 @@ python3 tools/agent_session.py finish agy
 | `docs/tasks/status/codex.json` | Только Codex |
 | `docs/tasks/status/agy.json` | Только agy |
 
-Самостоятельный выбор работы описан в [TASKS.md](../TASKS.md).
+Самостоятельный выбор работы выполняется через `python3 tools/tasks.py next <role>`;
+источник очереди — [`docs/tasks/queue.json`](tasks/queue.json).
 Команды `python3 tools/tasks.py next codex` и `next agy` читают статусы из коммитов
 веток соответствующих ролей. Файл чужого статуса в своём checkout может быть устаревшим.
 После каждой карточки делать коммит и переходить к следующей доступной без ручного назначения.
