@@ -11,7 +11,10 @@
 
 use std::{collections::BTreeMap, error::Error, fmt};
 
-use beta_core::chunk::{ChunkData, ChunkError};
+use beta_core::{
+    chunk::{ChunkData, ChunkError},
+    geometry::Aabb,
+};
 use glam::{Mat4, Vec3, Vec4};
 
 pub const CHUNK_WIDTH: usize = 16;
@@ -124,6 +127,8 @@ impl SceneBounds {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewError {
     InvalidSceneBounds,
+    InvalidColliderQuery,
+    NoSafeSpawn,
     TooManyChunks(usize),
     ChunkOutsideScene { x: i32, z: i32 },
     DuplicateChunk { x: i32, z: i32 },
@@ -143,6 +148,14 @@ impl fmt::Display for ViewError {
             Self::InvalidSceneBounds => write!(
                 f,
                 "scene bounds must be a nonempty rectangle no larger than 5x5 chunks"
+            ),
+            Self::InvalidColliderQuery => write!(
+                f,
+                "collider query must be finite and at most 32 blocks per axis"
+            ),
+            Self::NoSafeSpawn => write!(
+                f,
+                "scene contains no confirmed full-cube floor with two clear blocks"
             ),
             Self::TooManyChunks(count) => {
                 write!(f, "scene has {count} chunks; limit is {MAX_SCENE_CHUNKS}")
@@ -238,6 +251,153 @@ impl Scene {
     #[must_use]
     pub fn loaded_chunks(&self) -> usize {
         self.chunks.len()
+    }
+
+    /// Returns confirmed opaque full-cube obstacles overlapping a bounded local
+    /// query. Missing chunks and unsupported block shapes are treated as air.
+    pub fn colliders_in(&self, area: Aabb) -> Result<Vec<Aabb>, ViewError> {
+        if (0..3).any(|axis| {
+            !area.min[axis].is_finite()
+                || !area.max[axis].is_finite()
+                || area.min[axis] > area.max[axis]
+        }) {
+            return Err(ViewError::InvalidColliderQuery);
+        }
+        let world_min_x = self.bounds.min_chunk_x * 16;
+        let world_min_z = self.bounds.min_chunk_z * 16;
+        let world_max_x = world_min_x + i32::from(self.bounds.width) * 16;
+        let world_max_z = world_min_z + i32::from(self.bounds.depth) * 16;
+        let x0 = (area.min[0].floor() as i32).max(world_min_x);
+        let x1 = (area.max[0].ceil() as i32).min(world_max_x);
+        let y0 = (area.min[1].floor() as i32).clamp(0, WORLD_HEIGHT as i32);
+        let y1 = (area.max[1].ceil() as i32).clamp(0, WORLD_HEIGHT as i32);
+        let z0 = (area.min[2].floor() as i32).max(world_min_z);
+        let z1 = (area.max[2].ceil() as i32).min(world_max_z);
+        if x1.saturating_sub(x0) > 32 || y1.saturating_sub(y0) > 32 || z1.saturating_sub(z0) > 32 {
+            return Err(ViewError::InvalidColliderQuery);
+        }
+        let mut result = Vec::new();
+        for x in x0..x1 {
+            for y in y0..y1 {
+                for z in z0..z1 {
+                    let block = self.block(x, y, z)?;
+                    if block.id == 0 {
+                        continue;
+                    }
+                    let above = self.block(x, y + 1, z)?.id;
+                    if self.is_supported_cube(block.id, block.metadata, above) {
+                        result.push(Aabb::new(
+                            [x as f64, y as f64, z as f64],
+                            [(x + 1) as f64, (y + 1) as f64, (z + 1) as f64],
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Finds a nearby column with a confirmed solid floor and two clear blocks.
+    pub fn safe_spawn_near(&self, spawn: [i32; 3]) -> Result<[f64; 3], ViewError> {
+        let min_x = self.bounds.min_chunk_x * 16;
+        let min_z = self.bounds.min_chunk_z * 16;
+        let max_x = min_x + i32::from(self.bounds.width) * 16 - 1;
+        let max_z = min_z + i32::from(self.bounds.depth) * 16 - 1;
+        let center_x = spawn[0].clamp(min_x, max_x);
+        let center_z = spawn[2].clamp(min_z, max_z);
+        for radius in 0_i32..=16 {
+            for dx in -radius..=radius {
+                let dz_abs = radius - dx.abs();
+                for dz in if dz_abs == 0 {
+                    vec![0]
+                } else {
+                    vec![-dz_abs, dz_abs]
+                } {
+                    let x = center_x + dx;
+                    let z = center_z + dz;
+                    if x < min_x || x > max_x || z < min_z || z > max_z {
+                        continue;
+                    }
+                    let start_y = spawn[1].clamp(1, WORLD_HEIGHT as i32 - 3);
+                    for y in (1..=start_y)
+                        .rev()
+                        .chain(start_y + 1..WORLD_HEIGHT as i32 - 2)
+                    {
+                        let floor = self.block(x, y - 1, z)?;
+                        if floor.id == 0 {
+                            continue;
+                        }
+                        let above = self.block(x, y, z)?;
+                        let head = self.block(x, y + 1, z)?;
+                        if above.id == 0 && head.id == 0 {
+                            let floor_above = above.id;
+                            if self.is_supported_cube(floor.id, floor.metadata, floor_above) {
+                                return Ok([x as f64 + 0.5, y as f64, z as f64 + 0.5]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Err(ViewError::NoSafeSpawn)
+    }
+
+    pub fn surface_below(&self, body: Aabb) -> Result<beta_core::motion::Surface, ViewError> {
+        let x = ((body.min[0] + body.max[0]) * 0.5).floor() as i32;
+        let z = ((body.min[2] + body.max[2]) * 0.5).floor() as i32;
+        let y = body.min[1].floor() as i32 - 1;
+        let block = self.block(x, y, z)?;
+        let above = self.block(x, y + 1, z)?.id;
+        if block.id == 0 || !self.is_supported_cube(block.id, block.metadata, above) {
+            Ok(beta_core::motion::Surface::Air)
+        } else if block.id == 79 {
+            Ok(beta_core::motion::Surface::Ice)
+        } else {
+            Ok(beta_core::motion::Surface::Stone)
+        }
+    }
+
+    /// Keeps the player body inside the loaded rectangular scene and build height.
+    /// This viewer safety bound is separate from native block collision.
+    pub fn constrain_motion_state(&self, state: &mut beta_core::motion::MotionState) {
+        let min_x = f64::from(self.bounds.min_chunk_x * 16);
+        let min_z = f64::from(self.bounds.min_chunk_z * 16);
+        let max_x = min_x + f64::from(self.bounds.width) * 16.0;
+        let max_z = min_z + f64::from(self.bounds.depth) * 16.0;
+        let half_x = (state.bbox.max[0] - state.bbox.min[0]) * 0.5;
+        let half_z = (state.bbox.max[2] - state.bbox.min[2]) * 0.5;
+        let mut hit_horizontal = false;
+        for (axis, lower, upper, half) in [(0, min_x, max_x, half_x), (2, min_z, max_z, half_z)] {
+            let lower = lower + half;
+            let upper = upper - half;
+            let center = (state.bbox.min[axis] + state.bbox.max[axis]) * 0.5;
+            let clamped = center.clamp(lower, upper);
+            if clamped != center {
+                let delta = clamped - center;
+                state.bbox.min[axis] += delta;
+                state.bbox.max[axis] += delta;
+                state.position[axis] += delta;
+                state.velocity[axis] = 0.0;
+                hit_horizontal = true;
+            }
+        }
+        if hit_horizontal {
+            state.collided_horizontally = true;
+            state.collided = true;
+        }
+        let lower_y = 0.0;
+        let upper_y = WORLD_HEIGHT as f64 - (state.bbox.max[1] - state.bbox.min[1]);
+        let clamped_y = state.bbox.min[1].clamp(lower_y, upper_y);
+        if clamped_y != state.bbox.min[1] {
+            let delta = clamped_y - state.bbox.min[1];
+            state.bbox.min[1] += delta;
+            state.bbox.max[1] += delta;
+            state.position[1] += delta;
+            state.velocity[1] = 0.0;
+            state.collided_vertically = true;
+            state.collided = true;
+            state.on_ground = delta > 0.0;
+        }
     }
 
     fn block(&self, x: i32, y: i32, z: i32) -> Result<beta_core::chunk::BlockData, ViewError> {
@@ -557,7 +717,7 @@ impl Camera {
     }
     #[must_use]
     pub fn right(self) -> Vec3 {
-        Vec3::Y.cross(self.forward()).normalize_or_zero()
+        Vec3::new(-self.yaw.cos(), 0.0, self.yaw.sin())
     }
     pub fn rotate(&mut self, yaw_delta: f32, pitch_delta: f32) -> Result<(), ViewError> {
         self.yaw += yaw_delta;
@@ -580,8 +740,8 @@ impl Camera {
         {
             return Err(ViewError::InvalidCamera);
         }
-        let horizontal = Vec3::new(self.forward().x, 0.0, self.forward().z).normalize_or_zero();
-        let right = Vec3::new(horizontal.z, 0.0, -horizontal.x);
+        let horizontal = Vec3::new(self.yaw.sin(), 0.0, self.yaw.cos());
+        let right = self.right();
         self.position += (horizontal * forward + right * strafe + Vec3::Y * vertical) * speed * dt;
         self.validate()
     }
@@ -591,8 +751,8 @@ impl Camera {
             return Err(ViewError::InvalidCamera);
         }
         let forward = self.forward();
-        let right = Vec3::Y.cross(forward).normalize();
-        let up = forward.cross(right);
+        let right = self.right();
+        let up = right.cross(forward).normalize();
         let position = self.position;
         let view = Mat4::from_cols(
             Vec4::new(right.x, up.x, -forward.x, 0.0),
@@ -797,6 +957,29 @@ mod tests {
     }
 
     #[test]
+    fn collision_query_is_local_and_safe_spawn_requires_confirmed_floor() {
+        let scene = one_block_scene(false);
+        assert_eq!(
+            scene
+                .colliders_in(Aabb::new([0.0, 1.0, 0.0], [1.0, 2.0, 1.0]))
+                .unwrap(),
+            vec![Aabb::new([0.0, 1.0, 0.0], [1.0, 2.0, 1.0])]
+        );
+        assert_eq!(scene.safe_spawn_near([0, 2, 0]).unwrap(), [0.5, 2.0, 0.5]);
+        assert!(
+            scene
+                .colliders_in(Aabb::new([0.0, 0.0, 0.0], [1.0, 33.0, 1.0]))
+                .is_err()
+        );
+        assert!(
+            Scene::new(SceneBounds::new(0, 0, 1, 1).unwrap(), vec![], vec![])
+                .unwrap()
+                .safe_spawn_near([0, 64, 0])
+                .is_err()
+        );
+    }
+
+    #[test]
     fn world_aware_mapping_uses_exact_above_block_context() {
         let mut data = ChunkData::new();
         data.set(
@@ -921,6 +1104,13 @@ mod tests {
         ));
         let mut camera = Camera::beta_start([-9, 64, -5]);
         assert!((camera.forward().length() - 1.0).abs() < f32::EPSILON);
+        assert_eq!(camera.right(), Vec3::new(-1.0, 0.0, 0.0));
+        let before_strafe = camera.position;
+        camera.move_local(0.0, 1.0, 0.0, 1.0, 1.0).unwrap();
+        assert!(camera.position.x < before_strafe.x);
+        camera.pitch = std::f32::consts::FRAC_PI_2;
+        assert!(camera.right().is_finite());
+        assert!(camera.view_projection(16.0 / 9.0).unwrap().is_finite());
         assert!(camera.view_projection(16.0 / 9.0).unwrap().is_finite());
         camera.rotate(0.1, 20.0).unwrap();
         assert!(camera.pitch < 1.56 && camera.pitch > 1.55);
