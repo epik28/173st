@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "suite": "geometry",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "class_sha256": {
+    "eq": "81a4cf4a682b2c830e78160d944aa71342e2f6b6d415863c9f18600b08cd191f",
+    "bt": "32018dcec6f1af1efa93baac09178456d9d2537367721875dae6547588a308f8",
+    "vf": "fb28ca5382c97f87e9eccdbb8d0618f50fc329cef1d65500647a918aa9c32cfe",
+    "in": "8693f3179fb0ff1df382e1d3388d23ab688ad3e26415454655da88f10b054f63"
+  },
+  "method_mapping": {
+    "box_new": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(DDDDDD)Leq;"
+    },
+    "box_sweep": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(DDD)Leq;"
+    },
+    "box_expand": {
+      "class": "eq",
+      "name": "b",
+      "descriptor": "(DDD)Leq;"
+    },
+    "box_offset": {
+      "class": "eq",
+      "name": "c",
+      "descriptor": "(DDD)Leq;"
+    },
+    "box_clip_x": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(Leq;D)D"
+    },
+    "box_clip_y": {
+      "class": "eq",
+      "name": "b",
+      "descriptor": "(Leq;D)D"
+    },
+    "box_clip_z": {
+      "class": "eq",
+      "name": "c",
+      "descriptor": "(Leq;D)D"
+    },
+    "box_intersects": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(Leq;)Z"
+    },
+    "box_contains": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(Lbt;)Z"
+    },
+    "box_average_edge": {
+      "class": "eq",
+      "name": "c",
+      "descriptor": "()D"
+    },
+    "box_ray": {
+      "class": "eq",
+      "name": "a",
+      "descriptor": "(Lbt;Lbt;)Lvf;"
+    },
+    "vec_new": {
+      "class": "bt",
+      "name": "a",
+      "descriptor": "(DDD)Lbt;"
+    },
+    "vec_to": {
+      "class": "bt",
+      "name": "a",
+      "descriptor": "(Lbt;)Lbt;"
+    },
+    "vec_cross": {
+      "class": "bt",
+      "name": "b",
+      "descriptor": "(Lbt;)Lbt;"
+    },
+    "vec_add": {
+      "class": "bt",
+      "name": "c",
+      "descriptor": "(DDD)Lbt;"
+    },
+    "vec_normalize": {
+      "class": "bt",
+      "name": "c",
+      "descriptor": "()Lbt;"
+    },
+    "vec_length": {
+      "class": "bt",
+      "name": "d",
+      "descriptor": "()D"
+    },
+    "vec_distance": {
+      "class": "bt",
+      "name": "c",
+      "descriptor": "(Lbt;)D"
+    },
+    "vec_distance_sq": {
+      "class": "bt",
+      "name": "d",
+      "descriptor": "(Lbt;)D"
+    },
+    "vec_intermediate_x": {
+      "class": "bt",
+      "name": "a",
+      "descriptor": "(Lbt;D)Lbt;"
+    },
+    "vec_intermediate_y": {
+      "class": "bt",
+      "name": "b",
+      "descriptor": "(Lbt;D)Lbt;"
+    },
+    "vec_intermediate_z": {
+      "class": "bt",
+      "name": "c",
+      "descriptor": "(Lbt;D)Lbt;"
+    }
+  },
+  "invocations": {
+    "box_new": 289,
+    "box_sweep": 280,
+    "box_expand": 280,
+    "box_offset": 280,
+    "box_clip_x": 285,
+    "box_clip_y": 285,
+    "box_clip_z": 285,
+    "box_intersects": 285,
+    "box_contains": 289,
+    "box_average_edge": 289,
+    "box_ray": 290,
+    "vec_new": 288,
+    "vec_to": 284,
+    "vec_cross": 284,
+    "vec_add": 280,
+    "vec_normalize": 291,
+    "vec_length": 288,
+    "vec_distance": 284,
+    "vec_distance_sq": 284,
+    "vec_intermediate_x": 288,
+    "vec_intermediate_y": 285,
+    "vec_intermediate_z": 285
+  },
+  "case_count": 6278,
+  "input_sha256": "96ae74999477cd2cd59e3f153927b8449400e146152051b1b6b05052d63de0c6",
+  "output_sha256": "84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73",
+  "repeat_output_sha256": "84702c522f875d995182cec388ee3334c262770d26f5d57a0ef5d3d505689b73",
+  "oracle_sha256": "e36ba6a69d65ebc315d7826ab277a325fccd2efcc3bbb6b1a7e540ca3818c407"
+}
