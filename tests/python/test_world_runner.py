@@ -130,8 +130,11 @@ class WorldRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             (directory / "payload.nbt").write_bytes(b"raw")
-            self.assertEqual(world_run._retained_manifest(directory, {}, prefix="Rust"), {
-                "payload.nbt": {"sha256": world_run.sha256(b"raw"), "length": 3}})
+            expected = {"payload.nbt": {"sha256": world_run.sha256(b"raw"), "length": 3}}
+            self.assertEqual(world_run._retained_manifest(directory, {}, prefix="Rust"), expected)
+            # An omitted audit means this is a local integrity check, not an
+            # assertion that native code retained zero files.
+            self.assertEqual(world_run._retained_manifest(directory, {}), expected)
             (directory / "unsafe").mkdir()
             with self.assertRaisesRegex(world_run.WorldRunError, "unsafe"):
                 world_run._retained_manifest(directory, {}, prefix="Rust")

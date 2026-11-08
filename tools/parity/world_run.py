@@ -394,7 +394,7 @@ def _validate_audit(audit, source_hashes, row_count):
 
 def _retained_manifest(path, audit, prefix="native"):
     path = Path(path)
-    expected = audit.get("retained_files", {}) if prefix == "native" else None
+    expected = audit.get("retained_files") if prefix == "native" else None
     files = sorted(p for p in path.iterdir()) if path.is_dir() else []
     names = {p.name for p in files}
     if any(p.is_symlink() or not p.is_file() or not re.fullmatch(r"[A-Za-z0-9_-]+\.nbt", p.name) for p in files):
