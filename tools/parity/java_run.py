@@ -163,7 +163,7 @@ def run_java_suite(root=ROOT, timeout=60):
             report["operation_counts"][case["op"]] = report["operation_counts"].get(case["op"], 0) + 1
         execute("git-revision", ["git", "rev-parse", "HEAD"])
         report["rust_revision"] = Path(report["processes"]["git-revision"]["stdout"]).read_text().strip()
-        report["rust_dirty"] = bool(Path(execute("git-dirty", ["git", "status", "--porcelain"])).read_bytes())
+        report["rust_dirty"] = bool(execute("git-dirty", ["git", "status", "--porcelain"]))
         for tool, args in (("java", ["java", "-version"]), ("javac", ["javac", "-version"]),
                            ("rustc", ["rustc", "--version"]), ("cargo", ["cargo", "--version"])):
             execute(f"version-{tool}", args)
