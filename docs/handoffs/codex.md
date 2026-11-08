@@ -889,3 +889,7 @@ Integrated exact oracle snapshot 21198eed5ad7566d431fb5a1679d585fddfe8967, produ
 ## GAME-ORACLE-001-C02
 
 Coordinator implemented strict geometry CLI and retained-report review. Seven unit tests pass; direct native runs repeated all 6278 cases but Rust probe is not yet present (strict not_implemented). Timeout captured. Custom inputs use the same native oracle and raw-bit comparator with scenario=custom; pinned fixtures are never rewritten. C03 will exercise retained evidence mutations/protocol after A02 arrives.
+
+## GAME-ORACLE-001-C03 / EVIDENCE-001 acceptance
+
+Clean checked revision 9347ae5. Native geometry 6284 exact records; report artifacts/parity/geometry/run-g4ziucta/report.json, rust_dirty=false. Custom repro changed native face5 vs Rustface4 before 011a59bf, now both face5; saved custom report run-o67darfn passes 14 malformed protocol executions. Native corpus extended independently by 6 cases in aa433b70. Coordinator made only Rust test count/format updates (71b3c85/9347ae5), no engine algorithm changes. Full check: 114 Python cases with 6 opt-in skips; all Rust fmt/check/clippy/all-target/doc checks passed. Explicit six opt-in integration tests all passed, including saved geometry and math/java mutations/protocol. Math run-yfts9lyj and Java run-vp2y_3bm each clean. All seven earlier strict suites passed again. EVIDENCE commits a8d7454/ebf49649 by gpt-6-luna low integrated, plus coordinator build-input snapshot fix becea99. Accepted game capability estimate approx12%; no GitHub push yet (batch baseline11%, requested interval5–10pp).

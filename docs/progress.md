@@ -8,14 +8,16 @@ VIEW-001 принят: реализован CPU mesher и локальный wgp
 opaque cube блоки. Это первый графический milestone, не полная визуальная parity.
 MATH-001 и JAVA-001 приняты. JAVA-001 добавил Java-совместимые float/double
 casts в int/long и UTF-16 `String.hashCode`, сверенные с прямым JVM oracle.
-Следующий пакет — GAME-ORACLE-001, затем управление и физика.
+GAME-ORACLE-001 принят: оригинальные AABB/Vec3/ray методы доступны агентам через
+CLI с пользовательскими входами, Rust geometry сверена по raw bits.
+EVIDENCE-001 усилил сохранённые доказательства. Следующий пакет — MOVE-001.
 
-Оценка готовности **полной игры — около 11%** после JAVA-001.
+Оценка готовности **полной игры — около 12%** после GAME-ORACLE-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
-  VIEW-001, MATH-001 и JAVA-001 приняты**.
+  VIEW-001, MATH-001, JAVA-001 и GAME-ORACLE-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
@@ -41,6 +43,16 @@ casts в int/long и UTF-16 `String.hashCode`, сверенные с прямы�
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+GAME-ORACLE-001 принят на clean объединённой ревизии `9347ae5`. Все 6284
+native geometry cases совпали точно. Custom differential input обнаружил
+реальную ошибку выбора ray face на тонком box при близких расстояниях; Rust
+исправлен и native corpus расширен для X/Y/Z в обоих направлениях. Saved review
+проверяет процессы, команды, code source, compiled adapter, Rust binary, source
+и input/output hashes; 14 malformed executions отклонены. Полный workspace check
+и все предыдущие strict suites прошли. EVIDENCE-001 независимо усилил
+math/java evidence и прошёл live mutations/protocol. Геометрия готова к
+использованию в физике; игрового шага пока нет. Оценка полной игры — около 12%.
 
 JAVA-001: snapshot agy `73dac4598dd2d596c1158b640a2bf9f630950b3d` принят.
 Rust casts и `String.hashCode` побайтно совпали с direct JVM oracle на 18 493

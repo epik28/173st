@@ -23,19 +23,34 @@
       ]
     },
     "GAME-ORACLE-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят native geometry пакет: 6284 точных сравнений eq/bt/vf/in, custom-input CLI и saved artifact/protocol review. Интегрированы oracle 21198eed + расширение aa433b70, Rust ab1422f4/b4a66795 + исправление 011a59bf. Независимый custom case поймал неверный выбор ray face из-за f32sqrt; исправлено сравнением квадратов расстояний как в оригинале.",
+      "checks": [
+        "python3 tools/check.py → PASS: 114 Python tests (6 opt-in skips), fmt/check/clippy -D warnings, все Rust all-target/doc tests",
+        "BETA_LIVE_GEOMETRY=1 python3 -m unittest tests.python.test_geometry_runner.LiveGeometryEvidenceTests -v → PASS: 6284/6284 native cases, saved artifact/audit/source/command mutations rejected, 14 malformed protocol executions; report artifacts/parity/geometry/run-g4ziucta/report.json; rust_dirty=false",
+        "Custom near-tie repro /tmp/173st-ray-neartie.tsv → PASS native face5 vs Rust face5 after fix; custom saved protocol review PASS, artifacts/parity/geometry/run-o67darfn/report.json",
+        "Previous accepted strict suites → PASS: rng96, extended13227, chunk4182, nbt5250, region748, world749, view50 mappings+1617 neighbors; math131408 and java18493 also passed live evidence suite",
+        "Coordinator changed only Rust fixture-count test after corpus expansion; engine implementation/fix by gpt-6-luna low",
+        "git diff --check → PASS"
+      ]
     },
     "EVIDENCE-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Агент gpt-6-luna low усилил saved math/java review: required process status/log hashes, adapter/Rust executable hashes и revision/comparison metadata. Commit a8d7454 + followup ebf49649; live mutation suite opt-in, обычные tests не требуют оригинального JAR.",
+      "checks": [
+        "python3 -m unittest tests.python.test_evidence -v → 3 fast tests PASS; 5 live tests explicit opt-in skip",
+        "BETA_LIVE_EVIDENCE=1 python3 -m unittest tests.python.test_evidence.LiveSavedEvidenceTests -v → 5 tests PASS against real retained math/java reports, including mutations and protocol checks"
+      ]
     },
     "EVIDENCE-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "C01 независимо reviewed/integrated; crate manifest snapshots дополнительно закреплены координатором. Свежие clean native math/java reports успешно проверены более строгим verifier, изменённые процессы/binaries/classes/logs/revision/mismatch rejected. Изменение усиливает доказательства, не повышает процент готовности игры.",
+      "checks": [
+        "Full workspace check PASS; fast evidence helper tests PASS",
+        "Live MathHelper 131408 records PASS, artifacts/parity/math/run-yfts9lyj/report.json; native JVM compatibility 18493 PASS, artifacts/parity/java/run-vp2y_3bm/report.json; both rust_dirty=false",
+        "Saved protocol review PASS: 10 malformed executions per suite and all retained-artifact mutation tests",
+        "git diff --check → PASS"
+      ]
     },
     "JAVA-001-C01": {
       "state": "done",
