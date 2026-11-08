@@ -170,7 +170,15 @@ def _hash_sources(corpus, root):
 
 
 def _check_copy(path, expected):
-    path = Path(path).resolve(strict=True)
+    path = Path(path)
+    if path.is_symlink():
+        raise WorldRunError("input copy directory must not be a symlink")
+    path = path.resolve(strict=True)
+    expected_names = set(expected) | {".world-input-copy", ".region-input-copy"}
+    entries = list(path.iterdir())
+    if ({item.name for item in entries} != expected_names
+            or any(item.is_symlink() or not item.is_file() for item in entries)):
+        raise WorldRunError("input copy contains unexpected entries or symlinks")
     for marker, contents in ((".world-input-copy", MARK_WORLD), (".region-input-copy", MARK_REGION)):
         item = path / marker
         if item.is_symlink() or not item.is_file() or item.read_text() != contents:
