@@ -2,6 +2,21 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "COLOR-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "COLOR-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "COLOR-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "UV-001-C01": {
       "state": "done",
       "summary": "Native snapshot a936ffe вызывает неизменённые cv.a..f(Luu;DDDI)V и читает фактически записанные float32 xyz/uv из оригинального nw.g. 84 случая / 504 submissions / 336 unique corners; default native Tessellator converts each quad to6 triangle vertices. Никаких rewritten UV formulas в oracle; координатор повторил два JVM traces и получил exact committed fixture.",

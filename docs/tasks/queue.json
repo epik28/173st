@@ -2,6 +2,44 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "COLOR-001-C01",
+      "owner": "codex",
+      "title": "Native climate and palette oracle",
+      "card": "docs/tasks/COLOR-001.md",
+      "depends_on": [
+        "UV-001-C02"
+      ]
+    },
+    {
+      "id": "COLOR-001-A01",
+      "owner": "agy",
+      "title": "Seeded climate and color probe",
+      "card": "docs/tasks/COLOR-001.md",
+      "depends_on": [
+        "UV-001-C02"
+      ]
+    },
+    {
+      "id": "COLOR-001-C02",
+      "owner": "codex",
+      "title": "Color native comparison runner",
+      "card": "docs/tasks/COLOR-001.md",
+      "depends_on": [
+        "COLOR-001-C01"
+      ]
+    },
+    {
+      "id": "COLOR-001-C03",
+      "owner": "codex",
+      "title": "Color integration and acceptance",
+      "card": "docs/tasks/COLOR-001.md",
+      "depends_on": [
+        "COLOR-001-C01",
+        "COLOR-001-A01",
+        "COLOR-001-C02"
+      ]
+    },
+    {
       "id": "UV-001-C01",
       "owner": "codex",
       "title": "Native cube-face UV observations",
