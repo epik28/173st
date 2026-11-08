@@ -81,3 +81,21 @@ JAR/Prism save. Runtime game never invokes Java/Python.
   leaf evidence and UV regression, legacy view parity, GUI screenshot that shows
   green grass and tree canopies, startup read-only resource checks. Update estimate
   conservatively; graphics improvement alone need not meet requested5–10pp push.
+
+## C04 follow-up: original numeric color space
+
+Native ji.a(BufferedImage,int) uploads ordinary GL_RGBA6408 bytes; original
+startup does not enable framebuffer sRGB. Therefore atlas samples/tint/shade
+multiply as normalized encoded byte values. Current Rgba8UnormSrgb atlas decodes
+first and is a real visual mismatch. Correct before C03 acceptance:
+
+- Atlas Rgba8Unorm, prefer Bgra8Unorm/Rgba8Unorm surface format explicitly.
+- If only8-bit sRGB surface exists, preserve native numeric output by converting
+native RGB q to linear before the attachment's automatic encoding:
+q<=.04045 ? q/12.92 : ((q+.055)/1.055)^2.4. Apply only for sRGB output; never
+decode atlas samples as well. Use pipeline constant/uniform selected from actual
+surface format. No new dependencies, preserve alpha cutoff/tint/depth/UV.
+- Tests for surface preference/fallback and byte/channel arithmetic, plus native
+raw-color pipeline review. Root GUI confirms supported Linux path; no broad
+pixel/driver equivalence claim. Keep saved-light approximation explicit until
+LIGHT; correct older comments that called Beta uu.d brightness a packed lightmap.

@@ -9,7 +9,7 @@ LEAF acceptance. No AO, weather, propagation, fluids or non-cube model claims.
 
 Original provider xa factory for dimensions0 (Overworld/rh) and-1 (Nether/wd),
 xa.e() table, xa.a(JF) celestial angle, fd.a(F) clear-weather sky subtraction,
-fd.a(IIII) brightness at a normal block coordinate, lm.c(IIIZ) saved-light
+fd.a(IIII) brightness at a normal block coordinate, lm.c(IIII) saved-light
 combination with original wi nibbles. Synthetic fd subclass may override block
 and chunk lookup; allocate without fd constructors/disk I/O, real lm/wi/provider
 and metadata/time objects. Read actual native outputs. No rewritten Java formulas.
