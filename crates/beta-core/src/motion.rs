@@ -130,7 +130,14 @@ pub fn move_entity(state: &mut MotionState, delta: [f64; 3], colliders: &[Aabb])
             f64::from(state.step_height),
             original_request[2],
         ];
-        let step = clip_motion(start_box, step_request, state.allow_slide, colliders);
+        let step = clip_step(
+            start_box,
+            step_request,
+            original_request[1],
+            state.step_height,
+            state.allow_slide,
+            colliders,
+        );
         let base_horizontal = base.delta[0] * base.delta[0] + base.delta[2] * base.delta[2];
         let step_horizontal = step.delta[0] * step.delta[0] + step.delta[2] * step.delta[2];
 
@@ -142,7 +149,7 @@ pub fn move_entity(state: &mut MotionState, delta: [f64; 3], colliders: &[Aabb])
             chosen = step;
             let fractional_y = chosen.bbox.min[1] - f64::from(chosen.bbox.min[1] as i32);
             if fractional_y > 0.0 {
-                state.y_size = (f64::from(state.y_size) + fractional_y + 0.01) as f32;
+                state.y_size = (f64::from(state.y_size) + (fractional_y + 0.01)) as f32;
             }
         }
     }
@@ -218,6 +225,63 @@ fn clip_motion(
     }
 }
 
+fn clip_step(
+    start: Aabb,
+    mut delta: [f64; 3],
+    original_y: f64,
+    step_height: f32,
+    allow_slide: bool,
+    colliders: &[Aabb],
+) -> ClipResult {
+    let original = delta;
+    let step = f64::from(step_height);
+    let mut bbox = start;
+    let candidates = candidates_for(bbox.swept(delta[0], delta[1], delta[2]), colliders);
+
+    for obstacle in &candidates {
+        delta[1] = obstacle.clip(bbox, Axis::Y, delta[1]);
+    }
+    bbox = bbox.offset(0.0, delta[1], 0.0);
+    if !allow_slide && original_y != delta[1] {
+        delta = [0.0; 3];
+    }
+
+    for obstacle in &candidates {
+        delta[0] = obstacle.clip(bbox, Axis::X, delta[0]);
+    }
+    bbox = bbox.offset(delta[0], 0.0, 0.0);
+    if !allow_slide && original[0] != delta[0] {
+        delta = [0.0; 3];
+    }
+
+    for obstacle in &candidates {
+        delta[2] = obstacle.clip(bbox, Axis::Z, delta[2]);
+    }
+    bbox = bbox.offset(0.0, 0.0, delta[2]);
+    if !allow_slide && original[2] != delta[2] {
+        delta = [0.0; 3];
+    }
+
+    if !allow_slide && original_y != delta[1] {
+        delta = [0.0; 3];
+    } else {
+        delta[1] = -step;
+        for obstacle in &candidates {
+            delta[1] = obstacle.clip(bbox, Axis::Y, delta[1]);
+        }
+        bbox = bbox.offset(0.0, delta[1], 0.0);
+    }
+
+    ClipResult {
+        bbox,
+        delta,
+        collided_downward: false,
+    }
+}
+
+/// Runs the native step retry using one candidate list for ascent, horizontal
+/// movement, and the final descent. The `allow_slide` resets compare the step
+/// deltas with the original requested movement on each axis.
 fn candidates_for(query: Aabb, colliders: &[Aabb]) -> Vec<Aabb> {
     colliders
         .iter()
@@ -269,30 +333,9 @@ pub fn dry_travel(
         state.velocity[1] = 0.419_999_986_886_978_15;
     }
 
-    let mut friction = 0.91_f32;
-    if state.on_ground {
-        let block_x = floor_f64(state.position[0]);
-        let block_y = floor_f64(state.bbox.min[1]).wrapping_sub(1);
-        let block_z = floor_f64(state.position[2]);
-        let voxel = Aabb::new(
-            [f64::from(block_x), f64::from(block_y), f64::from(block_z)],
-            [
-                f64::from(block_x) + 1.0,
-                f64::from(block_y) + 1.0,
-                f64::from(block_z) + 1.0,
-            ],
-        );
-        if surface != Surface::Air && colliders.iter().any(|box_| box_.intersects(voxel)) {
-            let slipperiness = match surface {
-                Surface::Air => unreachable!("air has no slipperiness lookup"),
-                Surface::Stone => 0.6_f32,
-                Surface::Ice => 0.98_f32,
-            };
-            friction = slipperiness * 0.91_f32;
-        }
-    }
-
-    let acceleration = 0.162_771_36_f32 / (friction * friction * friction);
+    let acceleration_friction = ground_friction(state, colliders, surface);
+    let acceleration =
+        0.162_771_36_f32 / (acceleration_friction * acceleration_friction * acceleration_friction);
     let ground_acceleration = if state.on_ground {
         0.1_f32 * acceleration
     } else {
@@ -303,11 +346,42 @@ pub fn dry_travel(
     let movement = state.velocity;
     move_entity(state, movement, colliders);
 
+    let horizontal_friction = ground_friction(state, colliders, surface);
     state.velocity[1] -= GRAVITY;
     state.velocity[1] *= VERTICAL_DRAG;
-    let horizontal_drag = f64::from(friction);
+    let horizontal_drag = f64::from(horizontal_friction);
     state.velocity[0] *= horizontal_drag;
     state.velocity[2] *= horizontal_drag;
+}
+
+fn ground_friction(state: &MotionState, colliders: &[Aabb], surface: Surface) -> f32 {
+    if !state.on_ground {
+        return 0.91_f32;
+    }
+
+    let mut friction = 0.546_000_06_f32;
+    let block_x = floor_f64(state.position[0]);
+    let block_y = floor_f64(state.bbox.min[1]).wrapping_sub(1);
+    let block_z = floor_f64(state.position[2]);
+    let voxel = Aabb::new(
+        [f64::from(block_x), f64::from(block_y), f64::from(block_z)],
+        [
+            f64::from(block_x) + 1.0,
+            f64::from(block_y) + 1.0,
+            f64::from(block_z) + 1.0,
+        ],
+    );
+    let found_block =
+        surface != Surface::Air && colliders.iter().any(|box_| box_.intersects(voxel));
+    if found_block {
+        let slipperiness = match surface {
+            Surface::Air => unreachable!("air has no slipperiness lookup"),
+            Surface::Stone => 0.6_f32,
+            Surface::Ice => 0.98_f32,
+        };
+        friction = slipperiness * 0.91_f32;
+    }
+    friction
 }
 
 #[allow(clippy::approx_constant)] // Native embeds the f32 literal 3.1415927.
@@ -421,8 +495,8 @@ mod tests {
         let low_wall = Aabb::new([0.9, 1.0, 0.0], [1.2, 1.4, 1.0]);
         move_entity(&mut can_step, [0.8, 0.0, 0.0], &[floor_box(), low_wall]);
         assert!(can_step.position[0] > 1.0);
-        assert_eq!(can_step.bbox.min[1], 1.5);
-        assert_eq!(can_step.y_size, 0.51_f32);
+        assert_eq!(can_step.bbox.min[1], 1.4);
+        assert_eq!(can_step.y_size, 0.41_f32);
 
         let mut tied = MotionState::new([0.5, 1.0, 0.5]);
         tied.on_ground = true;
@@ -437,6 +511,18 @@ mod tests {
         assert_eq!(tied.bbox.min[1], 1.0);
         assert_eq!(tied.position[0], 0.9 - f64::from(0.3_f32));
         assert!(tied.collided_horizontally);
+
+        let mut slide_disabled = MotionState::new([0.5, 1.0, 0.5]);
+        slide_disabled.on_ground = true;
+        slide_disabled.sneaking = true;
+        slide_disabled.allow_slide = false;
+        move_entity(
+            &mut slide_disabled,
+            [0.8, 0.0, 0.0],
+            &[floor_box(), low_wall],
+        );
+        assert_eq!(slide_disabled.bbox.min[1], 1.0);
+        assert_eq!(slide_disabled.velocity[0], 0.0);
     }
 
     #[test]
@@ -463,6 +549,7 @@ mod tests {
         let mut ice = MotionState::new([0.5, 1.0, 0.5]);
         ice.on_ground = true;
         ice.velocity[0] = 1.0;
+        ice.velocity[1] = -0.1;
         dry_travel(
             &mut ice,
             TravelInput {
@@ -483,6 +570,7 @@ mod tests {
         let mut stone = MotionState::new([0.5, 1.0, 0.5]);
         stone.on_ground = true;
         stone.velocity[0] = 1.0;
+        stone.velocity[1] = -0.1;
         dry_travel(
             &mut stone,
             TravelInput {
@@ -516,5 +604,29 @@ mod tests {
             Surface::Air,
         );
         assert_eq!(air.velocity[0].to_bits(), f64::from(0.91_f32).to_bits());
+
+        let mut grounded_air = MotionState::new([0.5, 2.0, 0.5]);
+        grounded_air.on_ground = true;
+        dry_travel(
+            &mut grounded_air,
+            TravelInput {
+                strafe: 0.0,
+                forward: 1.0,
+                yaw_degrees: 0.0,
+                jump: false,
+                sneaking: false,
+            },
+            &[],
+            Surface::Air,
+        );
+        let initial_ground_friction = 0.546_000_06_f32;
+        let expected_acceleration = 0.1_f32
+            * (0.162_771_36_f32
+                / (initial_ground_friction * initial_ground_friction * initial_ground_friction));
+        let expected_velocity = f64::from(expected_acceleration) * f64::from(0.91_f32);
+        assert_eq!(
+            grounded_air.velocity[2].to_bits(),
+            expected_velocity.to_bits()
+        );
     }
 }
