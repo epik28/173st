@@ -4,6 +4,7 @@
 //! compatibility will be added in small, independently verified tasks.
 
 pub mod biome;
+pub mod block;
 pub mod chunk;
 pub mod geometry;
 pub mod java_compat;

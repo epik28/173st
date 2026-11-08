@@ -531,3 +531,23 @@ examples); `cargo clippy --locked --offline -p beta-view -p beta-viewer
 all 44 cases / 1,242 native vertices exact. The retained report must be rerun
 after the A02 commit so its Rust-revision binding is clean. No dependencies,
 oracle, fixtures, runner, queue, or Codex status were changed.
+
+## BLOCK-001-A01 — bounded block targeting and edits
+
+Added `beta_core::block` over an owned bounded set of loaded `ChunkData`. The API
+traces a five-block normalized ray using `geometry::Aabb`, reports hit/miss,
+unsupported state, or an unloaded cell explicitly, and accepts the caller's
+native-confirmed full-cube state predicate. Break/place validate the selected
+state, metadata, occupancy, and loaded target before mutation. Successful edits
+increment the scene revision and return sorted loaded chunk coordinates whose
+meshes may need rebuilding. No persistence or file access was added.
+
+Seven block unit tests and all 76 beta-core tests pass. C01-derived regressions
+cover six faces, the negative-coordinate voxel, corner tie, miss, both open
+endpoints, the 5.0/5.001 reach edge, and unsupported slab classification. Hit
+positions are compared by raw f64 words. `cargo clippy
+--locked --offline -p beta-core --all-targets -- -D warnings`, `cargo fmt --all
+-- --check`, and `git diff --check` pass. C01 has no verified break or place
+actions, so those operations are unit-tested only and no action parity is
+claimed. Native full-cube state mapping remains supplied by the caller. No
+fixture, oracle, runner, queue, shared contract, or viewer files changed.
