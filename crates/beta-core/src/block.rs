@@ -20,6 +20,29 @@ pub trait FullCubeStates {
     fn is_full_cube(&self, id: u8, metadata: u8) -> bool;
 }
 
+/// Interaction shape whose exact ray geometry has been verified against the
+/// pinned native client. Unknown states must remain `Unsupported`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RayShape {
+    FullCube,
+    LowerSlab,
+    Liquid,
+    Unsupported,
+}
+
+pub trait RayShapes {
+    fn ray_shape(&self, id: u8, metadata: u8) -> RayShape;
+}
+
+impl<F> RayShapes for F
+where
+    F: Fn(u8, u8) -> RayShape,
+{
+    fn ray_shape(&self, id: u8, metadata: u8) -> RayShape {
+        self(id, metadata)
+    }
+}
+
 impl<F> FullCubeStates for F
 where
     F: Fn(u8, u8) -> bool,
@@ -146,6 +169,8 @@ impl From<ChunkError> for BlockError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockHitKind {
     FullCube,
+    LowerSlab,
+    Liquid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -281,6 +306,24 @@ impl BlockScene {
         end: Vec3,
         supported: &S,
     ) -> Result<RayResult, BlockError> {
+        self.raycast_segment_with_shapes(origin, end, false, &|id, metadata| {
+            if supported.is_full_cube(id, metadata) {
+                RayShape::FullCube
+            } else {
+                RayShape::Unsupported
+            }
+        })
+    }
+
+    /// Traces a native segment with the C01-confirmed block shapes and the
+    /// native stop-on-liquid option. Only those exact shapes should be supplied.
+    pub fn raycast_segment_with_shapes<S: RayShapes>(
+        &self,
+        origin: Vec3,
+        end: Vec3,
+        stop_on_liquid: bool,
+        shapes: &S,
+    ) -> Result<RayResult, BlockError> {
         if !finite(origin) || !finite(end) {
             return Err(BlockError::InvalidRay);
         }
@@ -318,32 +361,57 @@ impl BlockScene {
                         return Ok(RayResult::Unloaded { x, y, z });
                     };
                     if block.id != 0 {
-                        let hit = Aabb::new(
-                            [f64::from(x), f64::from(y), f64::from(z)],
-                            [f64::from(x) + 1.0, f64::from(y) + 1.0, f64::from(z) + 1.0],
-                        )
-                        .ray_intersect(origin, end);
+                        let shape = shapes.ray_shape(block.id, block.metadata);
+                        if shape == RayShape::Liquid && !stop_on_liquid {
+                            // With stopOnLiquid=false, liquids do not participate
+                            // in native block targeting.
+                            let axis = min_axis(t_max);
+                            if !t_max[axis].is_finite() || t_max[axis] >= 1.0 {
+                                break;
+                            }
+                            t_max[axis] += t_delta[axis];
+                            cell[axis] = cell[axis]
+                                .checked_add(step[axis])
+                                .ok_or(BlockError::InvalidRay)?;
+                            continue;
+                        }
+                        let bounds = match shape {
+                            RayShape::LowerSlab => Aabb::new(
+                                [f64::from(x), f64::from(y), f64::from(z)],
+                                [f64::from(x) + 1.0, f64::from(y) + 0.5, f64::from(z) + 1.0],
+                            ),
+                            _ => Aabb::new(
+                                [f64::from(x), f64::from(y), f64::from(z)],
+                                [f64::from(x) + 1.0, f64::from(y) + 1.0, f64::from(z) + 1.0],
+                            ),
+                        };
+                        let hit = bounds.ray_intersect(origin, end);
                         if let Some(hit) = hit {
+                            if shape == RayShape::Unsupported {
+                                return Ok(RayResult::Unsupported(UnsupportedBlock {
+                                    x,
+                                    y,
+                                    z,
+                                    id: block.id,
+                                    metadata: block.metadata,
+                                }));
+                            }
                             let result = BlockHit {
                                 x,
                                 y,
                                 z,
                                 face: hit.face,
                                 position: hit.position,
-                                kind: BlockHitKind::FullCube,
+                                kind: match shape {
+                                    RayShape::FullCube => BlockHitKind::FullCube,
+                                    RayShape::LowerSlab => BlockHitKind::LowerSlab,
+                                    RayShape::Liquid => BlockHitKind::Liquid,
+                                    RayShape::Unsupported => unreachable!("returned above"),
+                                },
                                 id: block.id,
                                 metadata: block.metadata,
                             };
-                            if supported.is_full_cube(block.id, block.metadata) {
-                                return Ok(RayResult::Hit(result));
-                            }
-                            return Ok(RayResult::Unsupported(UnsupportedBlock {
-                                x,
-                                y,
-                                z,
-                                id: block.id,
-                                metadata: block.metadata,
-                            }));
+                            return Ok(RayResult::Hit(result));
                         }
                     }
                 } else if cell_intersects_xz_bounds(self.bounds, x, z) {
@@ -757,21 +825,96 @@ mod tests {
         assert_eq!((hit.x, hit.y, hit.z, hit.face), (-1, 0, 0, 4));
         assert_eq!(hit.position.x.to_bits(), (-1.0_f64).to_bits());
 
+        let shapes = |id, metadata| match (id, metadata) {
+            (1, 0) => RayShape::FullCube,
+            (44, 0) => RayShape::LowerSlab,
+            (8, 0) => RayShape::Liquid,
+            _ => RayShape::Unsupported,
+        };
         let slab = world_for(0, 0, 0, 44);
+        let RayResult::Hit(hit) = slab
+            .raycast_segment_with_shapes(
+                Vec3::new(-2.0, 0.25, 0.5),
+                Vec3::new(2.0, 0.25, 0.5),
+                false,
+                &shapes,
+            )
+            .unwrap()
+        else {
+            panic!("expected native lower-slab hit")
+        };
+        assert_eq!(
+            (hit.x, hit.y, hit.z, hit.face, hit.kind),
+            (0, 0, 0, 4, BlockHitKind::LowerSlab)
+        );
+        assert_eq!(
+            [
+                hit.position.x.to_bits(),
+                hit.position.y.to_bits(),
+                hit.position.z.to_bits()
+            ],
+            [0.0_f64.to_bits(), 0.25_f64.to_bits(), 0.5_f64.to_bits()]
+        );
+        let mut slab_edits = slab.clone();
+        assert_eq!(
+            slab_edits.break_block(hit, &|_, _| true),
+            Err(BlockError::HitNotEditable)
+        );
+        assert_eq!(slab_edits.revision(), 0);
         assert_eq!(
             slab.raycast_segment(
                 Vec3::new(-2.0, 0.25, 0.5),
                 Vec3::new(2.0, 0.25, 0.5),
-                &cubes
+                &cubes,
             ),
             Ok(RayResult::Unsupported(UnsupportedBlock {
                 x: 0,
                 y: 0,
                 z: 0,
                 id: 44,
-                metadata: 0,
+                metadata: 0
             }))
         );
+
+        let liquid = world_for(0, 0, 0, 8);
+        assert_eq!(
+            liquid.raycast_segment_with_shapes(
+                Vec3::new(-2.0, 0.5, 0.5),
+                Vec3::new(2.0, 0.5, 0.5),
+                false,
+                &shapes
+            ),
+            Ok(RayResult::Miss)
+        );
+        let RayResult::Hit(hit) = liquid
+            .raycast_segment_with_shapes(
+                Vec3::new(-2.0, 0.5, 0.5),
+                Vec3::new(2.0, 0.5, 0.5),
+                true,
+                &shapes,
+            )
+            .unwrap()
+        else {
+            panic!("expected native stop-on-liquid hit")
+        };
+        assert_eq!(
+            (hit.x, hit.y, hit.z, hit.face, hit.kind),
+            (0, 0, 0, 4, BlockHitKind::Liquid)
+        );
+        assert_eq!(
+            [
+                hit.position.x.to_bits(),
+                hit.position.y.to_bits(),
+                hit.position.z.to_bits()
+            ],
+            [0.0_f64.to_bits(), 0.5_f64.to_bits(), 0.5_f64.to_bits()]
+        );
+        let mut liquid_edits = liquid.clone();
+        assert_eq!(
+            liquid_edits.place_block(hit, 1, 0, &|_, _| true),
+            Err(BlockError::HitNotEditable)
+        );
+        assert_eq!(liquid_edits.revision(), 0);
 
         let range = world_for(5, 0, 0, 1);
         for endpoint in [4.999, 5.0] {

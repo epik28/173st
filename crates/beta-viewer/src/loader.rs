@@ -105,7 +105,13 @@ struct ParsedScene {
     min_z: i32,
 }
 
-type LoadedSceneInputs = (Scene, WorldMetadata, Vec<SceneChunk>, ParsedScene);
+type LoadedSceneInputs = (
+    Scene,
+    WorldMetadata,
+    Vec<SceneChunk>,
+    ParsedScene,
+    Vec<BlockMapping>,
+);
 
 fn read_regular(path: &Path, label: &str) -> Result<Vec<u8>, ProbeError> {
     let metadata = fs::symlink_metadata(path)?;
@@ -255,7 +261,7 @@ fn load_scene(
     files: &BTreeMap<String, Vec<u8>>,
     coords: &ParsedScene,
     level: WorldMetadata,
-) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>), ProbeError> {
+) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
     let mut regions: BTreeMap<(i32, i32), RegionFile<'_>> = BTreeMap::new();
     // Keep borrowed bytes in `files`; region values only borrow that stable map.
     for (rx, rz) in [(-1, -1), (-1, 0), (0, -1), (0, 0)] {
@@ -293,13 +299,13 @@ fn load_scene(
     let bounds = SceneBounds::new(coords.min_x, coords.min_z, 5, 5)
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let analysis_chunks = chunks.clone();
-    let scene =
-        Scene::new(bounds, chunks, mappings).map_err(|e| ProbeError::Core(e.to_string()))?;
-    Ok((scene, level, analysis_chunks))
+    let scene = Scene::new(bounds, chunks, mappings.clone())
+        .map_err(|e| ProbeError::Core(e.to_string()))?;
+    Ok((scene, level, analysis_chunks, mappings))
 }
 
 fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, ProbeError> {
-    let (scene, metadata, scene_data, parsed) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, metadata, scene_data, parsed, _) = load_scene_inputs(input, terrain, scene_file)?;
     let (states, neighbors) = observed_rows(&scene_data, parsed.min_x, parsed.min_z)?;
     // CPU mesh construction validates that the same loaded scene can feed the renderer.
     let mesh = scene
@@ -361,8 +367,8 @@ fn load_scene_inputs(
     let metadata = load_level_gzip(&files["level.dat"], WorldLimits::default())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let parsed = parse_scene(scene_file, metadata.spawn)?;
-    let (scene, metadata, scene_data) = load_scene(&files, &parsed, metadata)?;
-    Ok((scene, metadata, scene_data, parsed))
+    let (scene, metadata, scene_data, mappings) = load_scene(&files, &parsed, metadata)?;
+    Ok((scene, metadata, scene_data, parsed, mappings))
 }
 
 /// Load and validate the fixed scene for a graphical viewer.
@@ -371,7 +377,7 @@ pub fn load_scene_for_viewer(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, [i32; 3]), ProbeError> {
-    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, metadata, _, _, _) = load_scene_inputs(input, terrain, scene_file)?;
     Ok((scene, metadata.spawn))
 }
 
@@ -381,7 +387,7 @@ pub fn load_scene_for_viewer_with_seed(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, [i32; 3], i64), ProbeError> {
-    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, metadata, _, _, _) = load_scene_inputs(input, terrain, scene_file)?;
     Ok((scene, metadata.spawn, metadata.seed))
 }
 
@@ -391,9 +397,20 @@ pub fn load_scene_for_viewer_with_metadata(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, WorldMetadata), ProbeError> {
-    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, metadata, _, _, _) = load_scene_inputs(input, terrain, scene_file)?;
     light_dimension(metadata.dimension)?;
     Ok((scene, metadata))
+}
+
+/// Loads a read-only source snapshot and returns clones of the bounded chunks
+/// and native mappings for a caller-owned disposable interaction sandbox.
+pub fn load_scene_for_viewer_with_edit_data(
+    input: &Path,
+    terrain: &Path,
+    scene_file: &Path,
+) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
+    let (scene, metadata, chunks, _, mappings) = load_scene_inputs(input, terrain, scene_file)?;
+    Ok((scene, metadata, chunks, mappings))
 }
 
 fn light_dimension(dimension: i32) -> Result<beta_core::light::LightDimension, ProbeError> {

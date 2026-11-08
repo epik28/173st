@@ -5,10 +5,14 @@
 
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
+    block::{
+        BlockEdit, BlockHit, BlockScene, BlockSceneBounds, BlockSceneChunk, RayResult, RayShape,
+    },
+    chunk::{BlockData, split_block_coord},
     light::{LightDimension, sample_brightness, sky_subtraction},
     motion::MotionState,
 };
-use beta_view::{Camera, Mesh, Scene, Vertex, fluid::Mesh as FluidMesh};
+use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Mesh as FluidMesh};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
@@ -17,7 +21,7 @@ use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{DeviceEvent, ElementState, WindowEvent},
+    event::{DeviceEvent, ElementState, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorGrabMode, Window, WindowId},
@@ -51,8 +55,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let input = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
-    let (mut scene, metadata) =
-        loader::load_scene_for_viewer_with_metadata(&input, &terrain_path, &scene_path)?;
+    let (mut scene, metadata, scene_chunks, mappings) =
+        loader::load_scene_for_viewer_with_edit_data(&input, &terrain_path, &scene_path)?;
     let palette_dir = terrain_path
         .parent()
         .ok_or("terrain atlas path has no parent for color palettes")?;
@@ -86,6 +90,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         dimension => return Err(format!("unsupported saved light dimension {dimension}").into()),
     };
     let sky_subtraction = sky_subtraction(metadata.time, 1.0, light_dimension)?;
+    let scene_bounds = scene.bounds();
+    let interaction = BlockScene::new(
+        BlockSceneBounds::new(
+            scene_bounds.min_chunk_x,
+            scene_bounds.min_chunk_z,
+            scene_bounds.width,
+            scene_bounds.depth,
+        )?,
+        scene_chunks
+            .iter()
+            .map(|chunk| BlockSceneChunk {
+                x: chunk.x,
+                z: chunk.z,
+                data: chunk.data.clone(),
+            })
+            .collect(),
+    )?;
     let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
     let loaded_chunks = scene.loaded_chunks();
@@ -101,6 +122,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         light_dimension,
         sky_subtraction,
         loaded_chunks,
+        scene_chunks,
+        mappings,
+        block_scene: interaction,
+        color_maps,
+        biome_seed: metadata.seed,
+        aimed_hit: None,
+        target_status: "no target".to_owned(),
         atlas: image,
         window: None,
         gpu: None,
@@ -323,6 +351,13 @@ struct App {
     sky_subtraction: u8,
     scene: Scene,
     loaded_chunks: usize,
+    scene_chunks: Vec<SceneChunk>,
+    mappings: Vec<BlockMapping>,
+    block_scene: BlockScene,
+    color_maps: beta_viewer::colors::ColorMaps,
+    biome_seed: i64,
+    aimed_hit: Option<BlockHit>,
+    target_status: String,
     atlas: image::RgbaImage,
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
@@ -396,6 +431,20 @@ fn native_packed_vertex_color(vertex: &Vertex, brightness: f32) -> [f32; 3] {
     })
 }
 
+fn interaction_shape(mappings: &[BlockMapping], id: u8, metadata: u8) -> RayShape {
+    if mappings.iter().any(|mapping| {
+        mapping.key.id == id && mapping.key.metadata == metadata && mapping.is_renderable_cube()
+    }) {
+        RayShape::FullCube
+    } else {
+        match (id, metadata) {
+            (44, 0) => RayShape::LowerSlab,
+            (8, 0) => RayShape::Liquid,
+            _ => RayShape::Unsupported,
+        }
+    }
+}
+
 #[cfg(test)]
 fn srgb_to_linear(channel: f32) -> f32 {
     if channel <= 0.04045 {
@@ -424,6 +473,225 @@ fn depth(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::TextureView {
         .create_view(&Default::default())
 }
 impl App {
+    fn update_aimed_target(&mut self) {
+        let direction = self.camera.forward();
+        let origin = self.camera.position;
+        let start = beta_core::geometry::Vec3::new(
+            f64::from(origin.x),
+            f64::from(origin.y),
+            f64::from(origin.z),
+        );
+        let end = start.add_xyz(
+            f64::from(direction.x) * beta_core::block::BLOCK_REACH,
+            f64::from(direction.y) * beta_core::block::BLOCK_REACH,
+            f64::from(direction.z) * beta_core::block::BLOCK_REACH,
+        );
+        let mappings = &self.mappings;
+        let shapes = |id, metadata| interaction_shape(mappings, id, metadata);
+        match self
+            .block_scene
+            .raycast_segment_with_shapes(start, end, false, &shapes)
+        {
+            Ok(RayResult::Hit(hit)) => {
+                self.target_status = format!(
+                    "target {} at ({},{},{}) face {}",
+                    hit.id, hit.x, hit.y, hit.z, hit.face
+                );
+                self.aimed_hit = Some(hit);
+            }
+            Ok(RayResult::Unsupported(block)) => {
+                self.target_status = format!(
+                    "unsupported {} at ({},{},{})",
+                    block.id, block.x, block.y, block.z
+                );
+                self.aimed_hit = None;
+            }
+            Ok(RayResult::Unloaded { x, y, z }) => {
+                self.target_status = format!("unloaded target at ({x},{y},{z})");
+                self.aimed_hit = None;
+            }
+            Ok(RayResult::Miss) => {
+                self.target_status = "no target".to_owned();
+                self.aimed_hit = None;
+            }
+            Err(error) => {
+                self.target_status = format!("targeting error: {error}");
+                self.aimed_hit = None;
+            }
+        }
+        if let Some(window) = &self.window {
+            window.set_title(&format!(
+                "Beta 1.7.3 sandbox — LMB break / RMB place | {}",
+                self.target_status
+            ));
+        }
+    }
+
+    fn rebuild_scene_mesh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut scene = Scene::new(
+            self.scene.bounds(),
+            self.scene_chunks.clone(),
+            self.mappings.clone(),
+        )?;
+        scene.enable_fancy_leaves();
+        let mut climate_sampler = ClimateSampler::new(self.biome_seed);
+        let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
+        let mesh = scene.mesh_with_tint_and_emission(
+            beta_view::MeshLimits::default(),
+            |id, block_metadata, x, z| {
+                let climate = *climate_cache
+                    .entry((x, z))
+                    .or_insert_with(|| climate_sampler.sample(x, z));
+                match id {
+                    2 => grass_color(&self.color_maps.grass, climate)
+                        .expect("native climate sampler returns a valid palette climate"),
+                    18 => foliage_color(&self.color_maps.foliage, climate, block_metadata)
+                        .expect("native climate sampler returns a valid palette climate"),
+                    _ => 0x00ff_ffff,
+                }
+            },
+            beta_core::light::emission_level,
+        )?;
+        let fluid_mesh = scene.fluid_mesh(beta_view::MeshLimits::default())?;
+        self.loaded_chunks = scene.loaded_chunks();
+        self.scene = scene;
+        self.mesh = mesh;
+        self.fluid_mesh = fluid_mesh;
+        self.upload_mesh_buffers()?;
+        Ok(())
+    }
+
+    fn upload_mesh_buffers(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let packed: Vec<[f32; 8]> = self
+            .mesh
+            .vertices
+            .iter()
+            .map(|vertex| {
+                let brightness =
+                    saved_vertex_brightness(vertex, self.sky_subtraction, self.light_dimension)?;
+                let color = native_packed_vertex_color(vertex, brightness);
+                Ok::<_, beta_core::light::LightError>([
+                    vertex.position[0],
+                    vertex.position[1],
+                    vertex.position[2],
+                    vertex.uv[0],
+                    vertex.uv[1],
+                    color[0],
+                    color[1],
+                    color[2],
+                ])
+            })
+            .collect::<Result<_, _>>()?;
+        let fluid_packed: Vec<[f32; 8]> = self
+            .fluid_mesh
+            .vertices
+            .iter()
+            .map(|vertex| {
+                [
+                    vertex.position[0],
+                    vertex.position[1],
+                    vertex.position[2],
+                    vertex.uv[0],
+                    vertex.uv[1],
+                    ((vertex.color >> 16) & 255) as f32 / 255.0,
+                    ((vertex.color >> 8) & 255) as f32 / 255.0,
+                    (vertex.color & 255) as f32 / 255.0,
+                ]
+            })
+            .collect();
+        let indices = if self.mesh.indices.is_empty() {
+            vec![0_u32]
+        } else {
+            self.mesh.indices.clone()
+        };
+        let packed_bytes = packed.len() * std::mem::size_of::<[f32; 8]>();
+        let index_bytes = indices.len() * std::mem::size_of::<u32>();
+        let fluid_bytes = fluid_packed.len() * std::mem::size_of::<[f32; 8]>();
+        if packed_bytes > 128 * 1024 * 1024
+            || index_bytes > 64 * 1024 * 1024
+            || fluid_bytes > 128 * 1024 * 1024
+        {
+            return Err("rebuilt mesh exceeds viewer GPU buffer limits".into());
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
+            return Ok(());
+        };
+        gpu.vertex = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("rebuilt disposable scene mesh"),
+                contents: if packed.is_empty() {
+                    bytemuck::cast_slice(&[[0.0_f32; 8]])
+                } else {
+                    bytemuck::cast_slice(&packed)
+                },
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        gpu.index = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("rebuilt disposable scene indices"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+        gpu.index_count = self.mesh.indices.len() as u32;
+        gpu.fluid_vertex = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("rebuilt disposable water vertices"),
+                contents: if fluid_packed.is_empty() {
+                    bytemuck::cast_slice(&[[0.0_f32; 8]])
+                } else {
+                    bytemuck::cast_slice(&fluid_packed)
+                },
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        gpu.fluid_vertex_count = self.fluid_mesh.vertices.len() as u32;
+        Ok(())
+    }
+
+    fn interact(&mut self, breaking: bool) -> Result<BlockEdit, Box<dyn std::error::Error>> {
+        self.update_aimed_target();
+        let hit = self.aimed_hit.ok_or("aim at a supported full cube")?;
+        let mappings = &self.mappings;
+        let supported = |id, metadata| {
+            mappings.iter().any(|mapping| {
+                mapping.key.id == id
+                    && mapping.key.metadata == metadata
+                    && mapping.is_renderable_cube()
+            })
+        };
+        let edit = if breaking {
+            self.block_scene.break_block(hit, &supported)?
+        } else {
+            self.block_scene.place_block(hit, 1, 0, &supported)?
+        };
+        let (x, y, z) = edit.changed;
+        let (chunk_x, local_x) = split_block_coord(x);
+        let (chunk_z, local_z) = split_block_coord(z);
+        let value: BlockData = self
+            .block_scene
+            .block(x, y, z)?
+            .ok_or("edited cell is no longer loaded")?;
+        let chunk = self
+            .scene_chunks
+            .iter_mut()
+            .find(|chunk| chunk.x == chunk_x && chunk.z == chunk_z)
+            .ok_or("edited chunk is not in the disposable scene")?;
+        chunk
+            .data
+            .set(local_x, y as u8, local_z, value)
+            .map_err(|error| format!("chunk update failed: {error}"))?;
+        self.rebuild_scene_mesh()?;
+        self.aimed_hit = None;
+        self.target_status = format!(
+            "{} block at ({x},{y},{z}); full scene rebuilt after {} dirty chunks",
+            if breaking { "broke" } else { "placed" },
+            edit.dirty_chunks.len()
+        );
+        Ok(edit)
+    }
+
     fn init(&mut self, el: &ActiveEventLoop) -> Result<(), Box<dyn std::error::Error>> {
         let w = Arc::new(
             el.create_window(
@@ -433,7 +701,7 @@ impl App {
             )?,
         );
         w.set_title(&format!(
-            "Beta 1.7.3 — WASD/Space/Shift | F flight, R reset, Enter mouse | chunks {}, faces {}, water vertices {}, unsupported {}",
+            "Beta 1.7.3 sandbox — WASD/Space/Shift | F flight, R reset, Enter mouse | LMB break, RMB place | chunks {}, faces {}, water vertices {}, unsupported {}",
             self.loaded_chunks, self.mesh.visible_faces, self.fluid_mesh.vertices.len(), self.mesh.unsupported_blocks
         ));
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
@@ -766,6 +1034,7 @@ impl App {
     }
     fn frame(&mut self) {
         let window = self.window.clone();
+        self.update_aimed_target();
         let Some(g) = self.gpu.as_mut() else { return };
         let now = Instant::now();
         let dt = now.duration_since(self.last);
@@ -915,6 +1184,24 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => self.frame(),
+            WindowEvent::MouseInput { state, button, .. }
+                if state == ElementState::Pressed && self.focused && self.captured =>
+            {
+                let breaking = match button {
+                    MouseButton::Left => true,
+                    MouseButton::Right => false,
+                    _ => return,
+                };
+                if let Err(error) = self.interact(breaking) {
+                    self.target_status = format!("action rejected: {error}");
+                    if let Some(window) = &self.window {
+                        window.set_title(&format!(
+                            "Beta 1.7.3 sandbox — LMB break / RMB place | {}",
+                            self.target_status
+                        ));
+                    }
+                }
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if !self.focused {
                     return;
@@ -1006,9 +1293,34 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, native_packed_vertex_color,
+        LightDimension, Vertex, build_atlas_mips, interaction_shape, native_packed_vertex_color,
         preferred_surface_format, saved_vertex_brightness, srgb_to_linear,
     };
+    use beta_core::block::RayShape;
+    use beta_view::{BlockMapping, BlockStateKey};
+
+    #[test]
+    fn targeting_uses_only_verified_full_cubes_slab_liquid_and_unknown_is_explicit() {
+        let mapping = BlockMapping {
+            key: BlockStateKey {
+                id: 1,
+                metadata: 0,
+                above_id: None,
+            },
+            render_type: 0,
+            opaque: true,
+            full_cube: true,
+            alpha_opaque_faces: [true; 6],
+            tiles: [1; 6],
+            supported: true,
+        };
+        let mappings = [mapping];
+        assert_eq!(interaction_shape(&mappings, 1, 0), RayShape::FullCube);
+        assert_eq!(interaction_shape(&mappings, 44, 0), RayShape::LowerSlab);
+        assert_eq!(interaction_shape(&mappings, 8, 0), RayShape::Liquid);
+        assert_eq!(interaction_shape(&mappings, 44, 1), RayShape::Unsupported);
+        assert_eq!(interaction_shape(&mappings, 3, 0), RayShape::Unsupported);
+    }
 
     #[test]
     fn surface_format_prefers_native_numeric_unorm_with_srgb_fallback() {
