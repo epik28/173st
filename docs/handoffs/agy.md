@@ -9,12 +9,14 @@
 - Проверки: `cargo test --locked --offline -p beta-core world::tests::` → 4 PASS (metadata defaults/types, signed byte conversion, все пять lengths, coordinates, lists/unknown fields/raw player retention, gzip corruption/truncation и compressed/decompressed/NBT caps); `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `python3 tools/check.py` → 64 Python tests и fmt/check/clippy, 40 library + 22 example tests, doc tests PASS; `git diff --check` → PASS.
 - Model ID: **gpt-6-luna low**. Заимствований, ручной помощи, новых зависимостей и изменений oracle/runner/контракта нет; стоимость/токены недоступны. Live world parity не запускался (A02 ещё не реализован).
 
-## WORLD-LOAD-001-A02 — checkpoint
+## WORLD-LOAD-001-A02 — headless world probe
 
-- A02 реализацию не начинал. До остановки прочитаны protocol contract и C01 helper; зафиксированы требования: обе copied-input markers, canonicalize retained parent и overlap guard до mkdir, потоковые 5-field TSV строки, точные output widths, один-region cache, raw NBT с `create_new`.
-- Следующие шаги: реализовать `crates/beta-core/examples/world_probe.rs`; выводить поля из `WorldMetadata`/`LoadedChunk` (hash массивов из `data.raw_arrays()`); покрыть TSV/path/symlink/overlap/protocol/retention synthetic cases; выполнить fmt, clippy, relevant tests и `python3 tools/check.py`; закоммитить и завершить A02.
-- Проверки A02 не запускались, probe отсутствует, subprocess/protocol/world parity не заявляются. Статус оставлен `in_progress` по просьбе координатора срочно checkpoint-нуть задачу.
-- Последняя выполненная реализация — отдельный A01 commit `2bf4bcb5c2fbb993dd3e7bd6cb0933a7676a9d77`. Model ID: **gpt-6-luna low**; новых заимствований/ручной помощи/зависимостей нет.
+- Добавлен `crates/beta-core/examples/world_probe.rs`. CLI принимает только `INPUT_COPY_DIR RETAINED_DIR`, проверяет обе точные markers, ровно пять обычных файлов snapshot, размерные границы, канонический output parent и непересечение каталогов до создания retained directory. Region basename вычисляется через floor division; ID, дубликаты, пять TSV полей и координатная грамматика проверяются строго. Symlink и существующий output/payload отвергаются.
+- Level gzip и каждый slot обрабатываются по очереди; region bytes кешируются по basename, LoadedChunk не накапливаются. Выдаются поля в порядке контракта (21 для level, 17 для chunk); absent сохраняет координаты и имеет ровно 12 `-` полей. Хеши массивов берутся из typed `ChunkData`, unknown names сортируются после UTF-8 hex-кодирования, empty name кодируется `~`, пустой набор `-`. Сохраняются точные decompressed original NBT bytes в `<id>.nbt` через `create_new`; для absent payload не создаётся.
+- Изменены только `crates/beta-core/examples/world_probe.rs`, `docs/tasks/status/agy.json`, этот handoff. Cargo dependencies, oracle, runner и общий contract не менялись.
+- Проверки: `cargo test --locked --offline -p beta-core --example world_probe` → 4 synthetic tests PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `python3 tools/check.py` → 64 Python tests, fmt/check/clippy, 40 library + 26 example tests, doc tests PASS; `git diff --check` → PASS.
+- CLI subprocess обработал C01 `live.tsv`: 749 rows, 704 present и 44 absent; каждый output row имел ожидаемое число полей. Полный stdout byte-identical к сохранённому C01 `native.stdout.tsv`. Отдельная ошибка basename вернула exit 1, пустой stdout и stderr diagnostic. Это прямая сверка с C01 native output; `python3 tools/parity/run.py world --strict` и C03 report review остаются приёмкой Codex.
+- Model ID: **gpt-6-luna low**. Сессия A02 завершена; следующая работа — Codex C02 runner/review и C03 full package acceptance.
 
 ## REGION-001-A01 — read-only Rust McRegion reader
 
