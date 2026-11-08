@@ -2,7 +2,15 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
-    "JAVA-001-A01": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-A01": {
+      "state": "done",
+      "summary": "Добавлен pure beta_core::java_compat с четырьмя Java float-to-int/long casts и String.hashCode по UTF-16 code units с wrapping i32. Unit tests проверяют все 18493 строки committed Java oracle fixture и дополнительные NaN/infinity/truncation/Unicode/wrapping cases.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core java_compat::tests:: → 3 PASS; every fixture row compared by exact decimal result",
+        "python3 tools/check.py → PASS: workspace formatting, check, clippy, all-target tests, doc tests and Python checks",
+        "git diff --check → PASS"
+      ]
+    },
     "JAVA-001-A02": {"state": "pending", "summary": "", "checks": []},
     "WORLD-LOAD-001-A01": {
       "state": "done",

@@ -269,3 +269,13 @@
 - Проверки: `cargo test --locked --offline -p beta-core --example math_probe` → 5 PASS; `cargo clippy --locked --offline -p beta-core --example math_probe -- -D warnings` → PASS; полный `python3 tools/check.py` → 85 Python tests и workspace fmt/check/clippy/all-target/doc PASS; `git diff --check` → PASS.
 - Subprocess C01: `cargo run --quiet --locked --offline -p beta-core --example math_probe < tests/fixtures/math/input.tsv` вывел ровно 131408 LF строк и byte-identical output с committed reference. Отдельно собран committed `MathOracle.java` и запущен против закреплённого клиентского JAR; Java и Rust TSV прошли `cmp`, SHA-256 обоих outputs `feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f`. Пять invalid real subprocess inputs дали ненулевой exit, пустой stdout и диагностику stderr.
 - Native parity здесь ограничена именно набором C01 MathHelper-вызовов и закреплённым локальным клиентом/JDK. Это не доказывает подключение функций к игровому циклу; live saved-report review выполняет C03.
+
+## JAVA-001-A01 — beta_core::java_compat
+
+- Добавлен чистый `beta_core::java_compat`: `f32_to_i32`, `f64_to_i32`, `f32_to_i64`, `f64_to_i64`, `string_hash_code`; `java_compat` экспортирован из `lib.rs`. Новых зависимостей, I/O и probe-кода нет.
+- Float casts используют Rust's defined float-to-integer cast semantics, которые совпадают с Java: NaN → 0, infinities/out-of-range clamp к границе target integer, конечные значения truncate toward zero. String hash проходит UTF-16 code units через `hash = hash * 31 + unit` с wrapping `i32`, включая supplementary code points.
+- Unit test читает committed `tests/fixtures/java/input.tsv` и `reference.tsv`, декодирует raw float/double bits и UTF-8 hex, затем сравнивает каждую операцию по ID и decimal result. Проверены все 18493 строки (4109 на каждую из четырёх conversion operations и 2057 strings). Дополнительные assertions покрывают NaN, ±infinity, truncation, ASCII, BMP, non-BMP и Java hash value overflow.
+- Изменены только `crates/beta-core/src/java_compat.rs`, `crates/beta-core/src/lib.rs`, `docs/tasks/status/agy.json` и этот handoff. Fixture, oracle, probe/runner, общий контракт, зависимости и соседний worktree не менялись.
+- Проверки: `cargo test --locked --offline -p beta-core java_compat::tests::` → 3 PASS; `python3 tools/check.py` → PASS (workspace fmt/check/clippy/all-target/doc plus Python tests); `git diff --check` → PASS.
+- Ограничение: подтверждено поведение для committed fixture, созданной текущей JVM; прямой probe subprocess и live parity относятся к A02/C02/C03.
+- Следующий шаг: JAVA-001-A02 — TSV probe; текущий A01 commit содержит только библиотечный модуль, unit tests и собственные status/handoff.
