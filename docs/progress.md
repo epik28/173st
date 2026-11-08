@@ -6,17 +6,16 @@ WORLD-LOAD-001 принят: read-only metadata и typed chunk data из Beta 1.
 VIEW-001 принят: реализован CPU mesher и локальный wgpu viewer фиксированной
 5×5 сцены с оригинальной terrain-текстурой; окно показывает рельеф и поддержанные
 opaque cube блоки. Это первый графический milestone, не полная визуальная parity.
-MATH-001 принят: проверены оригинальные функции MathHelper, включая полную
-65 536-entry sin/cos LUT, Java float edge cases и signed integer division.
-Следующим открыт JAVA-001 для прямых JVM-проверок float/double casts и
-UTF-16 `String.hashCode`; Rust-реализация пакета пока не принята.
+MATH-001 и JAVA-001 приняты. JAVA-001 добавил Java-совместимые float/double
+casts в int/long и UTF-16 `String.hashCode`, сверенные с прямым JVM oracle.
+Следующий пакет — GAME-ORACLE-001, затем управление и физика.
 
-Оценка готовности **полной игры — около 11%** после MATH-001.
+Оценка готовности **полной игры — около 11%** после JAVA-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
-  VIEW-001 и MATH-001 приняты**.
+  VIEW-001, MATH-001 и JAVA-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
@@ -42,6 +41,14 @@ UTF-16 `String.hashCode`; Rust-реализация пакета пока не �
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+JAVA-001: snapshot agy `73dac4598dd2d596c1158b640a2bf9f630950b3d` принят.
+Rust casts и `String.hashCode` побайтно совпали с direct JVM oracle на 18 493
+строках; `python3 tools/check.py` прошёл с 95 Python-тестами и всеми Rust
+workspace checks. Saved review обнаружил 5 синтетических изменений и отклонил
+10 некорректных JVM/Rust protocol inputs. Семь предыдущих strict suites также
+прошли. Это узкий набор базовой Java-совместимости, поэтому округлённая оценка
+полной игры остаётся около 11%.
 
 MATH-001: agy snapshot `aaebed54d22a9149894792e305ed264d9a2b1a36` объединён и
 принят. Rust MathHelper совпал с исходным классом Beta 1.7.3 по 131 408

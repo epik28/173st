@@ -869,3 +869,15 @@ Java oracle repeated all 18,493 rows identically (reference SHA
 run correctly reports `not_implemented` until A02 lands; timeout capture was
 also exercised. C03 must run saved protocol review against the successful live
 report after integrating the Rust probe.
+# JAVA-001-C03 acceptance
+
+Integrated exact agy snapshot `73dac4598dd2d596c1158b640a2bf9f630950b3d`.
+`tools/check.py` passed with 95 Python tests and all Rust workspace checks.
+`java --strict` passed 18,493/18,493 ordered rows; reference and Rust output SHA
+are both `397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8`,
+and the report records `rust_dirty=false` at revision `7a2ca977`.
+`verify_report.py --protocol` passed five synthetic mutations and ten malformed
+Java/Rust protocol executions. Previous strict suites passed: RNG 96,
+RNG-extended 13,227, chunk 4,182, NBT 5,250, region 748, world 749, and view
+50 mappings plus 1,617 neighbor tuples. JAVA-001 is accepted; rounded full-game
+estimate remains about 11% because this is a narrow compatibility foundation.

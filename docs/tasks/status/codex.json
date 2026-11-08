@@ -23,7 +23,18 @@
         "python3 -m py_compile tools/parity/java_run.py tools/parity/java_review.py tools/parity/run.py tools/parity/verify_report.py; git diff --check → PASS"
       ]
     },
-    "JAVA-001-C03": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-C03": {
+      "state": "done",
+      "summary": "Проверен и интегрирован точный agy snapshot 73dac4598dd2d596c1158b640a2bf9f630950b3d. Rust probe побайтно совпал с прямым JVM oracle на всех 18493 conversion/hash cases; protocol review обнаружил 5 синтетических мутаций и отклонил 10 некорректных запросов. Полный workspace check и все семь прежних strict suites прошли; JAVA-001 принят в main.",
+      "checks": [
+        "python3 tools/check.py → PASS: 95 Python tests; cargo fmt/check/clippy -D warnings, workspace all-target tests и doc tests",
+        "python3 tools/parity/run.py java --strict → PASS: 18493/18493 exact rows; reference/Rust SHA 397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8; rust_dirty=false; report artifacts/parity/java/run-9617l1vj/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/java/run-9617l1vj/report.json --protocol → PASS: saved report, 5 synthetic mutations detected, 10 malformed JVM/Rust protocol executions rejected",
+        "Previous strict suites → PASS: rng 96; rng-extended 13227; chunk 4182; nbt 5250; region 748; world 749; view 50 mappings + 1617 neighbor tuples",
+        "python3 tools/oracle/java_compat_corpus.py → PASS: 18493 cases; repeat oracle output and committed fixture hashes match",
+        "git diff --check → PASS"
+      ]
+    },
     "WORLD-LOAD-001-C01": {
       "state": "done",
       "summary": "Добавлены оригинальный WorldOracle на ij/nu/ei/qj, пять-file snapshot и 749 координатных live cases. На копиях выполнено два идентичных запуска: 704 present + 44 absent; native calls отдельно зафиксированы как qj=748, ij=705, ei=1, native_chunk_loads=0. Отдельный generated self-test проверил defaults, wrong types, границы, unknown/list data и strict chunk errors; Rust parity не выполнялась.",
