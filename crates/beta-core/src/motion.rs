@@ -343,10 +343,11 @@ pub fn dry_travel(
     };
     move_flying(state, input.strafe, input.forward, ground_acceleration);
 
+    // Native ls.a_ resolves both friction lookups before invoking sn.b(DDD).
+    // Keep the drag surface tied to the pre-move support/bounding box.
+    let horizontal_friction = ground_friction(state, colliders, surface);
     let movement = state.velocity;
     move_entity(state, movement, colliders);
-
-    let horizontal_friction = ground_friction(state, colliders, surface);
     state.velocity[1] -= GRAVITY;
     state.velocity[1] *= VERTICAL_DRAG;
     let horizontal_drag = f64::from(horizontal_friction);
@@ -603,7 +604,10 @@ mod tests {
             &[floor_box()],
             Surface::Air,
         );
-        assert_eq!(air.velocity[0].to_bits(), f64::from(0.91_f32).to_bits());
+        assert_eq!(
+            air.velocity[0].to_bits(),
+            f64::from(0.546_000_06_f32).to_bits()
+        );
 
         let mut grounded_air = MotionState::new([0.5, 2.0, 0.5]);
         grounded_air.on_ground = true;
@@ -623,7 +627,7 @@ mod tests {
         let expected_acceleration = 0.1_f32
             * (0.162_771_36_f32
                 / (initial_ground_friction * initial_ground_friction * initial_ground_friction));
-        let expected_velocity = f64::from(expected_acceleration) * f64::from(0.91_f32);
+        let expected_velocity = f64::from(expected_acceleration) * f64::from(0.546_000_06_f32);
         assert_eq!(
             grounded_air.velocity[2].to_bits(),
             expected_velocity.to_bits()
