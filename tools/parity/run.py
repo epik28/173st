@@ -918,7 +918,7 @@ def run_region(root=ROOT, timeout=60):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java", "geometry", "movement"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java", "geometry", "movement", "color"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -935,6 +935,7 @@ def main(argv=None):
         print("math: MATH-001 original client MathHelper; requires configured client JAR and math_probe")
         print("java: JAVA-001 direct JVM casts/String.hashCode; requires java_compat_probe")
         print("geometry: GAME-ORACLE-001 original eq/bt/vf geometry; custom input via tools/parity/geometry_run.py --input FILE")
+        print("color: COLOR-001 original seeded climate and grass/foliage colors")
         print("movement: MOVE-001 original sn/ls collision and dry travel on synthetic static scenes; custom input via movement_run.py")
         return 0
     try:
@@ -955,6 +956,9 @@ def main(argv=None):
         elif args.group == "geometry":
             from geometry_run import run_geometry_suite
             report, path = run_geometry_suite(timeout=args.timeout)
+        elif args.group == "color":
+            from color_run import run_color_suite
+            report, path = run_color_suite(timeout=args.timeout)
         elif args.group == "movement":
             from movement_run import run_movement_suite
             report, path = run_movement_suite(timeout=args.timeout)
