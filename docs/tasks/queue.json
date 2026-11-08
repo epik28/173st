@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "tasks": [
+    {"id":"FLUID-001-C01","owner":"codex","title":"Native water geometry oracle","card":"docs/tasks/FLUID-001.md","depends_on":[]},
+    {"id":"FLUID-001-C02","owner":"codex","title":"Water geometry strict runner","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01"]},
+    {"id":"FLUID-001-A01","owner":"agy","title":"Native-compatible water mesh geometry","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01"]},
+    {"id":"FLUID-001-A02","owner":"agy","title":"Water probe and transparent viewer integration","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C02","FLUID-001-A01"]},
+    {"id":"FLUID-001-C03","owner":"codex","title":"Water integration acceptance","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01","FLUID-001-C02","FLUID-001-A01","FLUID-001-A02"]},
     {
       "id": "LIGHT-001-C01",
       "owner": "codex",

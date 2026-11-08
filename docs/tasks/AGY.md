@@ -1,5 +1,21 @@
 # Карточки роли agy
 
+## FLUID-001-A01 — Pure water mesh
+
+После committed native C01 прочитать [FLUID-001](FLUID-001.md). Реализовать
+ограниченный pure `beta_view::fluid` API и fixture-driven tests в
+`crates/beta-view/src/`. Ожидаемые вершины брать только из native reference. Не
+трогать oracle/fixtures, runner, общий контракт вне карточки и viewer. Проверить
+levels/neighbors, raw float bits, invalid inputs/limits, Rust checks; записать
+handoff/status и commit.
+
+## FLUID-001-A02 — Fluid probe and viewer integration
+
+После A01 и committed C02 добавить bounded atomic `fluid_probe`, включить IDs 8/9
+в отдельный transparent pass. Не менять opaque/cutout passes. Сделать strict parity,
+Rust/Xvfb smoke и screenshot, записать ограничения, status/handoff и commit; затем
+ожидать приёмки Codex.
+
 ## JAVA-001-A01 — Java-совместимые примитивы
 
 После JAVA-001-C01 прочитать [JAVA-001](JAVA-001.md). Добавить чистый модуль

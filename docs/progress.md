@@ -220,5 +220,9 @@ Root-End/trailing-byte/TSV guards принадлежат адаптеру, не 
 Игровая логика, симуляция мира, запись сохранения, большая часть графики,
 производительности и игровой цикл ещё не реализованы. VIEW-001 показывает только
 фиксированный участок и не загружает игровой World в полноценный renderer.
-Следующий пакет — VIEW-002: начать с листьев/alpha-test и native biome tint;
+Следующий пакет — FLUID-001: добавить Beta water ID 8/9 по прямым capture
+Tessellator оригинального `cv` renderer. Вода занимает14 из50 уникальных native
+состояний закреплённой сцены и пока пропускается viewer; lava и simulation в пакет
+не входят. C01 завершён: 44 native cases / 1,242 captured vertices; следующий шаг —
+strict runner C02 и pure Rust mesh A01.
 исследование оригинальных методов записано в docs/view-002-research.md.

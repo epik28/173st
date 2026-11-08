@@ -1,0 +1,1 @@
+FLUID-001-C01	ids=8,9	metadata=0..15	neighbors=east-source,west-flow,north-source,south-flow,diagonal-water,four-sources,water-above,flow-column,solid-east,solid-west,solid-north,solid-south

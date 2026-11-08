@@ -289,6 +289,16 @@
         "python3 tools/check.py → PASS: 85 Python tests, workspace fmt/check/clippy, all-target tests and doc tests",
         "git diff --check → PASS"
       ]
+    },
+    "FLUID-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "FLUID-001-A02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

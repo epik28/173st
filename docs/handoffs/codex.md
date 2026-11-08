@@ -1037,3 +1037,23 @@ COLOR estimate stays16% pending visibleintegration. No push until +5–10pp.
   progress. Local main accepts this package; push interval still anchored16%.
   No GitHub push until cumulative requested5–10pp gain. Next capability priorities:
   biome/terrain generation and broader block models/interaction under new contracts.
+
+
+## FLUID-001-C01 — native water geometry, 2026-11-08
+
+- Queue was complete after LIGHT/LEAF acceptance; created a narrow next contract for
+  read-only water rendering (IDs 8/9), leaving lava and fluid simulation unsupported.
+- `tools/oracle/src/FluidOracle.java` directly calls original `cv.b(uu,int,int,int)`
+  on synthetic `xp` scenes and reads the words the pinned native renderer wrote to
+  `nw.g`. No Java render formula, native World/Chunk, GL draw or GL flush is used.
+- `BETA_LIVE_FLUID=1 python3 tools/oracle/fluid_corpus.py --live --write` → PASS:
+  two separate JVM captures byte-identical, 44 cases / 1,242 vertices; output SHA-256
+  `92625f8caffbe29bf19325937725ddab85590207217b6cde7b4bea53703146c1`.
+- `BETA_LIVE_FLUID=1 python3 -m unittest tests.python.test_fluid_corpus.LiveFluidTests -v`
+  → PASS; ordinary corpus tests → 2 PASS + 1 opt-in skip. Source and class hashes are
+  stored in fixture/audit; JAR SHA remains pinned. The renderer-specific blend state
+  and full-scene visual behavior remain for C02/C03 review.
+- C01 is complete; next independent Codex card is C02 runner, while agy A01 is ready
+  after the shared queue contract is integrated into both role snapshots.
+- Estimate remains about20%; a geometry reference alone adds no game capability and
+  does not advance the 5–10pp GitHub push interval.

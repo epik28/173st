@@ -1,5 +1,23 @@
 # Карточки роли codex
 
+## FLUID-001-C01 — Native water geometry oracle
+
+Следующая видимая задача — [FLUID-001](FLUID-001.md). Для C01 вызвать оригинальный
+`cv` renderer с synthetic xp-сценой и сохранить реальные `nw.g` vertices для
+уровней воды/соседей/колонн. Проверить два отдельных JVM запуска, JAR/class/source
+hashes и отсутствие GL draw/flush. Не вычислять expected vertices формулой на Java.
+
+## FLUID-001-C02 — Strict native runner
+
+После C01 создать `fluid --strict` и saved verifier по контракту. До A02 возвращать
+`not_implemented`; проверить protocol/mutation/error paths и сохранить report.
+
+## FLUID-001-C03 — Интеграция и приёмка
+
+После C01/C02/A01/A02 сверить точный agy SHA, clean workspace, прежние parity
+suites, полный fluid fixture, viewer screenshot и read-only invariants. После
+проверки принять в main, обновить progress/estimate и синхронизировать worktrees.
+
 ## JAVA-001-C01 — Java oracle и conversion/hash corpus
 
 После MATH-001-C03 прочитать [JAVA-001](JAVA-001.md). Создать JavaOracle с

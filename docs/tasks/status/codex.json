@@ -553,6 +553,27 @@
         "Final cargo build beta-viewer +Xvfb startup/screenshot PASS; image inspected after final8-float GPU layout. No original pixel parity claim",
         "Current preview reads pinned Overworld region scene; Nether scalar numerical API tested, actual Nether region loading is not claimed. Time is static saved time, no AO/weather/propagation"
       ]
+    },
+    "FLUID-001-C01": {
+      "state": "done",
+      "summary": "Создан FluidOracle, который прямым вызовом cv.b(uu,int,int,int) записывает фактические nw.g слова для воды ID 8/9. Два независимых JVM capture идентичны: 44 случая, 1,242 vertices; source/class/input hashes и отсутствие GL draw/flush зафиксированы.",
+      "checks": [
+        "BETA_LIVE_FLUID=1 python3 tools/oracle/fluid_corpus.py --live --write → PASS: 44 direct-native cases, 1,242 vertices; two independent captures byte-identical; SHA-256 92625f8caffbe29bf19325937725ddab85590207217b6cde7b4bea53703146c1",
+        "BETA_LIVE_FLUID=1 python3 -m unittest tests.python.test_fluid_corpus.LiveFluidTests -v → PASS; repeat output equals committed reference",
+        "python3 -m unittest tests.python.test_fluid_corpus -v → PASS: 2 fixture/protocol checks, 1 opt-in live test skipped",
+        "Pinned client/JAR and original uu/cv/nw hashes verified; native call audit records cv.b=44, native World/Chunk=0, GL draw/flush=0",
+        "git diff --check → PASS"
+      ]
+    },
+    "FLUID-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "FLUID-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

@@ -1,0 +1,77 @@
+{
+  "cases": 44,
+  "vertices": 1242,
+  "per_case_vertices": {
+    "level-8-0": 30,
+    "level-8-1": 30,
+    "level-8-2": 30,
+    "level-8-3": 30,
+    "level-8-4": 30,
+    "level-8-5": 30,
+    "level-8-6": 30,
+    "level-8-7": 30,
+    "level-8-8": 30,
+    "level-8-9": 30,
+    "level-8-10": 30,
+    "level-8-11": 30,
+    "level-8-12": 30,
+    "level-8-13": 30,
+    "level-8-14": 30,
+    "level-8-15": 30,
+    "level-9-0": 30,
+    "level-9-1": 30,
+    "level-9-2": 30,
+    "level-9-3": 30,
+    "level-9-4": 30,
+    "level-9-5": 30,
+    "level-9-6": 30,
+    "level-9-7": 30,
+    "level-9-8": 30,
+    "level-9-9": 30,
+    "level-9-10": 30,
+    "level-9-11": 30,
+    "level-9-12": 30,
+    "level-9-13": 30,
+    "level-9-14": 30,
+    "level-9-15": 30,
+    "east-source": 24,
+    "west-flow": 24,
+    "north-source": 24,
+    "south-flow": 24,
+    "diagonal-water": 30,
+    "four-sources": 6,
+    "water-above": 24,
+    "flow-column": 30,
+    "solid-east": 24,
+    "solid-west": 24,
+    "solid-north": 24,
+    "solid-south": 24
+  },
+  "native_calls": [
+    [
+      "#world_call",
+      "c/3",
+      "414"
+    ],
+    [
+      "#world_call",
+      "e/3",
+      "327"
+    ],
+    [
+      "#world_call",
+      "f/3",
+      "2467"
+    ],
+    [
+      "#world_call",
+      "g/3",
+      "211"
+    ]
+  ],
+  "native_sha256": "92625f8caffbe29bf19325937725ddab85590207217b6cde7b4bea53703146c1",
+  "repeatable": true,
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "suite_sha256": "450914fd0ce2c7fe64026156df3a6f92ce243ab5490815311453c2ef5248cfb7",
+  "oracle_source_sha256": "d7b3313f0191747a2963c4b69e998be8de41a9e37e897c7ceb76925cdd799889"
+}
