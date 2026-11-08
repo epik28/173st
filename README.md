@@ -41,7 +41,7 @@ stored in Git.
 - [References](docs/references.md)
 
 The workspace uses separate `codex/verification` and `agy/development` worktrees
-under `/home/andrew/173st/`. Agent-specific instructions are in [AGENTS.md](AGENTS.md)
+under a shared `173st/` directory. Agent-specific instructions are in [AGENTS.md](AGENTS.md)
 and [GEMINI.md](GEMINI.md).
 
 License: [GPLv3](LICENSE).

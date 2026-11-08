@@ -194,6 +194,19 @@ def verify(root=ROOT, write=False):
               "retained_files": len(retained), "retained_manifest_sha256": digest(retained_manifest),
               "reference_sha256": digest(stdout.encode()), "repeat_reference_sha256": digest(repeat_stdout.encode()),
               "repeatable": True}
+    # Keep checked-in evidence independent of the machine-local JAR location.
+    def normalize_source_paths(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "code_sources" and isinstance(child, dict):
+                    value[key] = {name: Path(path).name for name, path in child.items()}
+                else:
+                    normalize_source_paths(child)
+        elif isinstance(value, list):
+            for child in value:
+                normalize_source_paths(child)
+    normalize_source_paths(generated_summary)
+    normalize_source_paths(report)
     (run_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     if write:
         write_fixtures()

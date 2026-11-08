@@ -1,9 +1,9 @@
 # Codex: 173st
 
-Корень проекта и worktree агентов: `/home/andrew/173st/`.
-Твоя рабочая папка: `/home/andrew/173st/codex`, ветка `codex/verification`.
-Исполнитель Rust роли `agy` работает в `/home/andrew/173st/agy`,
-в ветке `agy/development`. Это отдельные Git worktree одного репозитория.
+Общий каталог проекта называется `173st/`; в нём расположены отдельные Git
+worktree: `codex/` (ветка `codex/verification`) и `agy/` (ветка
+`agy/development`). Пути указаны относительно общего каталога и могут
+располагаться где угодно на машине пользователя.
 
 Перед изменениями прочитай:
 

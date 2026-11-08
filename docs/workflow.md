@@ -24,7 +24,7 @@
 ## Два Git worktree
 
 ```text
-/home/andrew/173st/
+173st/
   .repo.git/          # общие Git-объекты, refs и настройки
   .local/            # локальные оригинальные JAR и исходники для исследования
   codex/             # Codex, ветка codex/verification

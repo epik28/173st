@@ -33,10 +33,10 @@
       "qj": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6"
     },
     "code_sources": {
-      "ei": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "ij": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "nu": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "qj": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+      "ei": "client-b1.7.3.jar",
+      "ij": "client-b1.7.3.jar",
+      "nu": "client-b1.7.3.jar",
+      "qj": "client-b1.7.3.jar"
     },
     "native_methods": {
       "nbt_parse": "ij.b(DataInput)",
@@ -77,10 +77,10 @@
       "qj": "6c75a123b63d555caa98e1a2619aa2483e405566de9e356585b1dc682a7da4a6"
     },
     "code_sources": {
-      "ei": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "ij": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "nu": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
-      "qj": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+      "ei": "client-b1.7.3.jar",
+      "ij": "client-b1.7.3.jar",
+      "nu": "client-b1.7.3.jar",
+      "qj": "client-b1.7.3.jar"
     },
     "generated_semantics": {
       "cases": [

@@ -596,7 +596,7 @@ pending в общем коммите подготовки, а не отмече�
 region-записей и bounded decompression; записи в `.mcr`, `level.dat`, генерация
 и рендер не включены.
 
-Локальный Prism мир `/home/andrew/.local/share/PrismLauncher/instances/b1.7.3/minecraft/saves/New World`
+Локальный Prism-мир в каталоге сохранений экземпляра Beta 1.7.3: `minecraft/saves/New World`.
 содержит четыре `.mcr`, 704 непустых location slots (везде compression id 2).
 В read-only scan границ обнаружено 0 malformed entries и 0 пересечений. Размеры
 и SHA-256 каждого файла записаны в `docs/tasks/REGION-001.md`. Были прочитаны только
@@ -650,7 +650,7 @@ Python и parity наборы не запускались повторно, ко
 
 ## WORLD-LOAD-001-C01 — native metadata oracle и snapshot
 
-- Работа выполнена только в `/home/andrew/173st/runner`, ветка `agents/region-runner`, после fast-forward `main` до `bf18c34f7cd119558f2c84ad8be64801032543ea`. Код Java и corpus зафиксирован snapshot-коммитом `02b03a27bded82dfffc8be28ba40d80a88d3c014`; reviewfixes/status/handoff — отдельным последующим коммитом.
+- Работа выполнена только в отдельном worktree runner, ветка `agents/region-runner`, после fast-forward `main` до `bf18c34f7cd119558f2c84ad8be64801032543ea`. Код Java и corpus зафиксирован snapshot-коммитом `02b03a27bded82dfffc8be28ba40d80a88d3c014`; reviewfixes/status/handoff — отдельным последующим коммитом.
 - Добавлены `tools/oracle/src/WorldOracle.java`, `tools/oracle/world_corpus.py`, пять-file manifest и markers, 749-row coordinates-only fixture, provenance/native audit/generated audit и четыре Python tests. Oracle вызывает `ij.b(DataInput)`, `ei(nu)`, `qj.a(int,int)` оригинального JAR. Он не создаёт fd/World, lm/Chunk, entity или tile-entity objects; audit фиксирует `native_chunk_loads=0`.
 - `python3 tools/oracle/world_corpus.py --write` → PASS: 1 level + 748 chunk cases; 704 occupied и 44 absent. Точные live calls: qj=748, ij=705 (level + 704 present), ei=1, native_chunk_loads=0. Два полного запуска имеют одинаковый output/audit SHA `f2e08c13997bb6fab03170dfbcec1fb3bd619e9079b792cf324fd853bd12fcc2`.
 - Отдельный generated self-test: 10 labeled cases, native calls ij=11/ei=7/qj=0. Проверены defaults, отрицательные/ненулевые boolean bytes, пустой/отсутствующий Player, границы i32/i64, wrong native types, unknown Unicode/empty names, signed raw arrays, unknown entity/tile list payloads без factories, empty byte-type entity list и strict missing/type/length/coordinate/list errors.
@@ -660,7 +660,7 @@ Python и parity наборы не запускались повторно, ко
 
 ## WORLD-LOAD-001-C02 — implementation and C03 acceptance
 
-- Назначенная модель: `gpt-6-luna`, reasoning `low`; без делегирования. Worktree `/home/andrew/173st/world-runner`, ветка `agents/world-runner`.
+- Назначенная модель: `gpt-6-luna`, reasoning `low`; без делегирования. Работа велась в отдельном worktree `world-runner`, ветка `agents/world-runner`.
 - Начальный C01 snapshot `374f6e6` получен fast-forward. Разрешённый C01 post-review `88b510d0fc37304d4b26ef50b2af5ea8b6f567f1` не был потомком merge HEAD, поэтому включён отдельным `--no-ff` merge; добавлены лимиты входных файлов Oracle.
 - Проверенные изменения в этом checkpoint: `tools/parity/run.py`, `tools/parity/world_run.py`, `tools/parity/verify_report.py`, `tools/parity/world_review.py`, новый `tests/python/test_world_runner.py`, status/handoff. Runner содержит dispatch, строгий координатный TSV parser/comparator, две независимые hash-verified копии, Java native audit и retained-byte binding, Rust build/run путь и saved-report/protocol/mutation verifier.
 - Review нашёл и исправил дефект: `-0` разрешён контрактом, но одновременно попадал в список protocol-invalid inputs; теперь он проверяется отдельным положительным случаем, включая канонический вывод `0,0` и точную ширину typed row. Дополнительно `_check_copy` теперь отклоняет лишние файлы, директории и symlinks, проверяя ровно ожидаемые входы и два маркера. Saved verifier выдаёт явные ошибки при отсутствии process logs или pinned JAR.
