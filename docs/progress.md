@@ -10,9 +10,11 @@ MATH-001 и JAVA-001 приняты. JAVA-001 добавил Java-совмест
 casts в int/long и UTF-16 `String.hashCode`, сверенные с прямым JVM oracle.
 GAME-ORACLE-001 принят: оригинальные AABB/Vec3/ray методы доступны агентам через
 CLI с пользовательскими входами, Rust geometry сверена по raw bits.
-EVIDENCE-001 усилил сохранённые доказательства. Следующий пакет — MOVE-001.
+EVIDENCE-001 усилил сохранённые доказательства. MOVE-001 принят: native dry
+movement и фиксированный игровой шаг подключены к viewer. Следом — листья,
+alpha test и biome tint (VIEW-002, контракт перед реализацией).
 
-Оценка готовности **полной игры — около 12%** после GAME-ORACLE-001.
+Оценка готовности **полной игры — около 16%** после MOVE-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
@@ -43,6 +45,20 @@ EVIDENCE-001 усилил сохранённые доказательства. �
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+MOVE-001 принят на clean объединённой ревизии `82f3930`. Snapshot agy
+`3e10761`, viewer `215ad6e` + `4862262` (gpt-6-luna low); root reviewed and
+integrated, без прямых правок engine Rust в этом пакете. 643 native сценария /
+8213 состояний совпали по всем raw-bit полям. Полный workspace check (128 Python
+cases, 7 opt-in skips) и отдельные 7 live tests прошли, как и все 10 прежних
+strict suites. Сохранённый movement report `run-56tm9oak` имеет rust_dirty=false;
+12 malformed executions и output/artifact/path/registry mutations проверены.
+Viewer запускается с ходьбой, прыжком и sneak, 20Hz accumulator сохраняет
+backlog, rendering интерполирует; Xvfb screenshot показывает сцену с земли.
+Границы: статичная 5×5 сцена, коллизии поддержанных opaque full cubes, dry
+physics; fluids/ladder/full player tick/health/interactions не заявляются.
+Оценка полной игры — около 16%.
+
 
 GAME-ORACLE-001 принят на clean объединённой ревизии `9347ae5`. Все 6284
 native geometry cases совпали точно. Custom differential input обнаружил
@@ -142,4 +158,5 @@ Root-End/trailing-byte/TSV guards принадлежат адаптеру, не 
 Игровая логика, симуляция мира, запись сохранения, большая часть графики,
 производительности и игровой цикл ещё не реализованы. VIEW-001 показывает только
 фиксированный участок и не загружает игровой World в полноценный renderer.
-Следующий пакет нужно выбирать после принятия VIEW-001 и синхронизации веток.
+Следующий пакет — VIEW-002: начать с листьев/alpha-test и native biome tint;
+исследование оригинальных методов записано в docs/view-002-research.md.

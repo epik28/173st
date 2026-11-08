@@ -6,8 +6,9 @@
 Наличие пункта в этом документе не означает готовность функции.
 
 RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001, VIEW-001,
-MATH-001, JAVA-001 и GAME-ORACLE-001 приняты. Следом открываем MOVE-001
-для коллизий и dry living motion, затем подключения управления к viewer.
+MATH-001, JAVA-001, GAME-ORACLE-001 и MOVE-001 приняты. Коллизии/dry travel
+и fixed-step управление подключены к viewer. Далее VIEW-002; начать с листьев,
+alpha test и biome tint по отдельному контракту.
 
 ## Общий цикл каждого пакета
 

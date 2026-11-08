@@ -33,9 +33,16 @@
       ]
     },
     "MOVE-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принята clean объединённая ревизия 82f3930 с A02 3e10761 и viewer 4862262. Native sn/ls per-frame oracle: 643 сценария / 8213 состояний exact raw bits, два независимых JVM запуска. Live saved evidence отвергает output/artifact/process/command/path substitution и согласованные registry mutations. Полный workspace check, все 10 прежних strict suites и финальный viewer screenshot прошли.",
+      "checks": [
+        "python3 tools/check.py → PASS: 128 Python cases (7 explicit live tests opt-in skipped), cargo fmt/check/clippy -D warnings, all-target workspace tests and doc tests",
+        "BETA_LIVE_MOVEMENT=1 python3 -m unittest tests.python.test_movement_runner.LiveMovementTests -v → PASS: 8213 native states; saved mutations; 4 output mutations; 12 malformed protocol executions; report artifacts/parity/movement/run-56tm9oak/report.json; rust_dirty=false",
+        "BETA_LIVE_GEOMETRY=1 BETA_LIVE_EVIDENCE=1 python3 -m unittest tests.python.test_geometry_runner.LiveGeometryEvidenceTests tests.python.test_evidence.LiveSavedEvidenceTests -v → 6 PASS; geometry14/math10/java10 malformed executions and saved mutations",
+        "Previous strict suites PASS: rng96, rng-extended13227, chunk4182, nbt5250, region748, world749, view50 mappings+1617 neighbors, math131408, java18493, geometry6284",
+        "Final merged viewer Xvfb screenshot /tmp/beta-viewer-smoke.png → visible terrain, no crash; initial screenshot during rebuild was black, repeated after completed build showed scene",
+        "git diff --check → PASS; original JAR, fixture reference and resource files unchanged"
+      ]
     },
     "GAME-ORACLE-001-C01": {
       "state": "done",

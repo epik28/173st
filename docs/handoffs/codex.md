@@ -902,3 +902,35 @@ Integrated native oracle a0069de88d2545bd6a9ab9c893a13c99bf05c50e and pure Rust5
 
 Viewer snapshots `215ad6e` and `4862262` integrated; author gpt-6-luna low.
 Coordinator reviewed controller/input/bounds and ran `cargo build --locked --offline -p beta-viewer` plus Xvfb screenshot smoke. Visible scene at `/tmp/beta-viewer-smoke.png`; no crash, Mesa DRI3 software-rendering warnings only. Agent full workspace checks passed before integration. Native core/probe and all-suite final acceptance remain C03. C02 evidence hardening snapshot `12e00cc` fixes path substitution and pins registry capture; live mutation evidence remains C03.
+
+## MOVE-001 final acceptance
+
+Clean tested revision `82f39308b06625dc509cdc3ae491d5b7daab70d8`. Integrated
+agy `3e10761` and viewer `215ad6e`/`4862262`, all authored gpt-6-luna low.
+Root authored runner/review and integrated/reviewed; no direct engine Rust edits.
+Native report `artifacts/parity/movement/run-56tm9oak/report.json`: 643 scenarios,
+8213 states, zero mismatches, clean revision, SHA output
+`80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd`.
+Both original JVM runs agree; actual primary calls move1045/travel7168/jump192;
+zero native World constructors, explicit synthetic-static-dry environment.
+
+`python3 tools/check.py` PASS: 128 Python cases (7 opt-in skips), workspace
+fmt/check/clippy, all-target tests and docs. Explicit movement live test PASS
+(including artifact/process/source/command/path substitution/registry mutation
+rejections, 4 output mutations, 12 malformed executions). Explicit geometry +
+math/java live tests: 6 PASS, protocols14/10/10 and saved mutations.
+
+All previous strict suites passed on merged revision:
+rng/run-_919kh4c; rng-extended/run-xptshku7; chunk/run-1__98i_e;
+nbt/run-ltnp_uuo; region/run-t632w0m2; world/run-ihd1rvn9; view/run-mqupd9ac;
+math/run-64cedc6f; java/run-uzpi97fx; geometry/run-500seiok.
+
+GUI smoke: `env -u WAYLAND_DISPLAY xvfb-run -a sh -c <viewer/screenshot>`
+PASS, screenshot `/tmp/beta-viewer-smoke.png` inspected: scene from grounded
+camera. First capture while rebuild delayed startup was black; repeat after
+completed build showed terrain. Mesa DRI3 software-render warnings only.
+Read-only resources/save retained. No full graphical/gameplay parity claim.
+
+Estimate about16%, +5pp from JAVA-001 baseline11; milestone eligible for user
+requested GitHub push. Next work: VIEW-002 scope/contract, research recorded
+separately. Remaining unsupported leaves/shapes/fluids/AO are explicit.
