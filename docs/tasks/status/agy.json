@@ -160,14 +160,28 @@
       ]
     },
     "MATH-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен чистый beta_core::math API MathHelper: trig LUT, sqrt/float narrowing, Java floor cast semantics, abs/abs-max, оригинальная signed floor-div формула и null/empty predicate. Unit tests сверяют все 131408 исходных операций с committed C01 reference по raw bits; отдельно покрыты деление на ноль, signed combinations, отрицательные floor, границы и строки.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core math::tests:: → 4 PASS; corpus test compares all 131408 original rows exactly, including 65536 sine and 65536 cosine LUT cases",
+        "cargo test --all-targets --locked --offline → PASS: 81 tests across workspace crates/examples",
+        "cargo test --doc --locked --offline → PASS",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "python3 tools/check.py → PASS: 85 Python tests and workspace fmt/check/clippy/all-target/doc checks"
+      ]
     },
     "MATH-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен crates/beta-core/examples/math_probe.rs: строгий TSV parser для всех десяти операций, raw float/double bits, exact integer ranges, UTF-8 hex strings, duplicate/unknown rejection и bounded input/case counts. Вывод staging-уется до успешного разбора всего stdin; ошибки идут только в stderr с ненулевым кодом.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example math_probe → 5 PASS: exact committed corpus, all operations/LF, malformed inputs and atomic rejection, blank/comments, limits",
+        "cargo clippy --locked --offline -p beta-core --example math_probe -- -D warnings → PASS",
+        "cargo run --quiet --locked --offline -p beta-core --example math_probe < tests/fixtures/math/input.tsv → 131408 LF rows; byte-identical to tests/fixtures/math/reference.tsv",
+        "Compiled and ran committed MathOracle against pinned client JAR; cmp Java output vs Rust output → exact match, SHA-256 feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f",
+        "Five invalid subprocess inputs → nonzero exit, empty stdout, stderr diagnostic; MIN/-1 → 2147483646",
+        "python3 tools/check.py → PASS: 85 Python tests, workspace fmt/check/clippy, all-target tests and doc tests",
+        "git diff --check → PASS"
+      ]
     }
   }
 }
