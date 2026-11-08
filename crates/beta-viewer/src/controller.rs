@@ -21,6 +21,52 @@ pub struct Controls {
     pub sneak: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MouseDeltaAccumulator {
+    residual_x: f64,
+    residual_y: f64,
+}
+
+impl MouseDeltaAccumulator {
+    /// Converts raw motion to native integer-pixel deltas without losing fractions
+    /// that arrive across separate window-system events.
+    pub fn take_integer_deltas(&mut self, dx: f64, dy: f64) -> (i32, i32) {
+        fn take(residual: &mut f64, delta: f64) -> i32 {
+            if !delta.is_finite() {
+                *residual = 0.0;
+                return 0;
+            }
+            let total = *residual + delta;
+            let whole = total.trunc();
+            if whole >= f64::from(i32::MAX) {
+                *residual = 0.0;
+                i32::MAX
+            } else if whole <= f64::from(i32::MIN) {
+                *residual = 0.0;
+                i32::MIN
+            } else {
+                *residual = total - whole;
+                whole as i32
+            }
+        }
+        (
+            take(&mut self.residual_x, dx),
+            take(&mut self.residual_y, dy),
+        )
+    }
+
+    pub fn clear(&mut self) {
+        self.residual_x = 0.0;
+        self.residual_y = 0.0;
+    }
+}
+
+pub fn apply_native_mouse_delta(yaw: f32, pitch: f32, dx: i32, dy: i32) -> (f32, f32) {
+    let yaw = (f64::from(yaw) + f64::from(dx) * 0.15_f64) as f32;
+    let pitch = (f64::from(pitch) + f64::from(dy) * 0.15_f64) as f32;
+    (yaw, pitch.clamp(-90.0, 90.0))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TickResult {
     pub previous: MotionState,
@@ -59,13 +105,11 @@ impl MotionController {
         self.previous = self.state;
         // Native input signs are opposite the camera's screen-right axis:
         // left strafe is positive and points +X when yaw is zero.
-        let mut strafe = u8::from(controls.left) as f32 - u8::from(controls.right) as f32;
-        let mut forward = u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32;
-        let length = (strafe * strafe + forward * forward).sqrt();
-        if length > 0.0 {
-            strafe = strafe / length * 0.98_f32;
-            forward = forward / length * 0.98_f32;
-        }
+        // Scale axes independently; dry_travel applies native diagonal normalization.
+        let mut strafe =
+            (u8::from(controls.left) as f32 - u8::from(controls.right) as f32) * 0.98_f32;
+        let mut forward =
+            (u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32) * 0.98_f32;
         if controls.sneak {
             strafe *= 0.3_f32;
             forward *= 0.3_f32;
@@ -283,6 +327,124 @@ mod tests {
         assert!(motion.state.bbox.min[2] >= 0.0);
         assert!(motion.state.bbox.max[2] <= 16.0);
         assert!(motion.state.bbox.min[1] >= 0.0);
+        assert_eq!(
+            motion.state.position[0],
+            (motion.state.bbox.min[0] + motion.state.bbox.max[0]) / 2.0
+        );
+        assert_eq!(
+            motion.state.position[1],
+            motion.state.bbox.min[1] + f64::from(motion.state.y_offset)
+                - f64::from(motion.state.y_size)
+        );
+        assert_eq!(
+            motion.state.position[2],
+            (motion.state.bbox.min[2] + motion.state.bbox.max[2]) / 2.0
+        );
+        assert_eq!(motion.state.velocity, [0.0; 3]);
+        assert!(
+            motion.state.collided_horizontally
+                && motion.state.collided_vertically
+                && motion.state.collided
+        );
+    }
+
+    #[test]
+    fn controller_heading_scalars_match_native_preprocessed_inputs() {
+        let scene = test_scene(0..16, false, false);
+        for (controls, strafe, forward, sneaking) in [
+            (
+                Controls {
+                    forward: true,
+                    left: true,
+                    ..Controls::default()
+                },
+                0.98_f32,
+                0.98_f32,
+                false,
+            ),
+            (
+                Controls {
+                    forward: true,
+                    ..Controls::default()
+                },
+                0.0_f32,
+                0.98_f32,
+                false,
+            ),
+            (
+                Controls {
+                    left: true,
+                    ..Controls::default()
+                },
+                0.98_f32,
+                0.0_f32,
+                false,
+            ),
+            (
+                Controls {
+                    forward: true,
+                    left: true,
+                    sneak: true,
+                    ..Controls::default()
+                },
+                0.98_f32 * 0.3_f32,
+                0.98_f32 * 0.3_f32,
+                true,
+            ),
+        ] {
+            let initial = MotionState {
+                on_ground: true,
+                ..MotionState::new([8.5, 1.0, 8.5])
+            };
+            let mut actual = MotionController::new(initial);
+            actual.accumulate(TICK);
+            actual.tick(&scene, controls).unwrap();
+
+            let mut expected = initial;
+            let candidates = scene
+                .colliders_in(collider_query(&expected, expected.velocity))
+                .unwrap();
+            let surface = scene.surface_below(expected.bbox).unwrap();
+            let yaw_degrees = expected.yaw_degrees;
+            dry_travel(
+                &mut expected,
+                TravelInput {
+                    strafe,
+                    forward,
+                    yaw_degrees,
+                    jump: false,
+                    sneaking,
+                },
+                &candidates,
+                surface,
+            );
+            scene.constrain_motion_state(&mut expected);
+            assert_eq!(actual.state, expected, "input {controls:?}");
+        }
+    }
+
+    #[test]
+    fn mouse_accumulator_preserves_fractional_pixels_and_sign_cancellation() {
+        let mut accumulator = MouseDeltaAccumulator::default();
+        let mut yaw = 0.0_f32;
+        let mut pitch = 0.0_f32;
+        let mut deltas = Vec::new();
+        for _ in 0..4 {
+            let (dx, dy) = accumulator.take_integer_deltas(0.25, 0.25);
+            deltas.push((dx, dy));
+            (yaw, pitch) = apply_native_mouse_delta(yaw, pitch, dx, dy);
+        }
+        assert_eq!(deltas, [(0, 0), (0, 0), (0, 0), (1, 1)]);
+        assert_eq!((yaw, pitch), apply_native_mouse_delta(0.0, 0.0, 1, 1));
+
+        let mut accumulator = MouseDeltaAccumulator::default();
+        assert_eq!(accumulator.take_integer_deltas(0.75, -0.75), (0, 0));
+        assert_eq!(accumulator.take_integer_deltas(-0.75, 0.75), (0, 0));
+        assert_eq!(accumulator.take_integer_deltas(0.25, -0.25), (0, 0));
+        assert_eq!(accumulator.take_integer_deltas(-0.25, 0.25), (0, 0));
+        accumulator.take_integer_deltas(0.75, -0.75);
+        accumulator.clear();
+        assert_eq!(accumulator.take_integer_deltas(0.25, 0.25), (0, 0));
     }
 
     #[test]

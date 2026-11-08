@@ -5,7 +5,9 @@
 
 use beta_core::motion::MotionState;
 use beta_view::{Camera, Mesh, Scene};
-use beta_viewer::controller::{Controls, MotionController};
+use beta_viewer::controller::{
+    Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
+};
 use std::{fs, sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
 use winit::{
@@ -73,6 +75,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         safe_spawn,
         controls: Controls::default(),
         native_pitch_degrees: 0.0,
+        mouse_delta: MouseDeltaAccumulator::default(),
         last: Instant::now(),
         captured: false,
         focused: true,
@@ -279,6 +282,7 @@ struct App {
     safe_spawn: [f64; 3],
     controls: Controls,
     native_pitch_degrees: f32,
+    mouse_delta: MouseDeltaAccumulator,
     last: Instant,
     captured: bool,
     focused: bool,
@@ -690,6 +694,7 @@ impl ApplicationHandler for App {
             WindowEvent::Focused(focused) => {
                 self.focused = focused;
                 self.last = Instant::now();
+                self.mouse_delta.clear();
                 if !focused {
                     self.controls = Controls::default();
                     self.controller.clear_clock();
@@ -713,9 +718,13 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => self.frame(),
             WindowEvent::KeyboardInput { event, .. } => {
+                if !self.focused {
+                    return;
+                }
                 if let PhysicalKey::Code(code) = event.physical_key {
                     if code == KeyCode::Escape {
                         self.captured = false;
+                        self.mouse_delta.clear();
                         if let Some(w) = &self.window {
                             w.set_cursor_visible(true);
                             let _ = w.set_cursor_grab(CursorGrabMode::None);
@@ -757,6 +766,7 @@ impl ApplicationHandler for App {
                         && code == KeyCode::Enter
                         && let Some(w) = &self.window
                     {
+                        self.mouse_delta.clear();
                         let _ = w.set_cursor_grab(CursorGrabMode::Locked);
                         w.set_cursor_visible(false);
                         self.captured = true
@@ -770,12 +780,18 @@ impl ApplicationHandler for App {
         if self.captured
             && let DeviceEvent::MouseMotion { delta } = event
         {
-            let dx = delta.0.trunc();
-            let dy = delta.1.trunc();
-            let native_yaw = (f64::from(self.controller.state.yaw_degrees) + dx * 0.15_f64) as f32;
-            let native_pitch = (f64::from(self.native_pitch_degrees) + dy * 0.15_f64) as f32;
+            let (dx, dy) = self.mouse_delta.take_integer_deltas(delta.0, delta.1);
+            if dx == 0 && dy == 0 {
+                return;
+            }
+            let (native_yaw, native_pitch) = apply_native_mouse_delta(
+                self.controller.state.yaw_degrees,
+                self.native_pitch_degrees,
+                dx,
+                dy,
+            );
             self.controller.state.yaw_degrees = native_yaw;
-            self.native_pitch_degrees = native_pitch.clamp(-90.0, 90.0);
+            self.native_pitch_degrees = native_pitch;
             self.camera.yaw = -native_yaw.to_radians();
             self.camera.pitch = -self.native_pitch_degrees.to_radians();
         }
