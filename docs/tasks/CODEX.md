@@ -347,3 +347,35 @@ scene/resource/world hashes и read-only исходника. Запустить 
 без коммита приватных данных. Отдельно указать CPU parity coverage и smoke-only
 GPU evidence. Обновить progress/estimate/status, затем принять VIEW-001 в main.
 Не объявлять полную визуальную parity.
+
+## BLOCK-001-C01 — native targeting/action corpus
+
+После FLUID-001-C03 на чистом main прочитать [BLOCK-001](BLOCK-001.md).
+Зафиксировать SHA JAR и классов `fd`, `vf`, `bt`, `uu`, `ob`, `pj`, `iz`, `gm`;
+доказать raytrace overload, hit fields, per-block shape dispatch и controller
+reach 5.0 из исходного bytecode. Снять настоящим клиентом ray cases для граней,
+miss, negative coordinates, tie, endpoint/range boundaries и non-cube shape,
+сохраняя сырые биты точки. Проверить creative break/place только на disposable
+in-memory world; проверить ID/meta окрестности и stack count/damage. Если
+изолированный player/controller недоступен без GUI side effects, зафиксировать
+это и ограничить C01 native raytrace; не подменять action results синтетической
+формулой. Не изменять Prism save/JAR/assets. Сохранить повторные captures,
+команды, входы/выходы и hashes; commit C01.
+
+## BLOCK-001-C02 — strict block runner
+
+После C01 добавить `block` в parity runner: exact schema, live/synthetic
+разделение, pinned hashes, ray fields/raw float words и action snapshots.
+Добавить проверки missing/wrong JAR, malformed/extra fields, timeout, missing
+probe и mutation; без A02 strict обязан завершиться ошибкой/not-implemented.
+Проверить компаратор на изменении стороны, координаты, бита точки, соседнего
+ID/meta и stack count. Сохранить reviewable run artifact и commit C02.
+
+## BLOCK-001-C03 — integration and acceptance
+
+После C01/C02/A01/A02 проверить точный agy commit, API и отсутствие записи в
+источник. Запустить `python3 tools/check.py`, прежние strict suites и
+`python3 tools/parity/run.py block --strict`. Запустить viewer на disposable
+fixed scene, проверить прицеливание, break/place и перестройку mesh. Повторно
+сверить source hashes, сохранить evidence и ограничения, обновить оценку и
+принять BLOCK-001 в main.

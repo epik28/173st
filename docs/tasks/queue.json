@@ -1,11 +1,53 @@
 {
   "schema_version": 1,
   "tasks": [
-    {"id":"FLUID-001-C01","owner":"codex","title":"Native water geometry oracle","card":"docs/tasks/FLUID-001.md","depends_on":[]},
-    {"id":"FLUID-001-C02","owner":"codex","title":"Water geometry strict runner","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01"]},
-    {"id":"FLUID-001-A01","owner":"agy","title":"Native-compatible water mesh geometry","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01"]},
-    {"id":"FLUID-001-A02","owner":"agy","title":"Water probe and transparent viewer integration","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C02","FLUID-001-A01"]},
-    {"id":"FLUID-001-C03","owner":"codex","title":"Water integration acceptance","card":"docs/tasks/FLUID-001.md","depends_on":["FLUID-001-C01","FLUID-001-C02","FLUID-001-A01","FLUID-001-A02"]},
+    {
+      "id": "FLUID-001-C01",
+      "owner": "codex",
+      "title": "Native water geometry oracle",
+      "card": "docs/tasks/FLUID-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "FLUID-001-C02",
+      "owner": "codex",
+      "title": "Water geometry strict runner",
+      "card": "docs/tasks/FLUID-001.md",
+      "depends_on": [
+        "FLUID-001-C01"
+      ]
+    },
+    {
+      "id": "FLUID-001-A01",
+      "owner": "agy",
+      "title": "Native-compatible water mesh geometry",
+      "card": "docs/tasks/FLUID-001.md",
+      "depends_on": [
+        "FLUID-001-C01"
+      ]
+    },
+    {
+      "id": "FLUID-001-A02",
+      "owner": "agy",
+      "title": "Water probe and transparent viewer integration",
+      "card": "docs/tasks/FLUID-001.md",
+      "depends_on": [
+        "FLUID-001-C02",
+        "FLUID-001-A01"
+      ]
+    },
+    {
+      "id": "FLUID-001-C03",
+      "owner": "codex",
+      "title": "Water integration acceptance",
+      "card": "docs/tasks/FLUID-001.md",
+      "depends_on": [
+        "FLUID-001-C01",
+        "FLUID-001-C02",
+        "FLUID-001-A01",
+        "FLUID-001-A02"
+      ]
+    },
     {
       "id": "LIGHT-001-C01",
       "owner": "codex",
@@ -704,6 +746,55 @@
         "VIEW-001-C02",
         "VIEW-001-A01",
         "VIEW-001-A02"
+      ]
+    },
+    {
+      "id": "BLOCK-001-C01",
+      "owner": "codex",
+      "title": "Native block ray/action corpus",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "FLUID-001-C03"
+      ]
+    },
+    {
+      "id": "BLOCK-001-C02",
+      "owner": "codex",
+      "title": "Strict block targeting parity runner",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "BLOCK-001-C01"
+      ]
+    },
+    {
+      "id": "BLOCK-001-A01",
+      "owner": "agy",
+      "title": "Rust block ray targeting and bounded edits",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "BLOCK-001-C01"
+      ]
+    },
+    {
+      "id": "BLOCK-001-A02",
+      "owner": "agy",
+      "title": "Block probe and viewer interaction",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "BLOCK-001-A01",
+        "BLOCK-001-C02"
+      ]
+    },
+    {
+      "id": "BLOCK-001-C03",
+      "owner": "codex",
+      "title": "Block interaction integration and acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "BLOCK-001-C01",
+        "BLOCK-001-C02",
+        "BLOCK-001-A01",
+        "BLOCK-001-A02"
       ]
     }
   ]

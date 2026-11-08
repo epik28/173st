@@ -586,6 +586,21 @@
         "Xvfb viewer smoke → PASS; 25 chunks, 334,776 opaque vertices, 9,768 water vertices; screenshot artifacts/fluid-viewer.png (640x480, SHA-256 67f69d0afed0bbb3f44be16e0e074a7461c808199946340c21aaaffdb17e1009)",
         "A02 handoff records five pinned source-save hashes unchanged before/after; fluid native capture confirms no GL draw/flush. Main fast-forward integrated agy commit 0cd7321."
       ]
+    },
+    "BLOCK-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "BLOCK-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "BLOCK-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

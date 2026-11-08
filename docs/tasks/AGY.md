@@ -240,3 +240,24 @@ unsupported/loaded/faces; корректно завершаться при inval
 surface errors. Проверить subprocess protocol и зафиксировать ручной smoke test
 локальными evidence; не включать screenshot/resource/world в Git. Выполнить
 обычные проверки, status/handoff, commit A02.
+
+## BLOCK-001-A01 — block ray targeting and bounded edits
+
+После BLOCK-001-C01 на принятом main реализовать только API и инварианты из
+[BLOCK-001](BLOCK-001.md): луч/ближайшее native-supported попадание по
+загруженным данным, явные miss/unsupported results, bounded break/place и
+атомарная проверка ID/metadata. Поддержать только формы, для которых C01
+зафиксировал точную геометрию. Обновлять только затронутые данные; не добавлять
+сохранение в исходный мир. Не трогать oracle, fixtures, parity runner, queue или
+чужой status. Добавить unit tests по контракту, fmt/clippy/tests, записать
+handoff/status и commit A01.
+
+## BLOCK-001-A02 — bounded probe and viewer interaction
+
+После A01/C02 добавить auto-discovered `block_probe` по TSV-контракту C02 и
+подключить выбор/удаление/размещение к viewer в локальной creative sandbox.
+Показывать прицельную грань и обновлять mesh после действия; reject unsupported
+shape, occupied/unloaded placement и некорректный ввод без частичной записи.
+Проверить protocol/error/limit cases и viewer smoke на disposable scene.
+Выполнить общие проверки и собственные block unit tests; обновить только свой
+status/handoff, commit A02.
