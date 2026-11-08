@@ -130,9 +130,18 @@
       ]
     },
     "VIEW-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Реализован beta-view CPU API: bounded 5×5 immutable scene, exact native block-state/above-ID mapping, только подтверждённые opaque full cubes, face culling, native face vertex/UV order и atlas bounds, neighbor light nibbles, directional shade, deterministic mesh и perspective free-fly camera. Unsupported states считаются и пропускаются; packed `uu.d` brightness/AO не заявлены.",
+      "checks": [
+        "cargo fmt --all -- --check → PASS",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "cargo test --workspace --all-targets --locked --offline → PASS: 40 beta-core + 5 beta-view + 26 example tests; viewer target builds",
+        "cargo test --workspace --doc --locked --offline → PASS",
+        "python3 tools/check.py → PASS: 81 Python tests, fmt/check/clippy, workspace all-target/doc tests",
+        "beta-view tests → PASS: all 24 native vertex/UV pairs across six faces, outward winding, atlas low/high edge values, adjacent light samples and face shade, context-aware grass tile, opaque-cube culling, unsupported counts, invalid bounds/chunks/arrays/camera, and hard mesh limits",
+        "python3 tools/parity/run.py view --strict → expected not_implemented: C02 oracle ran twice, but A02 view_probe is not implemented yet; no Rust/native parity is claimed",
+        "git diff --check → PASS"
+      ]
     },
     "VIEW-001-A02": {
       "state": "pending",

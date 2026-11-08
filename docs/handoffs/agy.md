@@ -218,3 +218,15 @@
 
 ### Следующий шаг
 - Задачи роли `agy` для пакета CHUNK-001 выполнены. Снапшот готов для интеграции и завершения приёмки `CHUNK-001-C03` ролью `codex`.
+
+## VIEW-001-A01 — CPU scene, camera and mesh
+
+- Реализован чистый `beta-view` API без filesystem/window/GPU кода: `SceneBounds` проверяет только конечные block coordinates внутри максимум 5×5 chunks; `Scene` хранит неизменяемые загруженные `ChunkData` и native mappings. Отсутствующие slots/neighbors считаются воздухом.
+- Mesher читает только block states с точным `(id, metadata, above_id)` native mapping (для статических блоков используется `above_id=None`). Поддерживаются только C01-подтверждённые render-type-0 opaque full cubes с шестью alpha-opaque faces; unsupported states опускаются и учитываются. Грань убирается только если сосед тоже имеет подтверждённый поддержанный mapping такого куба.
+- Геометрия и UV следуют default-rotation flat `cv.b` bytecode emitters `a..f`, faces 0..5: сохранён native порядок четырёх position/UV corners по каждой стороне, lower UV границы начинаются ровно на tile origin, high edges — на `+15.99` pixels. Directional shades: bottom .5, top 1, Z .8, X .6. Для каждой грани сохраняются sky/block nibbles соседнего sample position. Packed `uu.d` brightness conversion, lighting gamma и AO corner samples не реализованы; это raw lighting input, не native brightness parity.
+- Добавлены hard caps scene size (25 chunks / 819200 blocks) и mesh output (5,000,000 vertices / 7,500,000 indices); callers могут выставить меньшие limits. Camera API задаёт перспективу 70°/near .05/far 128, фиксированную стартовую позицию по spawn, полёт/поворот, вертикальный look clamp и WGPU right-handed zero-to-one projection.
+- Tests проверяют все 24 position/UV pairs по native emitter table, outward face winding, tile-origin/high-edge UV values, source neighbor nibbles/shade, grass above-ID context, culling двух подтверждённых кубов, unsupported block counts, limits, malformed chunk arrays, bounds/duplicates/coordinates и camera.
+- Изменены `crates/beta-view/src/lib.rs`, `docs/tasks/status/agy.json` и этот handoff. Другие worktrees/branch, shared oracle, runner и contract не менялись; новых dependencies нет.
+- Проверки: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked --offline -- -D warnings`, `cargo test --workspace --all-targets --locked --offline` (40 beta-core + 5 beta-view + 26 example tests), `cargo test --workspace --doc --locked --offline`, `python3 tools/check.py` (81 Python tests и все Rust checks) и `git diff --check` → PASS.
+- После C02 commit `ef16cf31ce89152478e04fa4efa2866ad43bbc33` выполнен `python3 tools/parity/run.py view --strict`: ожидаемый `not_implemented`, поскольку A02 `view_probe` пока отсутствует; Java oracle выполнил два native runs. CPU/native mapping parity и пиксельный parity не заявляются в A01.
+- A01 завершена; A02 остаётся следующей задачей роли `agy` после C02.
