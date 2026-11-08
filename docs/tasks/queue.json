@@ -29,6 +29,16 @@
       ]
     },
     {
+      "id": "LIGHT-001-C04",
+      "owner": "codex",
+      "title": "Native saved-time flat lighting in viewer",
+      "card": "docs/tasks/LIGHT-001.md",
+      "depends_on": [
+        "LIGHT-001-A01",
+        "LEAF-001-C04"
+      ]
+    },
+    {
       "id": "LIGHT-001-C03",
       "owner": "codex",
       "title": "Light numerical integration acceptance",
@@ -36,7 +46,8 @@
       "depends_on": [
         "LIGHT-001-C01",
         "LIGHT-001-A01",
-        "LIGHT-001-C02"
+        "LIGHT-001-C02",
+        "LIGHT-001-C04"
       ]
     },
     {
