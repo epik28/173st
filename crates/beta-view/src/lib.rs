@@ -6,8 +6,9 @@
 //! provide already-validated chunks and mappings produced by the native view oracle.
 //! Mesh vertices retain the adjacent block's sky/block light nibbles for each full-cube
 //! face and native directional face shade as separate values. This follows the sample
-//! position used by the native flat renderer but does not reproduce `uu.d` packed
-//! brightness conversion or ambient-occlusion corner sampling.
+//! position used by the native flat renderer. The viewer applies saved-time scalar
+//! brightness to these saved light samples; ambient-occlusion corner sampling remains
+//! outside this flat-rendering scope.
 
 use std::{collections::BTreeMap, error::Error, fmt};
 
@@ -453,7 +454,7 @@ impl Scene {
     /// Deterministic face mesh in world block coordinates. Unsupported states are omitted
     /// and counted once per occupied block. Adjacent supported full cubes share no face.
     pub fn mesh(&self, limits: MeshLimits) -> Result<Mesh, ViewError> {
-        self.mesh_impl(limits, None)
+        self.mesh_impl(limits, None, None)
     }
 
     /// Builds the extended render mesh using exact palette colors supplied by the caller.
@@ -463,13 +464,29 @@ impl Scene {
     where
         F: FnMut(u8, u8, i32, i32) -> u32,
     {
-        self.mesh_impl(limits, Some(&mut tint))
+        self.mesh_impl(limits, Some(&mut tint), None)
+    }
+
+    /// Builds a tinted render mesh and carries a source-block emission minimum on every
+    /// face vertex, including grass overlays. The legacy mesh helpers retain minimum 0.
+    pub fn mesh_with_tint_and_emission<F, G>(
+        &self,
+        limits: MeshLimits,
+        mut tint: F,
+        mut emission_minimum: G,
+    ) -> Result<Mesh, ViewError>
+    where
+        F: FnMut(u8, u8, i32, i32) -> u32,
+        G: FnMut(u8) -> u8,
+    {
+        self.mesh_impl(limits, Some(&mut tint), Some(&mut emission_minimum))
     }
 
     fn mesh_impl(
         &self,
         limits: MeshLimits,
         mut tint: Option<&mut dyn FnMut(u8, u8, i32, i32) -> u32>,
+        mut emission_minimum: Option<&mut dyn FnMut(u8) -> u8>,
     ) -> Result<Mesh, ViewError> {
         let mut mesh = Mesh::default();
         let vertex_limit = limits.max_vertices.min(MAX_MESH_VERTICES);
@@ -517,6 +534,9 @@ impl Scene {
                             } else {
                                 None
                             };
+                            let source_minimum = emission_minimum
+                                .as_deref_mut()
+                                .map_or(0, |minimum| minimum(block.id));
                             for face in 0..6_u8 {
                                 let (dx, dy, dz) = face_delta(face)?;
                                 let neighbor = self.block(wx + dx, i32::from(y) + dy, wz + dz)?;
@@ -563,6 +583,7 @@ impl Scene {
                                     neighbor.block_light,
                                     neighbor.sky_light,
                                     face_tint,
+                                    source_minimum,
                                 )?;
                                 if overlay_grass {
                                     if mesh.vertices.len().saturating_add(4) > vertex_limit
@@ -581,6 +602,7 @@ impl Scene {
                                         neighbor.block_light,
                                         neighbor.sky_light,
                                         block_tint.unwrap_or([1.0; 3]),
+                                        source_minimum,
                                     )?;
                                 }
                             }
@@ -615,6 +637,8 @@ pub struct Vertex {
     pub uv: [f32; 2],
     pub block_light: u8,
     pub sky_light: u8,
+    /// Source block's minimum saved-light level; zero for legacy mesh helpers.
+    pub minimum_light: u8,
     /// Native renderer's standard-cube directional shade for this face.
     pub shade: f32,
     /// Linear multiplier from the exact native palette ARGB/RGB result.
@@ -660,7 +684,16 @@ fn append_face(
     block_light: u8,
     sky_light: u8,
 ) -> Result<(), ViewError> {
-    append_face_tinted(mesh, origin, face, tile, block_light, sky_light, [1.0; 3])
+    append_face_tinted(
+        mesh,
+        origin,
+        face,
+        tile,
+        block_light,
+        sky_light,
+        [1.0; 3],
+        0,
+    )
 }
 
 fn color_tint(argb: u32) -> [f32; 3] {
@@ -671,6 +704,7 @@ fn color_tint(argb: u32) -> [f32; 3] {
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_face_tinted(
     mesh: &mut Mesh,
     origin: [i32; 3],
@@ -679,6 +713,7 @@ fn append_face_tinted(
     block_light: u8,
     sky_light: u8,
     tint: [f32; 3],
+    minimum_light: u8,
 ) -> Result<(), ViewError> {
     let tile = usize::from(tile);
     let tx = (tile % 16) as f32 * TILE_SIZE;
@@ -746,6 +781,7 @@ fn append_face_tinted(
             uv,
             block_light,
             sky_light,
+            minimum_light,
             shade,
             tint,
         });
@@ -1324,6 +1360,57 @@ mod tests {
                     |_, _, _, _| color,
                 )
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn emission_minimum_is_source_block_value_on_base_and_overlay_vertices() {
+        let mut grass_mapping = mapping(2);
+        grass_mapping.tiles = [2, 0, 3, 3, 3, 3];
+        let scene = blocks_scene(&[(0, 1, 0, 2, 0)], vec![grass_mapping]);
+        let legacy = scene.mesh(MeshLimits::default()).unwrap();
+        assert_eq!(legacy.visible_faces, 6);
+        assert!(
+            legacy
+                .vertices
+                .iter()
+                .all(|vertex| vertex.minimum_light == 0)
+        );
+
+        let tinted = scene
+            .mesh_with_tint(MeshLimits::default(), |_, _, _, _| 0x00aabbcc)
+            .unwrap();
+        assert!(
+            tinted
+                .vertices
+                .iter()
+                .all(|vertex| vertex.minimum_light == 0)
+        );
+
+        let mut seen = Vec::new();
+        let emitted = scene
+            .mesh_with_tint_and_emission(
+                MeshLimits::default(),
+                |_, _, _, _| 0x00aabbcc,
+                |id| {
+                    seen.push(id);
+                    7
+                },
+            )
+            .unwrap();
+        assert_eq!(emitted.visible_faces, 10);
+        assert_eq!(seen, vec![2]);
+        assert!(
+            emitted
+                .vertices
+                .iter()
+                .all(|vertex| vertex.minimum_light == 7)
+        );
+        assert!(
+            emitted
+                .vertices
+                .iter()
+                .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
         );
     }
 

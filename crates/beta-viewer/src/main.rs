@@ -5,9 +5,10 @@
 
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
+    light::{LightDimension, sample_brightness, sky_subtraction},
     motion::MotionState,
 };
-use beta_view::{Camera, Mesh, Scene};
+use beta_view::{Camera, Mesh, Scene, Vertex};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
@@ -50,8 +51,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let input = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
-    let (mut scene, spawn, seed) =
-        loader::load_scene_for_viewer_with_seed(&input, &terrain_path, &scene_path)?;
+    let (mut scene, metadata) =
+        loader::load_scene_for_viewer_with_metadata(&input, &terrain_path, &scene_path)?;
     let palette_dir = terrain_path
         .parent()
         .ok_or("terrain atlas path has no parent for color palettes")?;
@@ -60,25 +61,38 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         &palette_dir.join("foliagecolor.png"),
     )?;
     scene.enable_fancy_leaves();
-    let mut climate_sampler = ClimateSampler::new(seed);
+    let mut climate_sampler = ClimateSampler::new(metadata.seed);
     let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
-    let mesh = scene.mesh_with_tint(beta_view::MeshLimits::default(), |id, metadata, x, z| {
-        let climate = *climate_cache
-            .entry((x, z))
-            .or_insert_with(|| climate_sampler.sample(x, z));
-        match id {
-            2 => grass_color(&color_maps.grass, climate)
-                .expect("native climate sampler returns a valid palette climate"),
-            18 => foliage_color(&color_maps.foliage, climate, metadata)
-                .expect("native climate sampler returns a valid palette climate"),
-            _ => 0x00ff_ffff,
-        }
-    })?;
+    let mesh = scene.mesh_with_tint_and_emission(
+        beta_view::MeshLimits::default(),
+        |id, block_metadata, x, z| {
+            let climate = *climate_cache
+                .entry((x, z))
+                .or_insert_with(|| climate_sampler.sample(x, z));
+            match id {
+                2 => grass_color(&color_maps.grass, climate)
+                    .expect("native climate sampler returns a valid palette climate"),
+                18 => foliage_color(&color_maps.foliage, climate, block_metadata)
+                    .expect("native climate sampler returns a valid palette climate"),
+                _ => 0x00ff_ffff,
+            }
+        },
+        beta_core::light::emission_level,
+    )?;
+    let light_dimension = match metadata.dimension {
+        0 => LightDimension::Overworld,
+        -1 => LightDimension::Nether,
+        dimension => return Err(format!("unsupported saved light dimension {dimension}").into()),
+    };
+    let sky_subtraction = sky_subtraction(metadata.time, 1.0, light_dimension)?;
+    let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
     let loaded_chunks = scene.loaded_chunks();
     let event = EventLoop::new()?;
     let mut app = App {
         mesh,
+        light_dimension,
+        sky_subtraction,
         loaded_chunks,
         atlas: image,
         window: None,
@@ -297,6 +311,8 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
 
 struct App {
     mesh: Mesh,
+    light_dimension: LightDimension,
+    sky_subtraction: u8,
     scene: Scene,
     loaded_chunks: usize,
     atlas: image::RgbaImage,
@@ -336,6 +352,20 @@ fn preferred_surface_format(formats: &[wgpu::TextureFormat]) -> Option<wgpu::Tex
     ]
     .into_iter()
     .find(|format| formats.contains(format))
+}
+
+fn saved_vertex_brightness(
+    vertex: &Vertex,
+    sky_subtraction: u8,
+    dimension: LightDimension,
+) -> Result<f32, beta_core::light::LightError> {
+    sample_brightness(
+        vertex.block_light,
+        vertex.sky_light,
+        sky_subtraction,
+        vertex.minimum_light,
+        dimension,
+    )
 }
 
 #[cfg(test)]
@@ -568,20 +598,20 @@ impl App {
                 .vertices
                 .iter()
                 .map(|v| {
-                    [
+                    Ok::<_, beta_core::light::LightError>([
                         v.position[0],
                         v.position[1],
                         v.position[2],
                         v.uv[0],
                         v.uv[1],
                         v.shade,
-                        (f32::from(v.sky_light.max(v.block_light)) / 15.0).max(0.08),
+                        saved_vertex_brightness(v, self.sky_subtraction, self.light_dimension)?,
                         v.tint[0],
                         v.tint[1],
                         v.tint[2],
-                    ]
+                    ])
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?
         };
         let vertex_bytes = packed
             .len()
@@ -865,7 +895,10 @@ impl ApplicationHandler for App {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_atlas_mips, preferred_surface_format, srgb_to_linear};
+    use super::{
+        LightDimension, Vertex, build_atlas_mips, preferred_surface_format,
+        saved_vertex_brightness, srgb_to_linear,
+    };
 
     #[test]
     fn surface_format_prefers_native_numeric_unorm_with_srgb_fallback() {
@@ -899,6 +932,53 @@ mod tests {
         assert!(include_str!("shader.wgsl").contains("override OUTPUT_SRGB: u32 = 0u;"));
         assert!(include_str!("shader.wgsl").contains("if OUTPUT_SRGB != 0u {"));
         assert!(include_str!("shader.wgsl").contains("srgb_to_linear(native_rgb)"));
+    }
+
+    #[test]
+    fn saved_time_brightness_applies_dimension_subtraction_and_emission_minimum() {
+        let vertex = Vertex {
+            position: [0.0; 3],
+            uv: [0.0; 2],
+            block_light: 0,
+            sky_light: 15,
+            minimum_light: 0,
+            shade: 1.0,
+            tint: [1.0; 3],
+        };
+        let day_subtraction =
+            beta_core::light::sky_subtraction(6_000, 1.0, LightDimension::Overworld).unwrap();
+        let night_subtraction =
+            beta_core::light::sky_subtraction(18_000, 1.0, LightDimension::Overworld).unwrap();
+        assert_eq!(day_subtraction, 0);
+        assert_eq!(night_subtraction, 11);
+        assert_eq!(
+            saved_vertex_brightness(&vertex, day_subtraction, LightDimension::Overworld),
+            Ok(1.0)
+        );
+        assert_eq!(
+            saved_vertex_brightness(&vertex, night_subtraction, LightDimension::Overworld),
+            Ok(beta_core::light::brightness(4, LightDimension::Overworld).unwrap())
+        );
+        let dark_sample = Vertex {
+            sky_light: 0,
+            ..vertex
+        };
+        assert_eq!(
+            saved_vertex_brightness(&dark_sample, 0, LightDimension::Overworld),
+            Ok(0.05)
+        );
+        assert_eq!(
+            saved_vertex_brightness(&dark_sample, 0, LightDimension::Nether),
+            Ok(0.1)
+        );
+        let emitted = Vertex {
+            minimum_light: 15,
+            ..vertex
+        };
+        assert_eq!(
+            saved_vertex_brightness(&emitted, night_subtraction, LightDimension::Overworld),
+            Ok(1.0)
+        );
     }
 
     #[test]
