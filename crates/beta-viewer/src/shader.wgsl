@@ -37,3 +37,11 @@ struct VertexOut {
     }
     return vec4<f32>(native_rgb, 1.0);
 }
+@fragment fn fs_fluid(input: VertexOut) -> @location(0) vec4<f32> {
+    let color = textureSample(atlas, atlas_sampler, input.uv);
+    let native_rgb = color.rgb * input.vertex_color;
+    if OUTPUT_SRGB != 0u {
+        return vec4<f32>(srgb_to_linear(native_rgb), color.a);
+    }
+    return vec4<f32>(native_rgb, color.a);
+}

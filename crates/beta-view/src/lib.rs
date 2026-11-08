@@ -260,6 +260,77 @@ impl Scene {
         self.chunks.len()
     }
 
+    /// Builds a separate, bounded transparent mesh for water blocks in the scene.
+    /// The ordinary cube mesh remains unchanged and continues to own the opaque pass.
+    pub fn fluid_mesh(&self, limits: MeshLimits) -> Result<fluid::Mesh, ViewError> {
+        let mut mesh = fluid::Mesh {
+            vertices: Vec::new(),
+        };
+        let vertex_limit = limits.max_vertices.min(MAX_MESH_VERTICES);
+        let x0 = self
+            .bounds
+            .min_chunk_x
+            .checked_mul(16)
+            .ok_or(ViewError::InvalidSceneBounds)?;
+        let z0 = self
+            .bounds
+            .min_chunk_z
+            .checked_mul(16)
+            .ok_or(ViewError::InvalidSceneBounds)?;
+        for chunk_z in 0..self.bounds.depth {
+            for chunk_x in 0..self.bounds.width {
+                let cx = self.bounds.min_chunk_x + i32::from(chunk_x);
+                let cz = self.bounds.min_chunk_z + i32::from(chunk_z);
+                let Some(chunk) = self.chunks.get(&(cx, cz)) else {
+                    continue;
+                };
+                for local_x in 0..16_u8 {
+                    for local_z in 0..16_u8 {
+                        for y in 0..128_u8 {
+                            let block = chunk.get(local_x, y, local_z)?;
+                            if block.id != 8 && block.id != 9 {
+                                continue;
+                            }
+                            let x = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
+                            let z = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
+                            let cell = |dx: i32, dy: i32, dz: i32| -> Result<Option<fluid::FluidCell>, ViewError> {
+                                let b = self.block(x + dx, i32::from(y) + dy, z + dz)?;
+                                Ok((b.id != 0).then_some(fluid::FluidCell { id: b.id, metadata: b.metadata }))
+                            };
+                            let neighborhood = fluid::FluidNeighborhood {
+                                center: fluid::FluidCell {
+                                    id: block.id,
+                                    metadata: block.metadata,
+                                },
+                                below: cell(0, -1, 0)?,
+                                above: cell(0, 1, 0)?,
+                                east: cell(1, 0, 0)?,
+                                west: cell(-1, 0, 0)?,
+                                north: cell(0, 0, -1)?,
+                                south: cell(0, 0, 1)?,
+                                north_east: cell(1, 0, -1)?,
+                                north_west: cell(-1, 0, -1)?,
+                                south_east: cell(1, 0, 1)?,
+                                south_west: cell(-1, 0, 1)?,
+                            };
+                            let water = fluid::mesh(x, i32::from(y), z, neighborhood)?;
+                            if mesh.vertices.len().saturating_add(water.vertices.len())
+                                > vertex_limit
+                            {
+                                return Err(ViewError::MeshLimitExceeded {
+                                    vertices: mesh.vertices.len() + water.vertices.len(),
+                                    indices: mesh.vertices.len() + water.vertices.len(),
+                                });
+                            }
+                            mesh.vertices.extend(water.vertices);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(mesh)
+    }
+
     /// Enables native fancy leaf cube rendering and full-cube leaf collision.
     pub fn enable_fancy_leaves(&mut self) {
         self.fancy_leaves = true;
@@ -517,6 +588,9 @@ impl Scene {
                         for y in 0..128_u8 {
                             let block = chunk.get(local_x, y, local_z)?;
                             if block.id == 0 {
+                                continue;
+                            }
+                            if block.id == 8 || block.id == 9 {
                                 continue;
                             }
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
@@ -1006,6 +1080,26 @@ mod tests {
             mappings,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn water_is_routed_to_bounded_transparent_mesh_only() {
+        let scene = blocks_scene(&[(3, 10, 4, 9, 0)], vec![]);
+        let opaque = scene.mesh(MeshLimits::default()).unwrap();
+        let fluid = scene.fluid_mesh(MeshLimits::default()).unwrap();
+        assert_eq!(opaque.unsupported_blocks, 0);
+        assert!(opaque.vertices.is_empty());
+        assert_eq!(fluid.vertices.len(), 30);
+        assert_eq!(fluid.vertices[0].position[0], 3.0);
+        assert_eq!(fluid.vertices[0].position[2], 4.0);
+        assert!((fluid.vertices[0].position[1] - 10.698_413).abs() < 0.000_001);
+        assert!(matches!(
+            scene.fluid_mesh(MeshLimits {
+                max_vertices: 29,
+                max_indices: 0
+            }),
+            Err(ViewError::MeshLimitExceeded { .. })
+        ));
     }
 
     #[test]
@@ -1550,7 +1644,7 @@ mod tests {
         .unwrap();
         let mesh = scene.mesh(MeshLimits::default()).unwrap();
         assert_eq!(mesh.visible_faces, 6);
-        assert_eq!(mesh.unsupported_blocks, 1);
+        assert_eq!(mesh.unsupported_blocks, 0);
         assert_eq!(
             mesh.vertices[8].uv[0],
             ((68 % 16) as f32 * 16.0 + TILE_SIZE - TILE_INSET) / ATLAS_SIZE

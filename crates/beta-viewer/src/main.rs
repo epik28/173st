@@ -8,7 +8,7 @@ use beta_core::{
     light::{LightDimension, sample_brightness, sky_subtraction},
     motion::MotionState,
 };
-use beta_view::{Camera, Mesh, Scene, Vertex};
+use beta_view::{Camera, Mesh, Scene, Vertex, fluid::Mesh as FluidMesh};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
@@ -79,6 +79,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         },
         beta_core::light::emission_level,
     )?;
+    let fluid_mesh = scene.fluid_mesh(beta_view::MeshLimits::default())?;
     let light_dimension = match metadata.dimension {
         0 => LightDimension::Overworld,
         -1 => LightDimension::Nether,
@@ -88,9 +89,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
     let loaded_chunks = scene.loaded_chunks();
+    eprintln!(
+        "viewer scene: chunks={loaded_chunks}, opaque_vertices={}, water_vertices={}",
+        mesh.vertices.len(),
+        fluid_mesh.vertices.len()
+    );
     let event = EventLoop::new()?;
     let mut app = App {
         mesh,
+        fluid_mesh,
         light_dimension,
         sky_subtraction,
         loaded_chunks,
@@ -311,6 +318,7 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
 
 struct App {
     mesh: Mesh,
+    fluid_mesh: FluidMesh,
     light_dimension: LightDimension,
     sky_subtraction: u8,
     scene: Scene,
@@ -335,9 +343,12 @@ struct Gpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    fluid_pipeline: wgpu::RenderPipeline,
     vertex: wgpu::Buffer,
     index: wgpu::Buffer,
     index_count: u32,
+    fluid_vertex: wgpu::Buffer,
+    fluid_vertex_count: u32,
     depth: wgpu::TextureView,
     bind: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
@@ -422,8 +433,8 @@ impl App {
             )?,
         );
         w.set_title(&format!(
-            "Beta 1.7.3 — WASD/Space/Shift | F flight, R reset, Enter mouse | chunks {}, faces {}, unsupported {}",
-            self.loaded_chunks, self.mesh.visible_faces, self.mesh.unsupported_blocks
+            "Beta 1.7.3 — WASD/Space/Shift | F flight, R reset, Enter mouse | chunks {}, faces {}, water vertices {}, unsupported {}",
+            self.loaded_chunks, self.mesh.visible_faces, self.fluid_mesh.vertices.len(), self.mesh.unsupported_blocks
         ));
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
             Box::new(el.owned_display_handle()),
@@ -608,6 +619,44 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
+        let fluid_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("transparent water pipeline"),
+            layout: Some(&pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 32,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32x3],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_fluid"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &output_srgb_constant,
+                    ..Default::default()
+                },
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
         let packed: Vec<[f32; 8]> = if self.mesh.vertices.is_empty() {
             vec![[0.0; 8]]
         } else {
@@ -659,6 +708,41 @@ impl App {
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
+        let fluid_packed: Vec<[f32; 8]> = self
+            .fluid_mesh
+            .vertices
+            .iter()
+            .map(|v| {
+                [
+                    v.position[0],
+                    v.position[1],
+                    v.position[2],
+                    v.uv[0],
+                    v.uv[1],
+                    ((v.color >> 16) & 255) as f32 / 255.0,
+                    ((v.color >> 8) & 255) as f32 / 255.0,
+                    (v.color & 255) as f32 / 255.0,
+                ]
+            })
+            .collect();
+        let fluid_bytes = fluid_packed
+            .len()
+            .checked_mul(std::mem::size_of::<[f32; 8]>())
+            .ok_or("fluid vertex buffer size overflow")?;
+        if fluid_bytes > 128 * 1024 * 1024 {
+            return Err(
+                format!("fluid GPU vertex buffer limit exceeded ({fluid_bytes} bytes)").into(),
+            );
+        }
+        let fluid_vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("static transparent water vertices"),
+            contents: if fluid_packed.is_empty() {
+                bytemuck::cast_slice(&[[0.0_f32; 8]])
+            } else {
+                bytemuck::cast_slice(&fluid_packed)
+            },
+            usage: wgpu::BufferUsages::VERTEX,
+        });
         let dep = depth(&device, w.inner_size());
         self.gpu = Some(Gpu {
             instance,
@@ -667,9 +751,12 @@ impl App {
             queue,
             config,
             pipeline,
+            fluid_pipeline,
             vertex,
             index,
             index_count: self.mesh.indices.len() as u32,
+            fluid_vertex,
+            fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
             depth: dep,
             bind,
             camera_buffer,
@@ -759,7 +846,12 @@ impl App {
                     p.set_bind_group(0, &g.bind, &[]);
                     p.set_vertex_buffer(0, g.vertex.slice(..));
                     p.set_index_buffer(g.index.slice(..), wgpu::IndexFormat::Uint32);
-                    p.draw_indexed(0..g.index_count, 0, 0..1)
+                    p.draw_indexed(0..g.index_count, 0, 0..1);
+                    if g.fluid_vertex_count > 0 {
+                        p.set_pipeline(&g.fluid_pipeline);
+                        p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
+                        p.draw(0..g.fluid_vertex_count, 0..1);
+                    }
                 }
                 g.queue.submit([e.finish()]);
                 g.queue.present(frame)

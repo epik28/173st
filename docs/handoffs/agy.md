@@ -497,3 +497,37 @@ were added. Next: Codex C02 strict runner/review and independent live verificati
 Pure `beta_view::fluid` geometry for water IDs 8/9 now matches all 44 committed native C01 scenes vertex-by-vertex and raw-word-by-raw-word. Coverage includes shared water material corner averaging, water above, cardinal/diagonal neighbors, solid-face visibility, native N/S/W/E order, face colors, metadata-dependent side UVs, and flow-angle top UV rotation. A01 is accepted locally; A02 remains next for bounded probe and transparent viewer integration.
 
 Checks: `cargo test -p beta-view` PASS (17 tests, including all 44 native scenes), `cargo clippy -p beta-view --all-targets -- -D warnings` PASS, `cargo fmt --all -- --check` PASS, and `git diff --check` PASS. No oracle, fixture, runner, or viewer files changed.
+
+## FLUID-001-A02 — probe and transparent scene integration
+
+Added `crates/beta-viewer/examples/fluid_probe.rs`. It accepts only the bounded,
+frozen one-line C01 suite on stdin, rejects arguments or any input mutation, and
+buffers all output before writing. Output is exactly the 44 ordered case rows and
+1,242 vertices with eight lowercase raw-u32 words per native vertex. Its corpus
+regression compares the entire generated output to `native.tsv`.
+
+Added bounded `Scene::fluid_mesh`, which scans loaded chunks for IDs 8/9, builds
+the native-compatible per-cell neighborhoods, and routes resulting vertices to
+a separate viewer vertex buffer. Water no longer contributes to the opaque mesh
+or its unsupported-block count. The original opaque/cutout shader and pipeline
+are unchanged. A second pipeline preserves sampled atlas alpha, uses alpha
+blending and depth testing with depth writes disabled, and draws after opaque
+geometry. C01 did not exercise native GPU state; blend/depth behavior is a viewer
+choice, with no claim of pixel parity, sorted transparent overlap, lava, fluid
+simulation, or FPS improvement.
+
+The fixed local scene smoke rendered 25 chunks, 334,776 opaque vertices, and
+9,768 water vertices. Screenshot: ignored local artifact
+`artifacts/fluid-viewer.png` (640×480, SHA-256
+`67f69d0afed0bbb3f44be16e0e074a7461c808199946340c21aaaffdb17e1009`). The five
+pinned source-save hashes (`level.dat` and four region files) matched before and
+after the viewer run.
+
+Verification: `cargo test --locked --offline -p beta-view -p beta-viewer
+--all-targets` → PASS (18 beta-view, 13 viewer library, 5 viewer binary, all
+examples); `cargo clippy --locked --offline -p beta-view -p beta-viewer
+--all-targets -- -D warnings` → PASS; `cargo fmt --all -- --check` and
+`git diff --check` → PASS. `python3 tools/parity/run.py fluid --strict` → PASS:
+all 44 cases / 1,242 native vertices exact. The retained report must be rerun
+after the A02 commit so its Rust-revision binding is clean. No dependencies,
+oracle, fixtures, runner, queue, or Codex status were changed.
