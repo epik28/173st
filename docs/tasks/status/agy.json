@@ -2,8 +2,27 @@
   "schema_version": 1,
   "role": "agy",
   "tasks": {
-    "JAVA-001-A01": {"state": "pending", "summary": "", "checks": []},
-    "JAVA-001-A02": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-A01": {
+      "state": "done",
+      "summary": "Добавлен pure beta_core::java_compat с четырьмя Java float-to-int/long casts и String.hashCode по UTF-16 code units с wrapping i32. Unit tests проверяют все 18493 строки committed Java oracle fixture и дополнительные NaN/infinity/truncation/Unicode/wrapping cases.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core java_compat::tests:: → 3 PASS; every fixture row compared by exact decimal result",
+        "python3 tools/check.py → PASS: workspace formatting, check, clippy, all-target tests, doc tests and Python checks",
+        "git diff --check → PASS"
+      ]
+    },
+    "JAVA-001-A02": {
+      "state": "done",
+      "summary": "Добавлен java_compat_probe с strict three-field ASCII TSV, final-LF requirement, lowercase raw-bit/UTF-8 hex parsers, decimal output, unique IDs, 100000-row/16-MiB caps и atomic stdout. Протокольные tests сверяют все committed fixture rows и malformed inputs.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example java_compat_probe → 4 PASS: all 18493 fixture rows, all operations/LF, malformed protocol, atomic failure, row/byte limits",
+        "cargo run --quiet --locked --offline -p beta-core --example java_compat_probe < tests/fixtures/java/input.tsv → 18493 rows, byte-identical to committed reference.tsv",
+        "Compiled and ran JavaCompatOracle on the same fixture; cmp Rust vs Java output → exact match, SHA-256 397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8",
+        "Eight malformed subprocess streams and unexpected CLI arg → nonzero exit, empty stdout, stderr diagnostic",
+        "python3 tools/check.py → PASS: workspace fmt/check/clippy/all-target/doc and Python checks",
+        "git diff --check → PASS"
+      ]
+    },
     "WORLD-LOAD-001-A01": {
       "state": "done",
       "summary": "Реализован beta_core::world: bounded gzip load_level_gzip и typed load_chunk_nbt с exact NBT types, metadata defaults, byte!=0 booleans, player/root/raw NBT retention, required coords и все пять chunk-array lengths. Повреждения, mismatch, wrong type и limits возвращают явные WorldError; filesystem/engine code и новые зависимости отсутствуют.",
