@@ -23,9 +23,14 @@
       ]
     },
     "MOVE-001-C04": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Интегрированы viewer/controller commits 215ad6e и 4862262 (gpt-6-luna low). Walking default, native dry_travel, bounded opaque full-cube collisions, fixed 20Hz accumulator/interpolation, jump/sneak/debug flight/reset, focus pause и mouse fractional accumulation. Coordinator reviewed native diagonal input and extreme bounds fixes; GUI startup screenshot показывает сцену с земли. Общая parity приёмка core остаётся C03.",
+      "checks": [
+        "Agent python3 tools/check.py → PASS; beta-view 7 tests, beta-viewer lib 11 + main 1 tests; identical tick replay at 20/30/60/144Hz and stalls",
+        "cargo build --locked --offline -p beta-viewer → PASS on merged root",
+        "env -u WAYLAND_DISPLAY xvfb-run -a sh -c <viewer/screenshot smoke> → PASS: visible terrain /tmp/beta-viewer-smoke.png, no crash; Mesa software-rendering warnings only",
+        "Code review: independent .98 input axes, fractional mouse capture/reset, i64 exclusive scene bounds and checked surface Y; unsupported shapes remain excluded"
+      ]
     },
     "MOVE-001-C03": {
       "state": "pending",

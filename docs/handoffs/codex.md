@@ -897,3 +897,8 @@ Clean checked revision 9347ae5. Native geometry 6284 exact records; report artif
 ## MOVE-001 C01/C02
 
 Integrated native oracle a0069de88d2545bd6a9ab9c893a13c99bf05c50e and pure Rust528161a +0bc6bcaa. Coordinator reviewed bytecode and requested fixes for missing step descent, step dy reference and grounded-air friction; native parity awaits A02. Runner independently executed two original sn/ls traces:643scenarios/8213states, all outputs/audits pinned and repeatable. NativeWorld constructors0; methods inherited from original JAR, dry environment/callback seam explicitly recorded. 11 normal Python corpus/parser tests PASS, strict correctly not_implemented; controlledtimeout handled. C04 215ad6e integrated for further independent review/GUI smoke; not yet accepted.
+
+## MOVE-001 C04 local acceptance
+
+Viewer snapshots `215ad6e` and `4862262` integrated; author gpt-6-luna low.
+Coordinator reviewed controller/input/bounds and ran `cargo build --locked --offline -p beta-viewer` plus Xvfb screenshot smoke. Visible scene at `/tmp/beta-viewer-smoke.png`; no crash, Mesa DRI3 software-rendering warnings only. Agent full workspace checks passed before integration. Native core/probe and all-suite final acceptance remain C03. C02 evidence hardening snapshot `12e00cc` fixes path substitution and pins registry capture; live mutation evidence remains C03.
