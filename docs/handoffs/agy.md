@@ -315,3 +315,26 @@
 - Проверки: `cargo test --locked --offline -p beta-core --example java_compat_probe` → 4 PASS; `python3 tools/check.py` → PASS (workspace formatting/check/clippy/all-target/doc and Python checks); `git diff --check` → PASS.
 - Subprocess C01: Rust probe выдал 18493 строки и byte-identical committed reference, SHA-256 `397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8`. Java `JavaCompatOracle` был отдельно скомпилирован и запущен на тех же входах; `cmp` Java/Rust outputs прошёл с тем же SHA. Восемь malformed subprocess streams и unexpected command-line arg завершились ненулевым кодом с пустым stdout и диагностикой в stderr.
 - Native parity подтверждена на 18493 conversion/hash fixture rows для pinned oracle/runtime; подключение в игровую логику и интеграционный saved-report review находятся вне A02.
+# MOVE-001-A01 — native movement resolver and dry travel
+
+Implemented `beta_core::motion` in `crates/beta-core/src/motion.rs` and exported
+it from `lib.rs`. `MotionState::new` creates the frozen 0.6f32 × 1.8f32 player
+box and default step height. `move_entity` follows pinned `sn.b(DDD)` ordering
+(Y→X→Z), filters caller-provided ordered candidates by each native query AABB,
+and handles no-clip, web scaling, two independent sneak support loops,
+allow-slide delta clearing, step retry with BASE winning exact ties, position and
+collision flags, velocity clipping, y-size smoothing, and fall distance.
+`dry_travel` follows `ls.a_(FF)`, inherited `sn.a(FFF)`, and `ls.R()` for the
+frozen dry environment: native f32 heading/acceleration, yaw, jump, collision,
+gravity, and air/stone/ice friction.
+
+Verification: `cargo test --locked --offline -p beta-core motion::tests::` passed
+6 synthetic tests; `cargo clippy --workspace --all-targets --locked --offline --
+-D warnings`, `cargo test --all-targets --locked --offline` (58 beta-core library,
+39 examples, 11 beta-view/viewer tests), and `cargo fmt --all -- --check` passed.
+These are unit/workspace checks only; no native movement parity claim until C01
+fixture and A02 probe are available. No external dependencies or oracle/fixture
+changes.
+
+Scope: only `motion.rs`, `lib.rs`, `docs/tasks/status/agy.json`, and this handoff.
+Next: wait for accepted C01 snapshot before MOVE-001-A02.
