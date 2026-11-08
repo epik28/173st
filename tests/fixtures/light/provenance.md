@@ -26,15 +26,15 @@ All 256 emission results are read directly from original `uu.s[]` after the
 native registry bootstrap. The `fd` instance is Unsafe-allocated without calling
 either its native or synthetic Java constructor; its real provider, metadata,
 chunk, and nibble arrays are attached, with clear weather fields left at their
-Java zero defaults. The capture contains 8,224 direct `lm.c` calls, 8,224 direct
+Java zero defaults. The capture contains 24,608 direct `lm.c` calls, 24,608 direct
 `fd.a(IIII)` calls, 48,064 direct calls each to provider angle, sky subtraction,
 and metadata time setter, two provider factories/table initializers, and 256
 emission table reads. Calls internal to original native methods are documented
 as inferred, never instrumented counts.
 
 The corpus includes all 4,096 block/sky/subtraction triples in each supported
-dimension, three rotating minimum-light values plus explicit probes for every
-table level, all 24,000 Overworld ticks at partial 0 and 1, long/time boundary
+dimension at minimum-light values 0, 7, and 15, plus explicit probes for every
+table level. It also includes all 24,000 Overworld ticks at partial 0 and 1, long/time boundary
 probes in both dimensions, and all emission IDs including glowstone 89 and
 jack-o-lantern 91. It excludes special five-neighbor block queries 44/53/60/67,
 dimension 1 (Skylands in this release), weather, fluids, propagation, and AO.

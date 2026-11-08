@@ -26,6 +26,10 @@ class LightFixtureTests(unittest.TestCase):
         samples = [r.split("\t") for r in rows if "\tsample\t" in r]
         triples = {(int(r[3]), int(r[4]), int(r[5])) for r in samples if r[2] == "0"}
         self.assertEqual(len(triples), 4096)
+        for dimension in ("0", "-1"):
+            selected = [r for r in samples if r[2] == dimension and not r[0].startswith("table-")]
+            self.assertEqual(len(selected), 4096 * 3)
+            self.assertEqual({r[6] for r in selected}, {"0", "7", "15"})
         edge_rows = [r.split("\t") for r in rows if r.startswith("edge-time-")]
         for dimension in ("0", "-1"):
             self.assertEqual(sum(r[1] == "time" and r[2] == dimension for r in edge_rows), 32)

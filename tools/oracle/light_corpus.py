@@ -6,17 +6,15 @@ import sys
 
 def samples():
     index = 0
-    # Full nibble domain in both supported dimensions. Rotate minima so every
-    # combination is tested against three distinct minimum-light values.
+    # Full nibble domain in both supported dimensions at three minimum values.
     for dimension in (0, -1):
         for block in range(16):
             for sky in range(16):
                 for subtraction in range(16):
-                    minimum = (block + sky + subtraction) % 3
-                    minimum = (0, 7, 15)[minimum]
-                    yield (f"s{index:05d}\tsample\t{dimension}\t{block}\t{sky}\t"
-                           f"{subtraction}\t{minimum}")
-                    index += 1
+                    for minimum in (0, 7, 15):
+                        yield (f"s{index:05d}\tsample\t{dimension}\t{block}\t{sky}\t"
+                               f"{subtraction}\t{minimum}")
+                        index += 1
         # Isolate all provider brightness-table entries through original fd.a(IIII).
         for level in range(16):
             yield f"table-{dimension}-{level}\tsample\t{dimension}\t0\t0\t0\t{level}"
