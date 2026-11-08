@@ -5,6 +5,7 @@
 
 pub mod chunk;
 pub mod java_random;
+pub mod math;
 pub mod nbt;
 pub mod region;
 pub mod world;

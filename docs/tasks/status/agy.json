@@ -160,9 +160,15 @@
       ]
     },
     "MATH-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен чистый beta_core::math API MathHelper: trig LUT, sqrt/float narrowing, Java floor cast semantics, abs/abs-max, оригинальная signed floor-div формула и null/empty predicate. Unit tests сверяют все 131408 исходных операций с committed C01 reference по raw bits; отдельно покрыты деление на ноль, signed combinations, отрицательные floor, границы и строки.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core math::tests:: → 4 PASS; corpus test compares all 131408 original rows exactly, including 65536 sine and 65536 cosine LUT cases",
+        "cargo test --all-targets --locked --offline → PASS: 81 tests across workspace crates/examples",
+        "cargo test --doc --locked --offline → PASS",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "python3 tools/check.py → PASS: 85 Python tests and workspace fmt/check/clippy/all-target/doc checks"
+      ]
     },
     "MATH-001-A02": {
       "state": "pending",
