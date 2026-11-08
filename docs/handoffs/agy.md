@@ -1,5 +1,9 @@
 # Отчёт Gemini / agy
 
+## FLUID-001-A01 — follow-up required
+
+Codex review found that the initial implementation does not match the C01 fixture: water-above has native side-only geometry (24 vertices), solid cardinal neighbors hide their shared face, and the emitted UV words differ from native. A01 remains pending. The repair must compare every ordered vertex and all eight native words across all 44 rows in `tests/fixtures/fluid/` before acceptance. A02 has not started.
+
 ### GAME-ORACLE-001-A01 follow-up — ray near-tie squared distance
 
 - Codex review report `artifacts/parity/geometry/run-346l03ct/report.json` identified a concrete mismatch from custom input `/tmp/173st-ray-neartie.tsv`: for a box with X extent `[0, 1e-6]` and a reversed ray from X=`1e6` to `-1e6`, Rust selected face 4 / X=0 while native selected face 5 / X=`3eb0c70000000000`. The bytecode path is `eq.a(bt,bt)` → `bt.d(bt)`, which compares squared distance; the prior `start.length_to(position)` performed an extra MathHelper f32-narrowed square root, collapsing distinct distances into a false tie.
@@ -488,3 +492,8 @@ native reference via `cmp` passed; both output files have SHA-256
 protocol tests, `cargo test --locked --offline --all-targets`, doc tests, workspace
 clippy with `-D warnings`, fmt, and `git diff --check` passed. No dependencies
 were added. Next: Codex C02 strict runner/review and independent live verification.
+## FLUID-001-A01 — complete
+
+Pure `beta_view::fluid` geometry for water IDs 8/9 now matches all 44 committed native C01 scenes vertex-by-vertex and raw-word-by-raw-word. Coverage includes shared water material corner averaging, water above, cardinal/diagonal neighbors, solid-face visibility, native N/S/W/E order, face colors, metadata-dependent side UVs, and flow-angle top UV rotation. A01 is accepted locally; A02 remains next for bounded probe and transparent viewer integration.
+
+Checks: `cargo test -p beta-view` PASS (17 tests, including all 44 native scenes), `cargo clippy -p beta-view --all-targets -- -D warnings` PASS, `cargo fmt --all -- --check` PASS, and `git diff --check` PASS. No oracle, fixture, runner, or viewer files changed.

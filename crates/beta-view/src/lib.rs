@@ -18,6 +18,8 @@ use beta_core::{
 };
 use glam::{Mat4, Vec3, Vec4};
 
+pub mod fluid;
+
 pub const CHUNK_WIDTH: usize = 16;
 pub const WORLD_HEIGHT: usize = 128;
 pub const MAX_SCENE_CHUNKS: usize = 25;
@@ -140,6 +142,7 @@ pub enum ViewError {
     MeshLimitExceeded { vertices: usize, indices: usize },
     IndexOverflow,
     InvalidCamera,
+    UnsupportedFluid(u8),
     Chunk(ChunkError),
 }
 
@@ -177,6 +180,7 @@ impl fmt::Display for ViewError {
             ),
             Self::IndexOverflow => write!(f, "mesh vertex index exceeds u32"),
             Self::InvalidCamera => write!(f, "camera parameters are invalid"),
+            Self::UnsupportedFluid(id) => write!(f, "block {id} is not a supported fluid"),
             Self::Chunk(error) => write!(f, "chunk access: {error}"),
         }
     }

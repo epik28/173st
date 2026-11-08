@@ -291,9 +291,14 @@
       ]
     },
     "FLUID-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Implemented pure water geometry and matched all 44 committed native scenes, including ordered raw position/UV/color words, visibility, corner heights, and flow-rotated top UVs.",
+      "checks": [
+        "cargo test -p beta-view → PASS: 17 unit tests including exact 44-scene native fixture comparison",
+        "cargo clippy -p beta-view --all-targets -- -D warnings → PASS",
+        "cargo fmt --all -- --check → PASS",
+        "git diff --check → PASS"
+      ]
     },
     "FLUID-001-A02": {
       "state": "pending",
