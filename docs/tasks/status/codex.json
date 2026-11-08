@@ -13,9 +13,16 @@
       ]
     },
     "UV-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят Rust snapshot6312bcf в clean merged a3ca583. Изменена только UV-привязка faces1/3, без изменения позиций/winding/tiles/light/collisions. Regression сначала обнаружила112 mismatches (56top+56positiveZ), послеисправления все336 native corners совпадают по rawf32bits.",
+      "checks": [
+        "python3 tools/check.py → PASS: 133 Python tests, 10 opt-in skips; cargo fmt/check/clippy, all-target tests and doc tests",
+        "BETA_LIVE_UV=1 python3 -m unittest tests.python.test_uv_native -v → 5 PASS: native fixture exact, duplicate corners/domain checks, malformed input and wrong JAR rejection",
+        "python3 tools/parity/run.py view --strict → PASS: native mapping unchanged; artifacts/parity/view/run-_z9dvlg7/report.json",
+        "cargo build --locked --offline -p beta-viewer → PASS; final Xvfb startup screenshot /tmp/beta-viewer-smoke.png inspected, terrainvisible/no crash",
+        "Independent native twice-run artifacts/uv-review-boa1vsfk/report.json; pre-fix failing log retained as rust-before-fix.log; exact committed reference unchanged",
+        "Scope only standard full cube face UV; grey grass missingtint/leaves remain VIEW-002; estimate unchangedabout16%; localmain acceptance, nextpush at5–10pp interval"
+      ]
     },
     "MOVE-001-C01": {
       "state": "done",

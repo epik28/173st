@@ -11,8 +11,9 @@ casts в int/long и UTF-16 `String.hashCode`, сверенные с прямы�
 GAME-ORACLE-001 принят: оригинальные AABB/Vec3/ray методы доступны агентам через
 CLI с пользовательскими входами, Rust geometry сверена по raw bits.
 EVIDENCE-001 усилил сохранённые доказательства. MOVE-001 принят: native dry
-movement и фиксированный игровой шаг подключены к viewer. Следом — листья,
-alpha test и biome tint (VIEW-002, контракт перед реализацией).
+movement и фиксированный игровой шаг подключены к viewer. UV-001 принят: исправлена ориентация UV на верхней грани и грани +Z по
+оригинальному Tessellator buffer. Следом — листья, alpha test и biome tint
+(VIEW-002, контракт перед реализацией).
 
 Оценка готовности **полной игры — около 16%** после MOVE-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
@@ -45,6 +46,17 @@ alpha test и biome tint (VIEW-002, контракт перед реализац
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+UV-001 принят: Rust snapshot `6312bcf`, clean merged test revision `a3ca583`.
+Прямые original cv.a..f calls → native nw.g packed xyz/uv дали 84 случая,
+504 triangle submissions и 336 unique corners. Новый fixture test до исправления
+обнаружил112 отличий на faces1/3, после remap — ноль; позиции, winding, tile
+selection и свет не менялись. `tools/check.py` PASS (133 Python cases,10 opt-in
+skips, все Rust checks); отдельные5 native UV tests, `view --strict` и viewer
+startup/screenshot PASS. Старый synthetic UV test повторял implementation;
+новая native buffer regression закрыла этот пробел. Это scoped CPU UV parity,
+не полная pixel parity. Оценка остаётся около16%; missing tint/leaves отдельно.
+
 
 MOVE-001 принят на clean объединённой ревизии `82f3930`. Snapshot agy
 `3e10761`, viewer `215ad6e` + `4862262` (gpt-6-luna low); root reviewed and

@@ -947,3 +947,25 @@ output hashes/logs. 84 cases, 504 submissions, 336 corners, class/source binding
 Actual differences observed on faces1/3; prior synthetic UV test repeated the
 implementation rather than comparing native buffers. A01 now writes independent
 fixture regression before fixing UV. No whole renderer/GL pixel parity claimed.
+
+## UV-001 final acceptance
+
+Integrated `6312bcf` (agy gpt-6-luna low), checked clean merged `a3ca583`.
+Root reviewed small production change: only faces1/3 UV arrays. Independent
+fixture regression by xyz, native triangles duplicate UV verified. Baseline
+112 differences (56 each face1/3), afterwards336/336 corners raw-bit exact.
+Pre-fix log retained artifacts/uv-review-boa1vsfk/rust-before-fix.log. Native
+fixture and JAR unchanged. Oracle/tests authored separate gpt-6-luna low agent.
+
+`python3 tools/check.py` PASS:133 Python cases10 opt-in skips, fmt/check/clippy,
+workspace all-target tests and docs; beta-view8 tests includes native fixture.
+`BETA_LIVE_UV=1 python3 -m unittest tests.python.test_uv_native -v`:5 PASS.
+`python3 tools/parity/run.py view --strict`:PASS report
+artifacts/parity/view/run-_z9dvlg7/report.json.
+`cargo build --locked --offline -p beta-viewer`:PASS; Xvfb screenshot
+/tmp/beta-viewer-smoke.png inspected, terrain visible/no crash.
+
+Local main acceptance; user requested push only each5–10pp so no new push for
+this bugfix. Estimate stays about16%. Next VIEW-002 tint/leaves; do not claim
+grey grass or absent canopy fixed by UV correction. No direct engine Rust
+changes by coordinator.
