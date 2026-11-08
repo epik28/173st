@@ -13,10 +13,15 @@
       ]
     },
     "WORLD-LOAD-001-A02": {
-      "state": "in_progress",
-      "summary": "A02 ещё не реализован. Прочитан контракт/protocol и начат анализ C01 helper с правилами markers, canonical output-parent overlap guard, TSV и retained payload. Следующий шаг — добавить examples/world_probe.rs, затем протокольные/synthetic tests, fmt/clippy/check и отдельный commit.",
+      "state": "done",
+      "summary": "Добавлен headless examples/world_probe.rs: строгий пяти-полевой TSV, только точные marked copies, canonical parent/overlap/symlink/overwrite guards, один кэш region bytes и последовательная обработка slots. Выдаёт контрактные 21/17 TSV поля и сохраняет точные decompressed raw NBT через create_new; absence не создаёт payload.",
       "checks": [
-        "git status --short --branch → чистое дерево после A01 commit 2bf4bcb5c2fbb993dd3e7bd6cb0933a7676a9d77; A02 checks не запускались"
+        "cargo test --locked --offline -p beta-core --example world_probe → 4 synthetic tests PASS: 21/17 fields, level/chunk hashes, unicode and empty unknown names, -0, absent row, exact raw retention, malformed present chunk, protocol/marker/overlap guards",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "python3 tools/check.py → 64 Python tests; fmt/check/clippy, 40 library + 26 example tests, doc tests PASS",
+        "Subprocess `cargo run --locked --offline -p beta-core --example world_probe` over C01 live.tsv → 749 rows (1 level, 704 present, 44 absent); stdout byte-identical to C01 archived native.stdout.tsv; every row has 21/17 fields",
+        "Invalid subprocess region basename → exit 1, empty stdout, diagnostic in stderr",
+        "git diff --check → PASS"
       ]
     },
     "RNG-001-A01": {
