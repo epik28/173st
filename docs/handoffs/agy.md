@@ -551,3 +551,14 @@ positions are compared by raw f64 words. `cargo clippy
 actions, so those operations are unit-tested only and no action parity is
 claimed. Native full-cube state mapping remains supplied by the caller. No
 fixture, oracle, runner, queue, shared contract, or viewer files changed.
+
+Follow-up review correction: `raycast_segment` now counts the voxel cells the
+open segment can visit before entering the DDA loop and rejects a segment whose
+cell count exceeds `MAX_RAY_STEPS`. The diagonal `(0.999,0.999,0.999)` to
+`(11.5,11.5,11.5)` case now returns `RayStepLimit` instead of silently missing a
+block after step exhaustion. The C01 5.001 hit also asserts the native raw point
+words `4014000000000000,3fe0000000000000,3fe0000000000000`.
+
+Follow-up verification: `cargo test --locked --offline -p beta-core` → PASS
+(77 library tests); `cargo clippy --locked --offline -p beta-core --all-targets
+-- -D warnings`, `cargo fmt --all -- --check`, and `git diff --check` → PASS.

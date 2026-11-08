@@ -93,6 +93,7 @@ pub enum BlockError {
     ChunkOutsideScene { x: i32, z: i32 },
     DuplicateChunk { x: i32, z: i32 },
     InvalidRay,
+    RayStepLimit,
     InvalidMetadata(u8),
     InvalidBlockId,
     UnsupportedPlacement { id: u8, metadata: u8 },
@@ -114,6 +115,7 @@ impl fmt::Display for BlockError {
                 f,
                 "ray must have finite origin and nonzero finite direction"
             ),
+            Self::RayStepLimit => write!(f, "ray exceeds the voxel traversal cell limit"),
             Self::InvalidMetadata(value) => {
                 write!(f, "metadata {value} exceeds nibble range 0..=15")
             }
@@ -286,8 +288,12 @@ impl BlockScene {
         if delta.x == 0.0 && delta.y == 0.0 && delta.z == 0.0 {
             return Err(BlockError::InvalidRay);
         }
-        if delta.x.abs() + delta.y.abs() + delta.z.abs() > MAX_RAY_STEPS as f64 {
-            return Err(BlockError::InvalidRay);
+        let required_cells = 1.0
+            + axis_crossings(origin.x, end.x)
+            + axis_crossings(origin.y, end.y)
+            + axis_crossings(origin.z, end.z);
+        if !required_cells.is_finite() || required_cells > MAX_RAY_STEPS as f64 {
+            return Err(BlockError::RayStepLimit);
         }
         let mut cell = [
             floor_i32(origin.x)?,
@@ -492,6 +498,22 @@ fn delta_t(direction: f64) -> f64 {
         f64::INFINITY
     } else {
         direction.abs().recip()
+    }
+}
+
+/// Number of voxel-boundary crossings before the open segment endpoint.
+fn axis_crossings(start: f64, end: f64) -> f64 {
+    if end > start {
+        let crossings = end.floor() - start.floor();
+        if end.fract() == 0.0 {
+            (crossings - 1.0).max(0.0)
+        } else {
+            crossings
+        }
+    } else if end < start {
+        start.floor() - end.floor()
+    } else {
+        0.0
     }
 }
 
@@ -762,10 +784,41 @@ mod tests {
                 Ok(RayResult::Miss)
             );
         }
-        assert!(matches!(
-            range.raycast_segment(Vec3::new(0.0, 0.5, 0.5), Vec3::new(5.001, 0.5, 0.5), &cubes),
-            Ok(RayResult::Hit(BlockHit { x: 5, face: 4, .. }))
-        ));
+        let Ok(RayResult::Hit(hit)) =
+            range.raycast_segment(Vec3::new(0.0, 0.5, 0.5), Vec3::new(5.001, 0.5, 0.5), &cubes)
+        else {
+            panic!("expected hit beyond the exact five-block endpoint")
+        };
+        assert_eq!((hit.x, hit.y, hit.z, hit.face), (5, 0, 0, 4));
+        assert_eq!(
+            [
+                hit.position.x.to_bits(),
+                hit.position.y.to_bits(),
+                hit.position.z.to_bits()
+            ],
+            [
+                0x4014_0000_0000_0000,
+                0x3fe0_0000_0000_0000,
+                0x3fe0_0000_0000_0000
+            ]
+        );
+    }
+
+    #[test]
+    fn segment_rejects_a_voxel_path_that_exceeds_the_cell_visit_budget() {
+        let data = chunk_with(&[(11, 11, 11, 1, 0)]);
+        let world = scene(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk { x: 0, z: 0, data }],
+        );
+        assert_eq!(
+            world.raycast_segment(
+                Vec3::new(0.999, 0.999, 0.999),
+                Vec3::new(11.5, 11.5, 11.5),
+                &|id, _| id == 1
+            ),
+            Err(BlockError::RayStepLimit)
+        );
     }
 
     #[test]

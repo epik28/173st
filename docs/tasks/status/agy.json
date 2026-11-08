@@ -315,8 +315,8 @@
       "state": "done",
       "summary": "Добавлен bounded beta_core::block API для ray targeting и creative break/place по реально загруженным чанкам. Прямые C01-derived regression cases подтверждают все поддержанные native full-cube ray результаты, включая endpoint-open и reach boundary. Break/place имеют unit coverage; C01 native action evidence отсутствует, поэтому action parity не заявляется.",
       "checks": [
-        "cargo test --locked --offline -p beta-core block::tests → PASS: 7 tests, включая C01-derived exact raw f64 point bits for six faces, negative voxel, tie corner, open endpoints, 5.0/5.001 reach, and explicit unsupported slab",
-        "cargo test --locked --offline -p beta-core → PASS: 76 library tests; doc tests PASS",
+        "cargo test --locked --offline -p beta-core block::tests → PASS: 8 tests; added explicit RayStepLimit rejection by exact required-cell count and raw C01 point words for the 5.001 reach hit",
+        "cargo test --locked --offline -p beta-core → PASS: 77 library tests; doc tests PASS",
         "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
         "Native full-cube mapping remains caller-supplied. Native break/place actions were not verified by C01, so only unit-tested behavior is claimed. No fixture, oracle, runner, queue, viewer, or shared contract changed."
       ]
