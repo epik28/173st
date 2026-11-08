@@ -1,6 +1,6 @@
 # VIEW-001 — первый графический Beta 1.7.3 viewer
 
-Статус: контракт зафиксирован; реализация ещё не начата.
+Статус: C01 завершён; C02 и A01 открыты.
 
 ## Цель и границы
 
@@ -27,7 +27,9 @@ ID/meta/свет из сохранённых массивов и соответ�
 - Текстура `terrain.png` читается из JAR/настроенного локального ресурса;
   ожидаемый оригинальный PNG SHA-256
   `9e32336c83732193a20d0f942ae8aa1186ae01231245b5e83659ce6e9d3511cf`.
-  Бинарный ресурс в Git не добавлять. Ошибка пути/hash должна быть явной.
+  C01 извлекает её в локальный путь `paths.terrain_png` из
+  `config/local.toml`. Бинарный ресурс в Git не добавлять. Ошибка пути/hash должна
+  быть явной.
 - Тестовый world берётся из настроенного локального Prism save. Для native и Rust
   запусков используются раздельные run-specific копии. Реальные миры, JAR и
   извлечённые классы/ресурсы не коммитить.
@@ -57,22 +59,29 @@ ID/meta/свет из сохранённых массивов и соответ�
 
 ## Независимый oracle и parity
 
-C01 исследует bytecode и вызывает реальные native методы/путь клиента: свойства
-block render type/opacity, mapping ID+metadata+face в terrain atlas, ориентацию
-сторон и shading для поддерживаемых блоков. Oracle обязан журналировать class/JAR
-hash и конкретные native call counts. Таблицы из beta-wiki или сторонних проектов
+C01 исследует bytecode и вызывает реальные native методы/путь клиента: registry
+`uu.m[id]`, render type `uu.b()`, opaque flag `uu.c()`, and virtual face/meta atlas
+mapping `uu.a(world, x, y, z, face)` (including block overrides), plus the native
+standard-cube renderer `cv.a(...) -> cv.b(...) ->
+cv.l(...)`. В этом пути задокументировать face directions `0..5`, neighbor
+visibility, tile-to-atlas UV transform и face shade. Oracle обязан журналировать
+class/JAR hash и concrete native call counts. Таблицы из beta-wiki или сторонних проектов
 могут помочь найти методы, но не являются ожидаемыми значениями.
 
 На основе закреплённых 25 чанков сформировать компактную детерминированную матрицу
-уникальных реально встречающихся `(block_id, metadata, face, neighbor_state)` и
-результат native методов. Синтетические boundary/malformed cases хранить отдельно
-от live parity. Rust `view_probe` выдаёт deterministic TSV для CPU mesh: координаты
-вершин, индексы/порядок граней, ID/meta/face, UV/tile и световые значения в
-зафиксированном формате. Runner сравнивает строки точно; float-поля передавать
-битами, если original native path возвращает float. Не округлять и не расширять
-допуск без записи native evidence.
+уникальных реально встречающихся `(block_id, metadata)` с native render type,
+opaque/full-cube classification и шестью face tile lookups. Для world-aware
+block overrides фиксировать также block ID над состоянием. Сохранить набор
+реальных соседних пар, для которых вызывается native visibility method. Synthetic
+boundary/malformed cases хранить отдельно от live parity. Rust `view_probe` выдаёт
+deterministic TSV этих material mappings, после чего runner сравнивает native
+результаты точно. Позиции/индексы вершин создаёт Rust mesher; winding, face
+direction, UV bounds, culling и свет проходят отдельные deterministic unit и
+synthetic tests по зафиксированным native call/bytecode правилам, так как Beta
+renderer не отдаёт CPU vertex buffer как API. Float-поля из native oracle
+передавать битами. Не округлять и не расширять допуск без записи native evidence.
 
-CPU parity проверяет mapping/геометрию, но сама по себе не доказывает пиксельную
+CPU parity проверяет mapping и синтетическую геометрию, но сама по себе не доказывает пиксельную
 идентичность GPU кадра. C03 сохраняет собственный screenshot viewer для ревью,
 сцену/camera/config/adapter hashes и явно перечисляет не измеренные визуальные
 различия. Сравнение с original screenshot допустимо только при зафиксированных

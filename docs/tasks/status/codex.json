@@ -225,9 +225,15 @@
       ]
     },
     "VIEW-001-C01": {
-      "state": "in_progress",
-      "summary": "Исследуется native mapping рендера и готовится dependency lock.",
-      "checks": []
+      "state": "done",
+      "summary": "Закреплён оригинальный renderer/block oracle и 5×5 copied scene. Native world-aware face tile lookup выявил grass context override: 46 live states, 50 tile-mapping cases (4 context variants), 1617 neighbor pairs; 20 initial opaque cube mappings поддержаны. Зафиксированы exact GPU deps/lock, terrain/class/JAR hashes, provenance и synthetic inputs. Vertex emission/pixel parity не заявлены.",
+      "checks": [
+        "python3 tools/oracle/view_corpus.py --write → PASS: two identical native runs; 25 scene slots, 46 states, 50 mapping cases, 1617 neighbor pairs; qj=25, ij=26, ei=1, tile=300, visibility=1917; source/copy hashes unchanged",
+        "python3 tools/oracle/view_corpus.py → PASS: repeated native output/audit equals committed fixture; world-aware grass cases retained",
+        "python3 -m unittest tests.python.test_view_corpus -v → PASS: 6 protocol, fixture, context, and synthetic corpus tests",
+        "python3 tools/check.py → PASS: Python suite, cargo fmt/check/clippy -D warnings, all workspace/all-target/doc tests",
+        "git diff --check → PASS"
+      ]
     },
     "VIEW-001-C02": {
       "state": "pending",

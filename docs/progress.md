@@ -3,8 +3,9 @@
 ## Текущее состояние
 
 WORLD-LOAD-001 принят: read-only metadata и typed chunk data из Beta 1.7.3 save.
-VIEW-001 зафиксирован отдельным контрактом, его пять карточек добавлены в очередь;
-реализация графики ещё не начата.
+VIEW-001 C01 завершён: зафиксированы оригинальный renderer oracle, scene corpus,
+texture provenance и GPU dependency lock. Открыты C02 (runner) и A01 (CPU mesher);
+окно и графический рендер ещё не реализованы.
 
 Оценка готовности **полной игры — около 9%** после WORLD-LOAD-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).

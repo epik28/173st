@@ -250,10 +250,11 @@ native live chunks и прежние parity suites. При дефекте отк
 
 Начать после принятого WORLD-LOAD-001-C03 и clean main. Прочитать
 [VIEW-001](VIEW-001.md). Исследовать оригинальный клиентский JAR с закреплённым
-SHA; доказать native вызовы для block render type/opacity, atlas tile per face
-и shading. Подготовить hash-verified copies фиксированного 5×5 scene вокруг spawn,
-resource provenance и матрицу реально присутствующих block states. Synthetic
-состояния хранить отдельно от live corpus. Проверить исходный мир/JAR/resource до
+SHA; доказать native вызовы для block render type/opacity и virtual face tile
+mapping, исследовать renderer bytecode для UV/shading. Подготовить hash-verified
+copies фиксированного 5×5 scene вокруг spawn, resource provenance и матрицу реально
+присутствующих block states/neighbor pairs. Synthetic состояния хранить отдельно
+от live corpus. Проверить исходный мир/JAR/resource до
 и после; не включать их или декомпиляцию в Git. До выдачи A01 закрепить точные
 версии графических crates и Cargo.lock, Linux features, лицензии/MSRV и offline
 сборку. Зафиксировать protocol/fixtures и commit C01.
@@ -262,7 +263,8 @@ resource provenance и матрицу реально присутствующи�
 
 После C01 реализовать Java oracle на реальных методах оригинального JAR, строгий
 runner/comparator, hash-bound report verifier и synthetic protocol/error tests.
-Сравнивать CPU mesh TSV точно, float передавать raw bits. Проверить live/synthetic
+Сравнивать native-derived mapping TSV точно; face geometry/culling дополнительно
+проверять synthetic tests по контракту VIEW-001. Float передавать raw bits. Проверить live/synthetic
 разделение, missing/wrong JAR, timeout, malformed TSV, duplicate ID и mutation.
 Без Rust probe strict должен вернуть `not_implemented`/ненулевой exit, не PASS.
 Обычные проверки, evidence, commit C02. Не добавлять pixel-perfect claims.

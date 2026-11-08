@@ -7,6 +7,7 @@ beta_wiki = "../../beta-wiki"
 reference_sources = "../.local/reference-sources"
 minecraft_reference = "../.local/minecraft"
 artifacts = "artifacts"
+terrain_png = "../.local/minecraft/terrain.png"
 
 # Optional, once original JAR files are provided and verified:
 # client_jar = "../.local/minecraft/client-b1.7.3.jar"

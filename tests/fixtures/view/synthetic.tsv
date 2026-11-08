@@ -1,0 +1,41 @@
+# synthetic cases; separate from live 5x5 scene; no expected values are stored here
+# state block_id metadata block_above_id; above id is '-' for static mapping
+state	0	0	-
+state	0	15	-
+state	1	0	-
+state	1	15	-
+state	2	0	0
+state	2	0	8
+state	2	0	9
+state	2	0	78
+state	2	0	79
+state	17	0	-
+state	17	1	-
+state	17	2	-
+state	17	3	-
+state	17	4	-
+state	17	5	-
+state	18	0	-
+state	18	15	-
+state	20	0	-
+state	35	0	-
+state	35	15	-
+state	43	0	-
+state	44	0	-
+state	53	0	-
+state	53	7	-
+state	60	0	-
+state	78	0	-
+state	81	0	-
+state	89	0	-
+state	255	15	-
+neighbor	1	0	0	0	0
+neighbor	1	0	1	1	0
+neighbor	1	0	2	18	0
+neighbor	1	0	3	20	0
+neighbor	1	0	4	44	0
+neighbor	1	0	5	53	0
+neighbor	17	3	2	1	0
+neighbor	17	3	3	17	0
+neighbor	44	0	1	1	0
+neighbor	53	0	4	1	0

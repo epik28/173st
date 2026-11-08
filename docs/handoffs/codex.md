@@ -673,3 +673,29 @@ Python и parity наборы не запускались повторно, ко
 - Rust snapshot: `a7aa6856f81da7f3e008b4c1d7ad9ac89cffac18`; accepted clean combined revision: `8292470d5cdcba84ad42527496226e2c1ca33f8d`.
 - WORLD-LOAD-001 is accepted and fast-forwarded into `main`; all five stage cards are done. Overall game completion estimate is approximately **9%**.
 - Scope is read-only typed world data loading. The project still lacks game simulation, save writing, graphics and the play loop. Next, prepare the VIEW-001 contract.
+
+## VIEW-001-C01 — native view oracle and fixed scene
+
+- Pinned the original client JAR (`af1fa04b…`) and extracted `terrain.png` only to
+  the configured ignored local resource path. Added exact workspace pins/lock for
+  `wgpu`, `winit`, `image` (PNG-only), `bytemuck`, `glam`, and `pollster`.
+- Inspected `uu`/`cv` bytecode and call sites. The actual face mapping is virtual
+  `uu.a(world,x,y,z,face)`; grass ID 2 overrides it based on the block above.
+  The fixed copied 5×5 scene therefore records `(ID, metadata, above ID)` mapping
+  contexts, native render/opaque/full-cube properties, six tiles and alpha masks,
+  plus native neighbor-visibility pairs.
+- `python3 tools/oracle/view_corpus.py --write` ran the original classes twice on
+  hash-verified copies: 25 slots, 46 unique states, 50 mapping cases (4 contextual
+  overrides), 1,617 neighbor pairs; native qj=25, ij=26, ei=1, tile=300 and
+  visibility=1,917. Source and copies stayed unchanged. 20 mappings meet the
+  initial supported opaque-cube filter; 30 remain unsupported.
+- Native calls do not include `cv` vertex emission or a native GPU frame, so the
+  fixture proves mapping/material behavior only, not vertex or pixel parity.
+  Synthetic metadata, above-block, transparent, partial-model, liquid and boundary
+  inputs are separate from live observations.
+- `python3 tools/oracle/view_corpus.py` → PASS repeatable fixture/audit;
+  `python3 -m unittest tests.python.test_view_corpus -v` → 6 PASS;
+  `python3 tools/check.py` → PASS for Python, fmt, check, clippy, workspace and docs;
+  `git diff --check` → PASS.
+- Next dependency-ready work: C02 runner/protocol checks and A01 CPU scene/mesher.
+  C02 remains Codex-owned; A01 is agy-owned. Viewer/window work follows A01 and C02.
