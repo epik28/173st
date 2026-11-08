@@ -172,10 +172,29 @@ def source_snapshot(root):
     fixed = {ORACLE, PROBE, Path("Cargo.toml"), Path("Cargo.lock"),
              Path("rust-toolchain.toml"), Path("tools/parity/run.py"),
              Path("tools/parity/geometry_run.py"), Path("tools/parity/geometry_review.py"),
-             Path("tools/parity/verify_report.py"), Path("tools/oracle/geometry_corpus.py")}
+             Path("tools/parity/verify_report.py"), Path("tools/oracle/geometry_corpus.py"),
+             Path(".cargo/config"), Path(".cargo/config.toml")}
     for folder, pattern in (("crates/beta-core", "*.rs"), (str(FIXTURES), "*")):
         fixed.update(p.relative_to(root) for p in (root / folder).rglob(pattern) if p.is_file())
+    for pattern in ("Cargo.toml", "build.rs"):
+        fixed.update(p.relative_to(root) for p in (root / "crates").rglob(pattern))
     return {str(p): sha256((root / p).read_bytes()) if (root / p).is_file() else None for p in sorted(fixed)}
+
+
+def expected_commands(root, directory, jar):
+    classes = directory / "classes"
+    commands = {"git-revision": ["git", "rev-parse", "HEAD"],
+                "git-dirty": ["git", "status", "--porcelain"],
+                "java-build": ["javac", "-encoding", "UTF-8", "-cp", str(jar), "-d", str(classes), str(root / ORACLE)],
+                "rust-build": ["cargo", "build", "--locked", "--offline", "-p", "beta-core", "--example", EXAMPLE,
+                               "--message-format=json-render-diagnostics"],
+                "rust-run": [str(directory / EXAMPLE)]}
+    for tool in ("java", "javac", "rustc", "cargo"):
+        commands["version-" + tool] = [tool, "-version" if tool in {"java", "javac"} else "--version"]
+    for label in ("java-run", "java-repeat"):
+        commands[label] = ["java", "-XX:-UsePerfData", "-cp", f"{classes}:{jar}", "GeometryOracle", str(jar),
+                           str(directory / (label + "-audit.json"))]
+    return commands
 
 
 def run_geometry_suite(root=ROOT, timeout=60, input_path=None):

@@ -7,7 +7,7 @@ import subprocess
 from geometry_run import (ROOT, FIXTURES, JAR_SHA, REQUIRED_PROCESSES, SPECS,
                           GeometryError, compare, jar_path, native_hashes,
                           parse_input, parse_output, source_snapshot, validate_audit,
-                          validate_pinned)
+                          validate_pinned, expected_commands)
 from run import sha256
 
 
@@ -61,6 +61,10 @@ def _verify_geometry(report_path, report, protocol):
         version = (retained(p["stdout"], directory) + retained(p["stderr"], directory)).decode().strip()
         require(version == report["runtime_versions"][tool], "runtime version differs from saved process")
     jar = jar_path(ROOT)
+    commands = expected_commands(ROOT, directory, jar)
+    for label, command in commands.items():
+        require(processes[label].get("command") == command and processes[label].get("cwd") == str(ROOT),
+                f"{label} command or working directory metadata differs")
     require(Path(report["jar_path"]).resolve() == jar and report["jar_sha256"] == JAR_SHA,
             "report references an unexpected original JAR")
     require(native_hashes(jar) == report["native_class_sha256"], "native class hashes differ")
@@ -140,7 +144,8 @@ def _verify_geometry(report_path, report, protocol):
                     result = subprocess.run(command, input=data, cwd=ROOT, capture_output=True, timeout=5, check=False)
                 except subprocess.TimeoutExpired as error:
                     raise GeometryError(f"{side} timeout on {name}") from error
-                require(result.returncode != 0 and not result.stdout, f"{side} accepted or leaked stdout for {name}")
+                require(result.returncode != 0 and not result.stdout and result.stderr,
+                        f"{side} accepted, leaked stdout or omitted diagnostics for {name}")
                 stem = directory / ("protocol-" + name + "-" + side)
                 Path(str(stem) + ".stdout").write_bytes(result.stdout)
                 Path(str(stem) + ".stderr").write_bytes(result.stderr)

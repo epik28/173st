@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -98,6 +99,21 @@ class GeometryRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "git-revision"):
                 verify_geometry(directory / "report.json", {"suite": "geometry", "status": "pass", "log_paths": {}, "processes": {}})
 
+    def test_source_snapshot_binds_crate_manifest_and_new_build_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            crate = root / "crates/beta-core"
+            crate.mkdir(parents=True)
+            manifest = crate / "Cargo.toml"
+            manifest.write_text('[package]\nname="core"\n')
+            original = g.source_snapshot(root)
+            self.assertIn("crates/beta-core/Cargo.toml", original)
+            manifest.write_text(manifest.read_text() + "# changed\n")
+            self.assertNotEqual(original, g.source_snapshot(root))
+            snapshot = g.source_snapshot(root)
+            (crate / "build.rs").write_text("fn main() {}\n")
+            self.assertNotEqual(snapshot, g.source_snapshot(root))
+
 
 @unittest.skipUnless(os.environ.get("BETA_LIVE_GEOMETRY") == "1",
                      "opt-in native geometry evidence mutation test (BETA_LIVE_GEOMETRY=1)")
@@ -108,6 +124,7 @@ class LiveGeometryEvidenceTests(unittest.TestCase):
         self.assertEqual(verify_geometry(path, report, protocol=True), 0)
         mutations = [lambda r: r["processes"]["rust-run"].update(returncode=1),
                      lambda r: r["processes"].pop("java-repeat"),
+                     lambda r: r["processes"]["java-run"].update(command=["/bin/false"]),
                      lambda r: r.update(rust_binary_sha256="0" * 64),
                      lambda r: r.update(adapter_class_hashes={}),
                      lambda r: r.update(source_hashes={}),
@@ -120,6 +137,20 @@ class LiveGeometryEvidenceTests(unittest.TestCase):
             mutation(changed)
             with self.subTest(mutation=mutation), self.assertRaises(SystemExit):
                 verify_geometry(path, changed, protocol=True)
+        for name in ("rust_binary", "java-run-audit", "input"):
+            artifact = Path(report["log_paths"][name])
+            original = artifact.read_bytes()
+            try:
+                artifact.write_bytes(original + b"changed")
+                with self.subTest(artifact=name), patch("geometry_review.subprocess.run") as execute:
+                    with self.assertRaises(SystemExit):
+                        verify_geometry(path, report, protocol=True)
+                    execute.assert_not_called()
+            finally:
+                artifact.write_bytes(original)
+        with patch("geometry_review.subprocess.run", return_value=subprocess.CompletedProcess([], 2, b"", b"")):
+            with self.assertRaisesRegex(SystemExit, "omitted diagnostics"):
+                verify_geometry(path, report, protocol=True)
 
 
 if __name__ == "__main__":
