@@ -145,7 +145,7 @@
     },
     "VIEW-001-A02": {
       "state": "done",
-  "summary": "Добавлены read-only view_probe/loader для pinned 5×5 мира и winit/wgpu viewer с оригинальным atlas, tile-isolated mipmaps, depth, camera controls, bounded GPU buffers, visible counters и saved-light approximation. Strict native mapping parity прошла; mipmaps смягчают minification aliasing, не смешивая соседние atlas tiles. Packed uu.d/AO и pixel parity не заявляются.",
+      "summary": "Добавлены read-only view_probe/loader для pinned 5×5 мира и winit/wgpu viewer с оригинальным atlas, tile-isolated mipmaps, depth, camera controls, bounded GPU buffers, visible counters и saved-light approximation. Strict native mapping parity прошла; mipmaps смягчают minification aliasing, не смешивая соседние atlas tiles. Packed uu.d/AO и pixel parity не заявляются.",
       "checks": [
         "python3 tools/check.py → PASS; cargo test --all-targets --locked --offline → PASS; workspace checks/doc tests PASS",
         "cargo check --locked --offline -p beta-viewer; cargo clippy --locked --offline -p beta-viewer -- -D warnings; cargo test --locked --offline -p beta-viewer → PASS",
@@ -153,11 +153,21 @@
         "python3 tools/parity/verify_report.py artifacts/parity/view/run-p96kzl8b/report.json --protocol → PASS: scene, JAR, atlas, source/copy/output hashes and 50 mapping cases verified",
         "python3 tools/parity/view_review.py artifacts/parity/view/run-p96kzl8b/report.json → PASS",
         "Xvfb local GUI smoke → PASS: textured fixed-scene terrain rendered; screenshot inspected at /tmp/beta-viewer-smoke.png; Mesa software DRI3 fallback warning only",
-    "git diff --check → PASS; original source save files remain hash-verified/read-only",
-    "Follow-up c98e227: four tile-isolated mip levels, sampler trilinear mip selection; `cargo test --locked --offline -p beta-viewer` → PASS including atlas neighbor-bleed regression test",
-    "Follow-up: `python3 tools/check.py`, fmt, clippy -D warnings and Xvfb startup smoke → PASS; Mesa software-backend warning only",
-    "Follow-up clean `python3 tools/parity/run.py view --strict` → PASS 50 mappings + 1617 neighbors; report artifacts/parity/view/run-bfyl2hef/report.json; saved protocol and view review → PASS"
+        "git diff --check → PASS; original source save files remain hash-verified/read-only",
+        "Follow-up c98e227: four tile-isolated mip levels, sampler trilinear mip selection; `cargo test --locked --offline -p beta-viewer` → PASS including atlas neighbor-bleed regression test",
+        "Follow-up: `python3 tools/check.py`, fmt, clippy -D warnings and Xvfb startup smoke → PASS; Mesa software-backend warning only",
+        "Follow-up clean `python3 tools/parity/run.py view --strict` → PASS 50 mappings + 1617 neighbors; report artifacts/parity/view/run-bfyl2hef/report.json; saved protocol and view review → PASS"
       ]
+    },
+    "MATH-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MATH-001-A02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

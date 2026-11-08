@@ -25,8 +25,9 @@ cosine, `c(F)F` sqrt(float), `a(D)F` sqrt(double)->float, `d(F)I` floor(float),
 `beta_core::math` предоставляет `sin(f32)`, `cos(f32)`, `sqrt_f32(f32)`,
 `sqrt_f64_to_f32(f64)`, `floor_f32(f32)`, `floor_f64(f64)`, `abs_f32(f32)`,
 `abs_max_f64(f64,f64)`, `floor_div_i32(i32,i32) -> Result<i32, MathError>` и
-`is_null_or_empty(Option<&str>)`. Ошибка деления на ноль явная; для
-`i32::MIN / -1` поведение должно соответствовать контракту проверки, а не panic.
+`is_null_or_empty(Option<&str>)`. `floor_div_i32` возвращает
+`DivisionByZero` для делителя 0 и `Overflow` для `i32::MIN / -1`, matching the
+original Java exceptions without panicking.
 Никаких зависимостей добавлять не нужно.
 
 Probe — `crates/beta-core/examples/math_probe.rs`, протокол TSV:
