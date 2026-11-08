@@ -322,9 +322,16 @@
       ]
     },
     "BLOCK-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Added fixture-driven block_probe and verified lower-slab/source-liquid ray shapes. The viewer targets supported full cubes, permits local break/place in an owned disposable scene, and rebuilds the full opaque/fluid scene mesh and GPU buffers after edits. Native action parity remains unavailable.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: 77 library tests and 2 block_probe tests; dynamic probe test matches all 17 C02 input/native rows including raw point words; malformed, duplicate, unsupported, and oversized inputs emit no partial stdout",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 13 library tests, 6 viewer tests, and 4 example tests",
+        "cargo clippy --locked --offline -p beta-core -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "python3 tools/parity/run.py block --strict → PASS on committed code revision 7b8ae7170b1ba3c5c166026fc0821016645dbe1b: 17 exact native rays, zero mismatches, clean revision, source hashes unchanged; action_status=not_implemented and actions_compared=false",
+        "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → scene loaded and rendered (25 chunks, 334776 opaque vertices, 9768 water vertices); timeout ended the smoke after 10 seconds; mouse actions were not automated",
+        "Viewer edits are in-memory only. C01 has no break/place oracle, so action behavior is unit-tested and no native action parity is claimed. Strict fixture inputs and runner enforce the pinned 17-row order; the probe itself parses bounded input and computes output from row values, not case IDs."
+      ]
     }
   }
 }

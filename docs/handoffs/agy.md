@@ -562,3 +562,46 @@ words `4014000000000000,3fe0000000000000,3fe0000000000000`.
 Follow-up verification: `cargo test --locked --offline -p beta-core` → PASS
 (77 library tests); `cargo clippy --locked --offline -p beta-core --all-targets
 -- -D warnings`, `cargo fmt --all -- --check`, and `git diff --check` → PASS.
+
+## BLOCK-001-A02 — fixture probe and disposable viewer interaction
+
+- Added `crates/beta-core/examples/block_probe.rs`. It parses the bounded C02
+  input rows and derives each result from the supplied segment, stop-on-liquid
+  flag, and block state. It has no case-ID result branches. The output preserves
+  face, coordinates, decimal point values and all three raw binary64 words. Its
+  dynamic example test reads `tests/fixtures/block/input.tsv` and
+  `native.tsv` and compares all 17 rows in order. Protocol tests cover malformed
+  input, duplicate IDs, unsupported states and the input byte limit atomically.
+- Extended the core ray API with caller-selected verified shapes and the native
+  `stop_on_liquid` option. The exact C01-backed `(44,0)` lower slab returns a
+  non-editable `LowerSlab` hit; `(8,0)` source water is skipped when false and
+  returns a non-editable `Liquid` hit when true. Unknown states remain explicit
+  `Unsupported`, and only `FullCube` hits pass break/place validation. Hit
+  coordinates/faces/raw points for slab and water are unit-tested, along with
+  non-editability and unchanged revision on rejection.
+- The viewer now receives owned copies of the loaded 5x5 `ChunkData` plus native
+  mappings. It constructs a separate `BlockScene`, displays the aimed block and
+  side in the window title, and accepts left-click break/right-click place only
+  while captured. Placement uses local test state `1:0`. After a successful edit,
+  the changed cell is copied into the viewer-owned chunks; the full bounded scene
+  and both opaque/fluid meshes are rebuilt, and the GPU buffers are replaced.
+  Edits never reach the loaded source save. C01 action captures do not exist, so
+  this is local sandbox behavior only; no native break/place parity is claimed.
+- Checks: `cargo test --locked --offline -p beta-core --all-targets` → PASS
+  (77 library tests, 2 block probe tests and existing example tests);
+  `cargo test --locked --offline -p beta-viewer --all-targets` → PASS (13 library,
+  6 binary, 4 example tests); `cargo clippy --locked --offline -p beta-core
+  -p beta-viewer --all-targets -- -D warnings`, `cargo fmt --all -- --check`,
+  and `git diff --check` → PASS.
+- `python3 tools/parity/run.py block --strict` → PASS on clean code revision
+  `7b8ae7170b1ba3c5c166026fc0821016645dbe1b`: all 17 native ray rows match
+  exactly, zero mismatches; strict report has `action_status=not_implemented`
+  and `actions_compared=false`, and before/after source hashes match. The runner
+  supplies its pinned 17-case order; the probe accepts any bounded valid rows and
+  computes from those row values.
+- `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline
+  -p beta-viewer` → scene loaded and rendered under Xvfb (25 chunks, 334,776
+  opaque vertices, 9,768 water vertices). The controlled timeout ended the smoke
+  after startup; this environment did not automate mouse clicks, so viewer
+  interaction was not manually exercised here. No oracle, fixture, runner, queue,
+  shared contract or dependency files changed.
