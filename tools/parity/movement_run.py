@@ -199,6 +199,11 @@ def validate_audit(audit, cases, states, pinned, jar):
     for key in ("method_mapping", "field_mapping", "surfaces"):
         if not pinned.get(key) or audit.get(key) != pinned[key]:
             raise MovementError("native " + key + " differs from pinned manifest")
+    if (type(audit.get("registry_stdout_bytes")) is not int
+            or type(pinned.get("registry_stdout_bytes")) is not int
+            or audit.get("registry_stdout_bytes") != pinned["registry_stdout_bytes"]
+            or audit.get("registry_stdout_sha256") != pinned.get("registry_stdout_sha256")):
+        raise MovementError("native registry stdout differs from pinned manifest")
     if set(audit["method_mapping"]) != {"move", "travel", "jump"}:
         raise MovementError("native method map incomplete")
     if audit.get("invocations") != primary_invocations(cases, states):
@@ -208,7 +213,9 @@ def validate_audit(audit, cases, states, pinned, jar):
     if (type(audit.get("case_count")) is not int or type(audit.get("state_count")) is not int
             or any(type(v) is not int or v <= 0 for v in audit.get("invocations", {}).values())):
         raise MovementError("native counters require integer values")
-    if (audit.get("environment") != "synthetic-static-dry" or audit.get("native_world_constructors") != 0
+    if (audit.get("environment") != "synthetic-static-dry"
+            or type(audit.get("native_world_constructors")) is not int
+            or audit["native_world_constructors"] != 0
             or type(audit.get("collision_queries")) is not int or audit["collision_queries"] < 0):
         raise MovementError("native synthetic environment audit mismatch")
     sources = audit.get("code_sources", {})

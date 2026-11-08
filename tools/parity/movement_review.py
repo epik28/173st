@@ -18,17 +18,35 @@ def verify_movement(report_path, report, protocol=False):
         raise SystemExit(f"invalid movement evidence: {error}") from error
 
 
+def _validate_saved_paths(logs, directory):
+    expected = {"rust_binary": directory / "movement_probe",
+                "java_classes": directory / "classes", "input": directory / "input.tsv"}
+    for key, path in expected.items():
+        require(Path(logs[key]).resolve() == path.resolve(), f"{key} path differs from saved commands")
+    for label in ("java-run", "java-repeat"):
+        expected_audit = directory / (label + "-audit.json")
+        require(Path(logs[label + "-audit"]).resolve() == expected_audit.resolve(),
+                f"{label} audit path differs from saved command")
+        require(Path(logs[label + "-registry"]).resolve()
+                == Path(str(expected_audit) + ".registry.stdout").resolve(),
+                f"{label} registry path differs from audit sidecar")
+
+
 def _verify_movement(path, report, protocol):
     directory = path.resolve().parent
     require(report.get("suite") == "movement" and report.get("status") == "pass", "requires a successful movement report")
-    require(report.get("environment") == "synthetic-static-dry" and report.get("native_world_constructors") == 0,
+    require(report.get("environment") == "synthetic-static-dry"
+            and type(report.get("native_world_constructors")) is int
+            and report["native_world_constructors"] == 0,
             "report claims a different native environment")
     jar = jar_path(ROOT)
     commands = expected_commands(ROOT, directory, jar)
     logs, processes = report["log_paths"], report["processes"]
+    _validate_saved_paths(logs, directory)
     for label in REQUIRED_PROCESSES:
         p = processes[label]
-        require(p.get("returncode") == 0 and p.get("timeout") is False and p.get("error") is None,
+        require(type(p.get("returncode")) is int and p["returncode"] == 0
+                and p.get("timeout") is False and p.get("error") is None,
                 f"process {label} did not complete successfully")
         require(p.get("command") == commands[label] and p.get("cwd") == str(ROOT), f"{label} command metadata differs")
         for stream in ("stdout", "stderr"):
@@ -73,10 +91,15 @@ def _verify_movement(path, report, protocol):
             audit = json.loads(raw_audit)
             validate_audit(audit, cases, states, pinned, jar)
             capture = retained(logs[label + "-registry"], directory)
-            require(sha256(capture) == audit.get("registry_stdout_sha256")
-                    and len(capture) == audit.get("registry_stdout_bytes"), "native registry stdout differs from audit")
+            require(type(audit.get("registry_stdout_bytes")) is int
+                    and type(audit.get("registry_stdout_sha256")) is str
+                    and sha256(capture) == audit["registry_stdout_sha256"]
+                    and len(capture) == audit["registry_stdout_bytes"], "native registry stdout differs from audit")
             audits.append(audit)
     require(outputs[0] == outputs[1] and audits[0] == audits[1], "native results/audits are not repeatable")
+    require(audits[0].get("registry_stdout_bytes") == pinned.get("registry_stdout_bytes")
+            and audits[0].get("registry_stdout_sha256") == pinned.get("registry_stdout_sha256"),
+            "native registry stdout differs from pinned audit")
     if report["scenario"] == "pinned":
         require(outputs[0] == (ROOT / FIXTURES / "reference.tsv").read_bytes(), "native fixture output mismatch")
     comparison = compare(outputs[0], outputs[2], cases)
