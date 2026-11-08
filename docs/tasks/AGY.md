@@ -169,3 +169,25 @@ length/SHA decompressed NBT. Игровой мир, runner и original Java adap
 Проверить stdin/stdout/stderr/exit status и повторяемость. Сделать коммит A02 done;
 читать Codex C03/handoff по Git и самостоятельно выполнять исправления внутри
 контракта по циклу TASKS.md.
+
+## VIEW-001-A01 — CPU scene and mesh
+
+Начинать только после committed VIEW-001-C01, включая pinned dependency lock.
+Прочитать [VIEW-001](VIEW-001.md) и native fixtures. Реализовать `beta-view`
+scene/mesh/camera API: bounded fixed-scene data, только native-confirmed opaque
+full cubes, face culling к соседнему подтверждённому полному кубу, точный face/tile/
+UV mapping и deterministic CPU mesh output. Не добавлять window/GPU/file I/O в
+`beta-core`; unit tests держать с собственным crate. Не подменять unsupported
+blocks. После доступности C02 runner выполнить view CPU parity, проверить malformed
+arrays/coords/limits и закоммитить A01.
+
+## VIEW-001-A02 — probe and graphical viewer
+
+После A01/C02 реализовать `view_probe` по контрактному TSV и отдельный
+`beta-viewer` bin. Загружать только configured local save/resource и 5×5 scene,
+ничего не записывать в мир. Подключить winit/wgpu, resize, depth, nearest atlas
+sampling, fixed start camera и WASD/Space/Ctrl/Shift/mouse/Esc. Показывать counters
+unsupported/loaded/faces; корректно завершаться при invalid resource/config и
+surface errors. Проверить subprocess protocol и зафиксировать ручной smoke test
+локальными evidence; не включать screenshot/resource/world в Git. Выполнить
+обычные проверки, status/handoff, commit A02.

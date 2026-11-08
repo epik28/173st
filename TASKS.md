@@ -16,9 +16,9 @@
 | `codex` | `codex/`, `codex/verification` | Java-эталоны, runner, тесты компаратора, интеграция | [CODEX.md](docs/tasks/CODEX.md) |
 | `agy` | `agy/`, `agy/development` | Rust-реализация ядра и probe | [AGY.md](docs/tasks/AGY.md) |
 
-RNG-001, RNG-002, CHUNK-001, NBT-001 и REGION-001 приняты. Текущий контракт:
-[WORLD-LOAD-001](docs/tasks/WORLD-LOAD-001.md); пять новых карточек сохраняют
-историю прежних 25 done tasks. Дальнейшие этапы: [roadmap.md](docs/roadmap.md).
+RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001 и WORLD-LOAD-001 приняты.
+Текущий контракт: [VIEW-001](docs/tasks/VIEW-001.md); его пять карточек добавлены
+после истории завершённых задач. Дальнейшие этапы: [roadmap.md](docs/roadmap.md).
 Машиночитаемая очередь: [queue.json](docs/tasks/queue.json).
 В этот запуск разрешены только перечисленные карточки; это включает исправления
 внутри их контрактов. После их приёмки следующие этапы уточняются отдельными контрактами. Не начинать весь движок одним изменением.
@@ -114,6 +114,7 @@ python3 tools/tasks.py next agy
 | NBT-001 | C01 эталон/корпус → C02 runner → C03 приёмка | A01 reader/writer → A02 probe | C03 принят в main |
 | REGION-001 | C01 original adapter/corpus → C02 runner → C03 приёмка | A01 McRegion read → A02 probe | C03 принят в main |
 | WORLD-LOAD-001 | C01 native metadata/NBT/snapshot → C02 runner → C03 приёмка | A01 typed loader → A02 headless probe | C03 принят в main |
+| VIEW-001 | C01 native view oracle/corpus → C02 runner → C03 приёмка | A01 CPU scene/mesh → A02 probe и viewer | Первый read-only графический срез; не полная визуальная parity |
 
 В пакетах C01 и A01 работают параллельно, если зависимости в очереди разрешают это.
 Для REGION-001 A01 ждёт C01, который закрепляет библиотеку сжатия и lockfile.
@@ -122,8 +123,8 @@ python3 tools/tasks.py next agy
 предыдущего, поэтому перед его началом обе роли при чистом worktree выполняют
 `git merge --ff-only main` (если история разошлась — обычный merge с ревью).
 Проверить наличие коммита приёмки в main; чужая отметка done сама по себе этого не доказывает.
-Очередь хранит 25 завершённых карточек пяти пакетов и пять карточек WORLD-LOAD-001,
-не сбрасывая историю.
+Очередь сохраняет историю всех завершённых пакетов и добавляет пять карточек
+VIEW-001; прежние результаты не сбрасываются.
 
 ## Исправления при приёмке без ручной передачи пользователем
 

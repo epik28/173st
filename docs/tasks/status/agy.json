@@ -128,6 +128,16 @@
         "python3 tools/check.py → 51 Python tests, fmt/check/clippy/workspace/doc PASS",
         "synthetic CLI smoke → valid present/absent exit 0, ordered TSV, empty stderr; invalid path exit 1, empty stdout, stderr diagnostic; repeated run output/payload matched and input stayed unchanged"
       ]
+    },
+    "VIEW-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "VIEW-001-A02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

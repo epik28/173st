@@ -1,11 +1,54 @@
 {
   "schema_version": 1,
   "tasks": [
-    {"id":"WORLD-LOAD-001-C01","owner":"codex","title":"Original world metadata oracle, snapshot and corpus","card":"docs/tasks/CODEX.md","depends_on":["REGION-001-C03"]},
-    {"id":"WORLD-LOAD-001-C02","owner":"codex","title":"Headless world parity runner and evidence review","card":"docs/tasks/CODEX.md","depends_on":["WORLD-LOAD-001-C01"]},
-    {"id":"WORLD-LOAD-001-A01","owner":"agy","title":"Read-only typed world metadata and chunk loader","card":"docs/tasks/AGY.md","depends_on":["WORLD-LOAD-001-C01"]},
-    {"id":"WORLD-LOAD-001-A02","owner":"agy","title":"Headless world probe on copied inputs","card":"docs/tasks/AGY.md","depends_on":["WORLD-LOAD-001-A01"]},
-    {"id":"WORLD-LOAD-001-C03","owner":"codex","title":"World data loading integration and acceptance","card":"docs/tasks/CODEX.md","depends_on":["WORLD-LOAD-001-C01","WORLD-LOAD-001-C02","WORLD-LOAD-001-A01","WORLD-LOAD-001-A02"]},
+    {
+      "id": "WORLD-LOAD-001-C01",
+      "owner": "codex",
+      "title": "Original world metadata oracle, snapshot and corpus",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "REGION-001-C03"
+      ]
+    },
+    {
+      "id": "WORLD-LOAD-001-C02",
+      "owner": "codex",
+      "title": "Headless world parity runner and evidence review",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "WORLD-LOAD-001-C01"
+      ]
+    },
+    {
+      "id": "WORLD-LOAD-001-A01",
+      "owner": "agy",
+      "title": "Read-only typed world metadata and chunk loader",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "WORLD-LOAD-001-C01"
+      ]
+    },
+    {
+      "id": "WORLD-LOAD-001-A02",
+      "owner": "agy",
+      "title": "Headless world probe on copied inputs",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "WORLD-LOAD-001-A01"
+      ]
+    },
+    {
+      "id": "WORLD-LOAD-001-C03",
+      "owner": "codex",
+      "title": "World data loading integration and acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "WORLD-LOAD-001-C01",
+        "WORLD-LOAD-001-C02",
+        "WORLD-LOAD-001-A01",
+        "WORLD-LOAD-001-A02"
+      ]
+    },
     {
       "id": "RNG-001-C01",
       "owner": "codex",
@@ -151,70 +194,145 @@
       "owner": "codex",
       "title": "Независимый NBT-эталон и корпус",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["CHUNK-001-C03"]
+      "depends_on": [
+        "CHUNK-001-C03"
+      ]
     },
     {
       "id": "NBT-001-C02",
       "owner": "codex",
       "title": "NBT runner и canonical comparator",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["NBT-001-C01"]
+      "depends_on": [
+        "NBT-001-C01"
+      ]
     },
     {
       "id": "NBT-001-A01",
       "owner": "agy",
       "title": "Rust NBT reader/writer",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["CHUNK-001-C03"]
+      "depends_on": [
+        "CHUNK-001-C03"
+      ]
     },
     {
       "id": "NBT-001-A02",
       "owner": "agy",
       "title": "Rust NBT probe",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["NBT-001-A01"]
+      "depends_on": [
+        "NBT-001-A01"
+      ]
     },
     {
       "id": "NBT-001-C03",
       "owner": "codex",
       "title": "Интеграция и приёмка NBT-001",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["NBT-001-C01", "NBT-001-C02", "NBT-001-A01", "NBT-001-A02"]
+      "depends_on": [
+        "NBT-001-C01",
+        "NBT-001-C02",
+        "NBT-001-A01",
+        "NBT-001-A02"
+      ]
     },
     {
       "id": "REGION-001-C01",
       "owner": "codex",
       "title": "Original McRegion adapter, dependency and fixture corpus",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["NBT-001-C03"]
+      "depends_on": [
+        "NBT-001-C03"
+      ]
     },
     {
       "id": "REGION-001-C02",
       "owner": "codex",
       "title": "McRegion parity runner and protocol checks",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["REGION-001-C01"]
+      "depends_on": [
+        "REGION-001-C01"
+      ]
     },
     {
       "id": "REGION-001-A01",
       "owner": "agy",
       "title": "Read-only Rust McRegion parser",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["REGION-001-C01"]
+      "depends_on": [
+        "REGION-001-C01"
+      ]
     },
     {
       "id": "REGION-001-A02",
       "owner": "agy",
       "title": "Rust region probe",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["REGION-001-A01"]
+      "depends_on": [
+        "REGION-001-A01"
+      ]
     },
     {
       "id": "REGION-001-C03",
       "owner": "codex",
       "title": "McRegion integration and parity acceptance",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["REGION-001-C01", "REGION-001-C02", "REGION-001-A01", "REGION-001-A02"]
+      "depends_on": [
+        "REGION-001-C01",
+        "REGION-001-C02",
+        "REGION-001-A01",
+        "REGION-001-A02"
+      ]
+    },
+    {
+      "id": "VIEW-001-C01",
+      "owner": "codex",
+      "title": "Native view oracle, dependency lock and fixed scene",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "WORLD-LOAD-001-C03"
+      ]
+    },
+    {
+      "id": "VIEW-001-C02",
+      "owner": "codex",
+      "title": "View parity runner and protocol verifier",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "VIEW-001-C01"
+      ]
+    },
+    {
+      "id": "VIEW-001-A01",
+      "owner": "agy",
+      "title": "CPU scene, camera and mesh API",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "VIEW-001-C01"
+      ]
+    },
+    {
+      "id": "VIEW-001-A02",
+      "owner": "agy",
+      "title": "View probe and wgpu viewer",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "VIEW-001-A01",
+        "VIEW-001-C02"
+      ]
+    },
+    {
+      "id": "VIEW-001-C03",
+      "owner": "codex",
+      "title": "Viewer integration and VIEW-001 acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "VIEW-001-C01",
+        "VIEW-001-C02",
+        "VIEW-001-A01",
+        "VIEW-001-A02"
+      ]
     }
   ]
 }

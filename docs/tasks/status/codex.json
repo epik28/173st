@@ -223,6 +223,21 @@
         "Изолированный root без Rust probe: original Java 748 reads, not_implemented, strict exit 1; wrong JAR и timeout дают error; artifacts/region-error-review/run-sjwzzg38/review.json",
         "git diff --check → PASS; четыре закреплённых source SHA и обе input copies неизменны"
       ]
+    },
+    "VIEW-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "VIEW-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "VIEW-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

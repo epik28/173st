@@ -245,3 +245,34 @@ native live chunks и прежние parity suites. При дефекте отк
 При успехе проверить неизменность файлов в Prism source, сохранить итоговый report,
 обновить progress и REGION-001, принять в main. REGION-001 не означает загрузку
 полного мира или право записывать region files.
+
+## VIEW-001-C01 — native view oracle and fixed scene
+
+Начать после принятого WORLD-LOAD-001-C03 и clean main. Прочитать
+[VIEW-001](VIEW-001.md). Исследовать оригинальный клиентский JAR с закреплённым
+SHA; доказать native вызовы для block render type/opacity, atlas tile per face
+и shading. Подготовить hash-verified copies фиксированного 5×5 scene вокруг spawn,
+resource provenance и матрицу реально присутствующих block states. Synthetic
+состояния хранить отдельно от live corpus. Проверить исходный мир/JAR/resource до
+и после; не включать их или декомпиляцию в Git. До выдачи A01 закрепить точные
+версии графических crates и Cargo.lock, Linux features, лицензии/MSRV и offline
+сборку. Зафиксировать protocol/fixtures и commit C01.
+
+## VIEW-001-C02 — native mapping oracle and runner
+
+После C01 реализовать Java oracle на реальных методах оригинального JAR, строгий
+runner/comparator, hash-bound report verifier и synthetic protocol/error tests.
+Сравнивать CPU mesh TSV точно, float передавать raw bits. Проверить live/synthetic
+разделение, missing/wrong JAR, timeout, malformed TSV, duplicate ID и mutation.
+Без Rust probe strict должен вернуть `not_implemented`/ненулевой exit, не PASS.
+Обычные проверки, evidence, commit C02. Не добавлять pixel-perfect claims.
+
+## VIEW-001-C03 — scene integration and acceptance
+
+После C01/C02/A01/A02 получить чистый agy SHA, проверить diff и принять только
+по контракту. Запустить все старые parity suites и `view --strict`, проверить
+scene/resource/world hashes и read-only исходника. Запустить viewer на фиксированной
+сцене, проверить окно/camera/resize и сохранить локальный screenshot/review record
+без коммита приватных данных. Отдельно указать CPU parity coverage и smoke-only
+GPU evidence. Обновить progress/estimate/status, затем принять VIEW-001 в main.
+Не объявлять полную визуальную parity.
