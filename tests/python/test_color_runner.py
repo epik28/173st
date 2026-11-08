@@ -51,7 +51,7 @@ class ColorRunnerTests(unittest.TestCase):
         hashes = dict(item.split(':', 1) for item in audit['classes'].rstrip(',').split(','))
         with patch.object(c, 'native_hashes', return_value=hashes):
             c.validate_audit(audit, self.cases, jar, pinned)
-            for key, value in [('wp_b', '0'), ('xv_seed_reads', '0'), ('native_fd_ctor_calls', '1'),
+            for key, value in [('wp_b', '0'), ('xv_seed_reads', '0'), ('native_world_constructors', '1'),
                                ('code_source', 'file:///tmp/other.jar'), ('grass', '0'*64),
                                ('bootstrap_base64', '')]:
                 with self.subTest(key=key), self.assertRaises((c.ColorError, ValueError)):

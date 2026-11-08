@@ -142,7 +142,7 @@ def validate_audit(audit, cases, jar, pinned):
     source = urlparse(audit.get('code_source', ''))
     if source.scheme != 'file' or source.netloc or Path(unquote(source.path)).resolve() != jar:
         raise ColorError('native class code source differs')
-    if audit.get('native_fd_ctor_calls') != '0' or audit.get('synthetic_fd_ctor_calls') != '0':
+    if audit.get('native_world_constructors') != '0' or audit.get('synthetic_fd_ctor_calls') != '0':
         raise ColorError('native World constructor executed or missing audit')
     capture = base64.b64decode(audit['bootstrap_base64'], validate=True)
     if len(capture) != int(audit['bootstrap_bytes']) or sha256(capture) != audit['bootstrap_sha']:
