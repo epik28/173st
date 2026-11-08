@@ -12,7 +12,17 @@
         "python3 -m py_compile tools/oracle/java_compat_corpus.py; git diff --check → PASS"
       ]
     },
-    "JAVA-001-C02": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-C02": {
+      "state": "done",
+      "summary": "Добавлены strict Java parity runner, exact ordered decimal comparator, JVM repeat check, source/input hashes, saved report verifier, synthetic output/source mutations и timeout handling. До появления A02 probe строгий запуск корректно завершился not_implemented после двух одинаковых JVM runs; live parity и process-level Rust protocol checks остаются частью C03.",
+      "checks": [
+        "python3 -m unittest tests.python.test_java_runner -v → PASS: 4 parser/comparator tests, including malformed framing, duplicate IDs, wrong type/order/count and integer overflow",
+        "python3 tools/oracle/java_compat_corpus.py → PASS: 18493 cases; both direct JVM runs match fixture SHA 397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8",
+        "python3 tools/parity/run.py java --strict → expected not_implemented before A02 probe; Java oracle ran twice; report artifacts/parity/java/run-lust4l2y/report.json",
+        "python3 tools/parity/run.py java --timeout 0.001 → PASS: timeout captured as error with report artifacts/parity/java/run-vtmolu_1/report.json",
+        "python3 -m py_compile tools/parity/java_run.py tools/parity/java_review.py tools/parity/run.py tools/parity/verify_report.py; git diff --check → PASS"
+      ]
+    },
     "JAVA-001-C03": {"state": "pending", "summary": "", "checks": []},
     "WORLD-LOAD-001-C01": {
       "state": "done",

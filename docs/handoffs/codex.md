@@ -860,3 +860,12 @@ Python и parity наборы не запускались повторно, ко
 - `python3 -m unittest tests.python.test_java_runner -v` → PASS (4);
   Python compilation, runner listing and `git diff --check` → PASS. The strict
   live run and timeout evidence are recorded with C02 status after execution.
+# JAVA-001-C02 handoff
+
+Parity runner and saved evidence reviewer are committed (`05cda3f`); follow-up
+fix `6884665` corrects working-tree status capture. Four runner tests pass. The
+Java oracle repeated all 18,493 rows identically (reference SHA
+`397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8`). Strict
+run correctly reports `not_implemented` until A02 lands; timeout capture was
+also exercised. C03 must run saved protocol review against the successful live
+report after integrating the Rust probe.
