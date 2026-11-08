@@ -14,7 +14,7 @@ use beta_core::{
     chunk::BlockData,
     nbt::Limits,
     region::{RegionFile, RegionLimits, local_coord, region_coord},
-    world::{WorldLimits, load_chunk_nbt, load_level_gzip},
+    world::{WorldLimits, WorldMetadata, load_chunk_nbt, load_level_gzip},
 };
 use beta_view::{BlockMapping, BlockStateKey, MeshLimits, Scene, SceneBounds, SceneChunk};
 use sha2::{Digest, Sha256};
@@ -105,7 +105,7 @@ struct ParsedScene {
     min_z: i32,
 }
 
-type LoadedSceneInputs = (Scene, [i32; 3], i64, Vec<SceneChunk>, ParsedScene);
+type LoadedSceneInputs = (Scene, WorldMetadata, Vec<SceneChunk>, ParsedScene);
 
 fn read_regular(path: &Path, label: &str) -> Result<Vec<u8>, ProbeError> {
     let metadata = fs::symlink_metadata(path)?;
@@ -254,10 +254,8 @@ fn parse_scene(path: &Path, spawn: [i32; 3]) -> Result<ParsedScene, ProbeError> 
 fn load_scene(
     files: &BTreeMap<String, Vec<u8>>,
     coords: &ParsedScene,
-) -> Result<(Scene, [i32; 3], i64, Vec<SceneChunk>), ProbeError> {
-    let level = load_level_gzip(&files["level.dat"], WorldLimits::default())
-        .map_err(|e| ProbeError::Core(e.to_string()))?;
-    let spawn = level.spawn;
+    level: WorldMetadata,
+) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>), ProbeError> {
     let mut regions: BTreeMap<(i32, i32), RegionFile<'_>> = BTreeMap::new();
     // Keep borrowed bytes in `files`; region values only borrow that stable map.
     for (rx, rz) in [(-1, -1), (-1, 0), (0, -1), (0, 0)] {
@@ -297,11 +295,11 @@ fn load_scene(
     let analysis_chunks = chunks.clone();
     let scene =
         Scene::new(bounds, chunks, mappings).map_err(|e| ProbeError::Core(e.to_string()))?;
-    Ok((scene, spawn, level.seed, analysis_chunks))
+    Ok((scene, level, analysis_chunks))
 }
 
 fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, ProbeError> {
-    let (scene, spawn, _, scene_data, parsed) = load_scene_inputs(input, terrain, scene_file)?;
+    let (scene, metadata, scene_data, parsed) = load_scene_inputs(input, terrain, scene_file)?;
     let (states, neighbors) = observed_rows(&scene_data, parsed.min_x, parsed.min_z)?;
     // CPU mesh construction validates that the same loaded scene can feed the renderer.
     let mesh = scene
@@ -309,7 +307,7 @@ fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, Prob
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let mut output = format!(
         "#VIEW_NATIVE\t1\t{}\t{}\t{}\t{}\t{}\n#states\n",
-        spawn[0], spawn[1], spawn[2], parsed.min_x, parsed.min_z
+        metadata.spawn[0], metadata.spawn[1], metadata.spawn[2], parsed.min_x, parsed.min_z
     );
     for state in states {
         let mapping = mapping_for_state(state)
@@ -363,8 +361,8 @@ fn load_scene_inputs(
     let metadata = load_level_gzip(&files["level.dat"], WorldLimits::default())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let parsed = parse_scene(scene_file, metadata.spawn)?;
-    let (scene, spawn, seed, scene_data) = load_scene(&files, &parsed)?;
-    Ok((scene, spawn, seed, scene_data, parsed))
+    let (scene, metadata, scene_data) = load_scene(&files, &parsed, metadata)?;
+    Ok((scene, metadata, scene_data, parsed))
 }
 
 /// Load and validate the fixed scene for a graphical viewer.
@@ -373,8 +371,8 @@ pub fn load_scene_for_viewer(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, [i32; 3]), ProbeError> {
-    let (scene, spawn, _, _, _) = load_scene_inputs(input, terrain, scene_file)?;
-    Ok((scene, spawn))
+    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    Ok((scene, metadata.spawn))
 }
 
 /// Load the fixed viewer scene and return the saved level seed for native biome tint.
@@ -383,8 +381,29 @@ pub fn load_scene_for_viewer_with_seed(
     terrain: &Path,
     scene_file: &Path,
 ) -> Result<(Scene, [i32; 3], i64), ProbeError> {
-    let (scene, spawn, seed, _, _) = load_scene_inputs(input, terrain, scene_file)?;
-    Ok((scene, spawn, seed))
+    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    Ok((scene, metadata.spawn, metadata.seed))
+}
+
+/// Load the fixed viewer scene and return complete saved metadata for static lighting.
+pub fn load_scene_for_viewer_with_metadata(
+    input: &Path,
+    terrain: &Path,
+    scene_file: &Path,
+) -> Result<(Scene, WorldMetadata), ProbeError> {
+    let (scene, metadata, _, _) = load_scene_inputs(input, terrain, scene_file)?;
+    light_dimension(metadata.dimension)?;
+    Ok((scene, metadata))
+}
+
+fn light_dimension(dimension: i32) -> Result<beta_core::light::LightDimension, ProbeError> {
+    match dimension {
+        0 => Ok(beta_core::light::LightDimension::Overworld),
+        -1 => Ok(beta_core::light::LightDimension::Nether),
+        other => Err(ProbeError::InvalidInput(format!(
+            "viewer lighting does not support saved dimension {other}; supported dimensions are 0 and -1"
+        ))),
+    }
 }
 
 fn observed_rows(
@@ -2223,6 +2242,21 @@ mod tests {
             sha256_hex(b"abc"),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    #[test]
+    fn viewer_light_dimension_accepts_only_overworld_and_nether() {
+        assert_eq!(
+            light_dimension(0).unwrap(),
+            beta_core::light::LightDimension::Overworld
+        );
+        assert_eq!(
+            light_dimension(-1).unwrap(),
+            beta_core::light::LightDimension::Nether
+        );
+        let error = light_dimension(1).unwrap_err().to_string();
+        assert!(error.contains("does not support saved dimension 1"));
+        assert!(error.contains("0 and -1"));
     }
     #[test]
     fn scene_coordinates_require_complete_fixed_rectangle() {
