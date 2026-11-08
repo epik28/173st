@@ -934,3 +934,16 @@ Read-only resources/save retained. No full graphical/gameplay parity claim.
 Estimate about16%, +5pp from JAVA-001 baseline11; milestone eligible for user
 requested GitHub push. Next work: VIEW-002 scope/contract, research recorded
 separately. Remaining unsupported leaves/shapes/fluids/AO are explicit.
+
+## UV-001 native C01
+
+User reported rotated bark on adjacent faces. Native capture snapshot a936ffe
+(gpt-6-luna low) invokes unchanged cv.a..f direct cube face methods; reads actual
+original nw.g packed floats, six triangle vertices/four unique corners each.
+Root independently compiled exact committed source and ran twice against pinned
+client + local LWJGL2, both byte-identical to native fixture.
+`artifacts/uv-review-boa1vsfk/report.json` retains commands/source/class/input/
+output hashes/logs. 84 cases, 504 submissions, 336 corners, class/source bindings.
+Actual differences observed on faces1/3; prior synthetic UV test repeated the
+implementation rather than comparing native buffers. A01 now writes independent
+fixture regression before fixing UV. No whole renderer/GL pixel parity claimed.

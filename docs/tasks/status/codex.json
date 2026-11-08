@@ -3,9 +3,14 @@
   "role": "codex",
   "tasks": {
     "UV-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native snapshot a936ffe вызывает неизменённые cv.a..f(Luu;DDDI)V и читает фактически записанные float32 xyz/uv из оригинального nw.g. 84 случая / 504 submissions / 336 unique corners; default native Tessellator converts each quad to6 triangle vertices. Никаких rewritten UV formulas в oracle; координатор повторил два JVM traces и получил exact committed fixture.",
+      "checks": [
+        "Independent javac/java direct original JAR + pinned local LWJGL2 → PASS, native1 == native2 == committed native.tsv; artifacts/uv-review-boa1vsfk/report.json",
+        "Native class/code-source verified cv/nw/uu; JAR/LWJGL/class/source/input/output hashes and registry bootstrap stdout retained",
+        "Captured mismatch example: face1 tile37 xyz(3,4,5) native(u1,v1) vs prior Rust(u1,v0); face3 xyz(2,4,5) native(u0,v0) vs priorRust(u1,v0). A01 fixture regression will demonstrate full old/fixed comparison",
+        "Scope is direct standard cube face methods; no whole-block AO/visibility/pixel-parity claim; no explicit native draw/flush invoked"
+      ]
     },
     "UV-001-C02": {
       "state": "pending",
