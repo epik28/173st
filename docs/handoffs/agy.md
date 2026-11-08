@@ -240,3 +240,10 @@
 - После code commit `f6c2315` выполнен чистый `python3 tools/parity/run.py view --strict` → PASS, все 50 mapping cases и 1,617 neighbor tuples совпали; report `artifacts/parity/view/run-p96kzl8b/report.json`. `python3 tools/parity/verify_report.py ... --protocol` и `python3 tools/parity/view_review.py ...` → PASS; проверены scene/JAR/atlas/source/copy/output hashes, native audit и protocol rejection.
 - `python3 tools/check.py`, `cargo test --all-targets --locked --offline`, `cargo check --locked --offline -p beta-viewer`, `cargo clippy --locked --offline -p beta-viewer -- -D warnings`, viewer unit tests (5 loader tests), `git diff --check` → PASS.
 - A02 выполнена и закоммичена; A02 runner/mapping parity проверены, но визуальный вывод остаётся smoke-tested, без pixel-parity claims. Codex может начинать VIEW-001-C03.
+
+### Texture minification follow-up — c98e227
+
+- По присланному скриншоту добавлены четыре tile-isolated mip levels для terrain atlas с linear mip-level blending. Каждый mip строится независимо внутри исходных 16×16 atlas tiles, чтобы уменьшить minification aliasing без протекания цветов соседних плиток; nearest sampling внутри уровня оставляет крупные текстуры резкими.
+- Добавлен unit test, который проверяет пять размеров mip chain и гарантирует, что все 256 одноцветных тестовых плиток не смешиваются между уровнями.
+- `cargo test --locked --offline -p beta-viewer`, `cargo clippy --locked --offline -p beta-viewer -- -D warnings`, `cargo fmt --all -- --check`, `python3 tools/check.py` → PASS. Окно запускалось под Xvfb до таймаута с software Mesa warning; на момент повторного smoke Xvfb не смог стартовать из-за владельца `/tmp/.X11-unix`, поэтому новый screenshot после mipmap правки не сохранён.
+- `python3 tools/parity/run.py view --strict` → PASS 50/50 mappings + 1617/1617 neighbor tuples; clean report `artifacts/parity/view/run-bfyl2hef/report.json`; saved protocol verification и `view_review.py` → PASS. Mapping/scene output не изменён.
