@@ -2,6 +2,16 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "EVIDENCE-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "EVIDENCE-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "JAVA-001-C01": {
       "state": "done",
       "summary": "Добавлены JavaCompatOracle с прямыми JVM casts/String.hashCode и фиксированный corpus из 18493 случаев. Все четыре conversion operation имеют по 4096 детерминированных raw-bit cases плюс edges; добавлено 2057 Unicode string cases. Два Java запуска идентичны.",

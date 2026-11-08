@@ -2,74 +2,118 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "EVIDENCE-001-C01",
+      "owner": "codex",
+      "title": "Bind saved math/java reports to processes and executable artifacts",
+      "card": "docs/tasks/EVIDENCE-001.md",
+      "depends_on": [
+        "JAVA-001-C03"
+      ]
+    },
+    {
+      "id": "EVIDENCE-001-C02",
+      "owner": "codex",
+      "title": "Saved evidence integrity integration",
+      "card": "docs/tasks/EVIDENCE-001.md",
+      "depends_on": [
+        "EVIDENCE-001-C01"
+      ]
+    },
+    {
       "id": "JAVA-001-C01",
       "owner": "codex",
       "title": "Java oracle and primitive conversion/hash corpus",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["MATH-001-C03"]
+      "depends_on": [
+        "MATH-001-C03"
+      ]
     },
     {
       "id": "JAVA-001-C02",
       "owner": "codex",
       "title": "Java compatibility parity runner and evidence review",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["JAVA-001-C01"]
+      "depends_on": [
+        "JAVA-001-C01"
+      ]
     },
     {
       "id": "JAVA-001-A01",
       "owner": "agy",
       "title": "Java-compatible primitive conversions and String hash",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["JAVA-001-C01"]
+      "depends_on": [
+        "JAVA-001-C01"
+      ]
     },
     {
       "id": "JAVA-001-A02",
       "owner": "agy",
       "title": "Java compatibility probe and protocol tests",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["JAVA-001-A01"]
+      "depends_on": [
+        "JAVA-001-A01"
+      ]
     },
     {
       "id": "JAVA-001-C03",
       "owner": "codex",
       "title": "Java compatibility integration and acceptance",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["JAVA-001-C01", "JAVA-001-C02", "JAVA-001-A01", "JAVA-001-A02"]
+      "depends_on": [
+        "JAVA-001-C01",
+        "JAVA-001-C02",
+        "JAVA-001-A01",
+        "JAVA-001-A02"
+      ]
     },
     {
       "id": "MATH-001-C01",
       "owner": "codex",
       "title": "Original MathHelper oracle and behavior corpus",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["VIEW-001-C03"]
+      "depends_on": [
+        "VIEW-001-C03"
+      ]
     },
     {
       "id": "MATH-001-C02",
       "owner": "codex",
       "title": "Math parity runner and evidence review",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["MATH-001-C01"]
+      "depends_on": [
+        "MATH-001-C01"
+      ]
     },
     {
       "id": "MATH-001-A01",
       "owner": "agy",
       "title": "Rust Beta MathHelper functions",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["MATH-001-C01"]
+      "depends_on": [
+        "MATH-001-C01"
+      ]
     },
     {
       "id": "MATH-001-A02",
       "owner": "agy",
       "title": "Math behavior probe and protocol tests",
       "card": "docs/tasks/AGY.md",
-      "depends_on": ["MATH-001-A01"]
+      "depends_on": [
+        "MATH-001-A01"
+      ]
     },
     {
       "id": "MATH-001-C03",
       "owner": "codex",
       "title": "Math parity integration and acceptance",
       "card": "docs/tasks/CODEX.md",
-      "depends_on": ["MATH-001-C01", "MATH-001-C02", "MATH-001-A01", "MATH-001-A02"]
+      "depends_on": [
+        "MATH-001-C01",
+        "MATH-001-C02",
+        "MATH-001-A01",
+        "MATH-001-A02"
+      ]
     },
     {
       "id": "WORLD-LOAD-001-C01",
