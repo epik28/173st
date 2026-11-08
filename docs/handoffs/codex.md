@@ -847,3 +847,16 @@ Python и parity наборы не запускались повторно, ко
 - `python3 -m unittest tests.python.test_java_compat_corpus -v` → PASS (2);
   fixture regeneration, `py_compile` and `git diff --check` → PASS. A01 and C02
   can now proceed independently.
+
+## JAVA-001-C02 — Java compatibility parity runner
+
+- Added `java` group with raw-bit/UTF-8 parser, typed decimal comparator,
+  repeatable JVM runs, source/runtime/class hashes, Rust build/run, timeout and
+  subprocess diagnostics in saved reports. `verify_report.py` now routes to a
+  dedicated evidence reviewer that checks the corpus/oracle audit, exact output,
+  source snapshot and synthetic output/type/order/count/source-hash mutations.
+- Protocol review sends unknown operations, bad bits, malformed UTF-8, wrong
+  arity and duplicate IDs to both sides; the Rust probe must reject atomically.
+- `python3 -m unittest tests.python.test_java_runner -v` → PASS (4);
+  Python compilation, runner listing and `git diff --check` → PASS. The strict
+  live run and timeout evidence are recorded with C02 status after execution.
