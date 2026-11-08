@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 
-//! Read-only winit/wgpu rendering shell. The scene and CPU mesh are prepared once,
-//! then held in static GPU buffers while the camera flies independently.
+//! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
+//! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
-use beta_view::{Camera, Mesh};
+use beta_core::motion::MotionState;
+use beta_view::{Camera, Mesh, Scene};
+use beta_viewer::controller::{Controls, MotionController};
 use std::{fs, sync::Arc, time::Instant};
 use wgpu::util::DeviceExt;
 use winit::{
@@ -44,6 +46,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
     let (scene, spawn) = loader::load_scene_for_viewer(&input, &terrain_path, &scene_path)?;
+    let safe_spawn = scene.safe_spawn_near(spawn)?;
     let loaded_chunks = scene.loaded_chunks();
     let mesh = scene.mesh(beta_view::MeshLimits::default())?;
     let event = EventLoop::new()?;
@@ -53,10 +56,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         atlas: image,
         window: None,
         gpu: None,
-        camera: Camera::beta_start(spawn),
-        keys: [false; 7],
+        camera: Camera::new(
+            glam::Vec3::new(
+                safe_spawn[0] as f32,
+                safe_spawn[1] as f32 + 1.62,
+                safe_spawn[2] as f32,
+            ),
+            0.0,
+            0.0,
+            70.0,
+            0.05,
+            128.0,
+        )?,
+        scene,
+        controller: MotionController::new(MotionState::new(safe_spawn)),
+        safe_spawn,
+        controls: Controls::default(),
+        native_pitch_degrees: 0.0,
         last: Instant::now(),
         captured: false,
+        focused: true,
     };
     event.run_app(&mut app)?;
     Ok(())
@@ -250,14 +269,19 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
 
 struct App {
     mesh: Mesh,
+    scene: Scene,
     loaded_chunks: usize,
     atlas: image::RgbaImage,
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     camera: Camera,
-    keys: [bool; 7],
+    controller: MotionController,
+    safe_spawn: [f64; 3],
+    controls: Controls,
+    native_pitch_degrees: f32,
     last: Instant,
     captured: bool,
+    focused: bool,
 }
 struct Gpu {
     instance: wgpu::Instance,
@@ -302,7 +326,7 @@ impl App {
             )?,
         );
         w.set_title(&format!(
-            "Beta 1.7.3 — loaded chunks: {}, faces: {}, unsupported blocks: {}",
+            "Beta 1.7.3 — WASD/Space/Shift | F flight, R reset, Enter mouse | chunks {}, faces {}, unsupported {}",
             self.loaded_chunks, self.mesh.visible_faces, self.mesh.unsupported_blocks
         ));
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
@@ -547,18 +571,36 @@ impl App {
         let window = self.window.clone();
         let Some(g) = self.gpu.as_mut() else { return };
         let now = Instant::now();
-        let dt = now.duration_since(self.last).as_secs_f32().min(0.05);
+        let dt = now.duration_since(self.last);
         self.last = now;
-        let f = self.keys[0] as i32 - self.keys[1] as i32;
-        let s = self.keys[3] as i32 - self.keys[2] as i32;
-        let v = self.keys[4] as i32 - self.keys[5] as i32;
-        let _ = self.camera.move_local(
-            f as f32,
-            s as f32,
-            v as f32,
-            if self.keys[6] { 28.0 } else { 8.0 },
-            dt,
-        );
+        if self.focused {
+            self.controller.accumulate(dt);
+            while self.controller.ticks_due() > 0 {
+                if self.controller.debug_flight {
+                    let _ = self.camera.move_local(
+                        u8::from(self.controls.forward) as f32
+                            - u8::from(self.controls.backward) as f32,
+                        u8::from(self.controls.right) as f32 - u8::from(self.controls.left) as f32,
+                        u8::from(self.controls.jump) as f32 - u8::from(self.controls.sneak) as f32,
+                        8.0,
+                        0.05,
+                    );
+                    self.controller.flight_tick();
+                } else {
+                    if let Err(error) = self.controller.tick(&self.scene, self.controls) {
+                        eprintln!("beta-viewer motion query failed: {error}");
+                        self.controller.clear_clock();
+                        break;
+                    }
+                }
+            }
+            if !self.controller.debug_flight {
+                let p = self.controller.interpolated_position();
+                self.camera.position =
+                    glam::Vec3::new(p[0] as f32, p[1] as f32 + 1.62, p[2] as f32);
+                self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
+            }
+        }
         if let Ok(m) = self
             .camera
             .view_projection(g.config.width as f32 / g.config.height as f32)
@@ -645,6 +687,19 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, e: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => e.exit(),
+            WindowEvent::Focused(focused) => {
+                self.focused = focused;
+                self.last = Instant::now();
+                if !focused {
+                    self.controls = Controls::default();
+                    self.controller.clear_clock();
+                    self.captured = false;
+                    if let Some(w) = &self.window {
+                        w.set_cursor_visible(true);
+                        let _ = w.set_cursor_grab(CursorGrabMode::None);
+                    }
+                }
+            }
             WindowEvent::Resized(sz) => {
                 if let Some(g) = self.gpu.as_mut()
                     && sz.width > 0
@@ -667,18 +722,36 @@ impl ApplicationHandler for App {
                         }
                         return;
                     }
-                    let idx = match code {
-                        KeyCode::KeyW => Some(0),
-                        KeyCode::KeyS => Some(1),
-                        KeyCode::KeyA => Some(2),
-                        KeyCode::KeyD => Some(3),
-                        KeyCode::Space => Some(4),
-                        KeyCode::ControlLeft => Some(5),
-                        KeyCode::ShiftLeft => Some(6),
-                        _ => None,
-                    };
-                    if let Some(i) = idx {
-                        self.keys[i] = event.state == ElementState::Pressed
+                    let pressed = event.state == ElementState::Pressed;
+                    match code {
+                        KeyCode::KeyW => self.controls.forward = pressed,
+                        KeyCode::KeyS => self.controls.backward = pressed,
+                        KeyCode::KeyA => self.controls.left = pressed,
+                        KeyCode::KeyD => self.controls.right = pressed,
+                        KeyCode::Space => self.controls.jump = pressed,
+                        KeyCode::ShiftLeft => self.controls.sneak = pressed,
+                        _ => {}
+                    }
+                    if pressed && !event.repeat && code == KeyCode::KeyF {
+                        if self.controller.debug_flight {
+                            self.controller.debug_flight = false;
+                            self.controller.land_from_flight(
+                                self.camera.position.to_array(),
+                                -self.camera.yaw.to_degrees(),
+                            );
+                        } else {
+                            self.controller.debug_flight = true;
+                        }
+                    }
+                    if pressed && !event.repeat && code == KeyCode::KeyR {
+                        self.controller.debug_flight = false;
+                        self.controller.reset(self.safe_spawn);
+                        self.camera.position = glam::Vec3::new(
+                            self.safe_spawn[0] as f32,
+                            self.safe_spawn[1] as f32 + 1.62,
+                            self.safe_spawn[2] as f32,
+                        );
+                        self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
                     }
                     if event.state == ElementState::Pressed
                         && code == KeyCode::Enter
@@ -697,13 +770,20 @@ impl ApplicationHandler for App {
         if self.captured
             && let DeviceEvent::MouseMotion { delta } = event
         {
-            let _ = self
-                .camera
-                .rotate(-delta.0 as f32 * 0.002, -delta.1 as f32 * 0.002);
+            let dx = delta.0.trunc();
+            let dy = delta.1.trunc();
+            let native_yaw = (f64::from(self.controller.state.yaw_degrees) + dx * 0.15_f64) as f32;
+            let native_pitch = (f64::from(self.native_pitch_degrees) + dy * 0.15_f64) as f32;
+            self.controller.state.yaw_degrees = native_yaw;
+            self.native_pitch_degrees = native_pitch.clamp(-90.0, 90.0);
+            self.camera.yaw = -native_yaw.to_radians();
+            self.camera.pitch = -self.native_pitch_degrees.to_radians();
         }
     }
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
-        if let Some(w) = &self.window {
+        if self.focused
+            && let Some(w) = &self.window
+        {
             w.request_redraw()
         }
     }
