@@ -144,9 +144,17 @@
       ]
     },
     "VIEW-001-A02": {
-      "state": "in_progress",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлены read-only view_probe/loader для pinned 5×5 мира и совпадающий winit/wgpu viewer с оригинальным atlas, depth, camera controls, bounded GPU buffers, visible counters и saved-light approximation. Strict native mapping parity прошла; screenshot просмотрен локально. Packed uu.d/AO и pixel parity не заявляются.",
+      "checks": [
+        "python3 tools/check.py → PASS; cargo test --all-targets --locked --offline → PASS; workspace checks/doc tests PASS",
+        "cargo check --locked --offline -p beta-viewer; cargo clippy --locked --offline -p beta-viewer -- -D warnings; cargo test --locked --offline -p beta-viewer → PASS",
+        "python3 tools/parity/run.py view --strict → PASS: 50 native mapping cases and 1,617 neighbor tuples exactly match; clean report artifacts/parity/view/run-p96kzl8b/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/view/run-p96kzl8b/report.json --protocol → PASS: scene, JAR, atlas, source/copy/output hashes and 50 mapping cases verified",
+        "python3 tools/parity/view_review.py artifacts/parity/view/run-p96kzl8b/report.json → PASS",
+        "Xvfb local GUI smoke → PASS: textured fixed-scene terrain rendered; screenshot inspected at /tmp/beta-viewer-smoke.png; Mesa software DRI3 fallback warning only",
+        "git diff --check → PASS; original source save files remain hash-verified/read-only"
+      ]
     }
   }
 }
