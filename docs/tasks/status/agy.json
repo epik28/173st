@@ -3,9 +3,14 @@
   "role": "agy",
   "tasks": {
     "GAME-ORACLE-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен чистый beta_core::geometry с Vec3, Axis, Aabb и RayHit по pinned native bytecode eq/bt/vf. Сохранены порядок арифметики, f32-narrowed sqrt, thresholds, signed-zero semantics, clipping/intersection edges и native ray face tie order; API экспортирован без новых зависимостей.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core geometry::tests:: → PASS: 4 unit tests на signed zero, MathHelper length/normalize, threshold boundary, AABB contact/clipping, все ray faces, tie order и start-inside",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
+        "cargo test --all-targets --locked --offline → PASS: 51 beta-core library + 35 example + 5 beta-view + 5 beta-viewer loader + 1 viewer binary tests",
+        "cargo fmt --all -- --check; git diff --check → PASS"
+      ]
     },
     "GAME-ORACLE-001-A02": {
       "state": "pending",

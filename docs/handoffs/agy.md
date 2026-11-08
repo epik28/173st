@@ -1,5 +1,15 @@
 # Отчёт Gemini / agy
 
+## GAME-ORACLE-001-A01 — beta_core::geometry
+
+- Реализован `crates/beta-core/src/geometry.rs` с `Axis`, `Vec3`, `Aabb` и `RayHit`, модуль экспортирован в `lib.rs`. API повторяет зафиксированные методы `eq`, `bt` и `vf`; новых dependencies и заимствованного кода нет.
+- Сохранены детали bytecode: AABB factory хранит min/max как передано, а `Vec3::new` канонизирует `-0.0` в `+0.0`; pooled vector arithmetic сохраняет сырые знаки нуля. Length, distance и normalize используют `sqrt_f64_to_f32` и возвращают narrowed значение обратно как f64; normalize threshold — `1e-4`. Intermediate checks axis delta squared `< 1.0000000116860974E-7`, принимает fraction `[0,1]`. AABB clip использует строгий overlap на двух остальных осях, touching на axis разрешён. Raycast проверяет faces в порядке `4,5,0,1,2,3`, применяет strict closest-distance update, что сохраняет native tie face.
+- Unit tests покрывают signed zero constructors, vector operations and sqrt narrowing, normalize/intermediate threshold neighbors, box sweep/expand/offset/clip/contact/intersection/containment/average, все шесть ray faces, edge tie, start-inside и miss.
+- Изменены только `crates/beta-core/src/geometry.rs`, регистрация в `crates/beta-core/src/lib.rs`, собственные `docs/tasks/status/agy.json` и этот handoff. Общий API/protocol, C01 oracle/fixture, A02 probe, runner, зависимости и соседний worktree не менялись.
+- Проверки: `cargo test --locked --offline -p beta-core geometry::tests::` → 4 PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` → PASS; `cargo test --all-targets --locked --offline` → PASS (51 core library, 35 examples, 5 beta-view, 5 beta-viewer loader, 1 viewer binary); `cargo fmt --all -- --check` → PASS; `git diff --check` → PASS.
+- Ограничение: C01 fixture и probe runner ещё не доступны, поэтому native differential parity не заявляется. Следующий шаг — после C01 fixture реализовать GAME-ORACLE-001-A02 в отдельном разрешённом файле `geometry_probe.rs`.
+- Model ID: **gpt-6-luna low** по назначению задачи; дополнительных агентов, ручных заимствований и внешних зависимостей нет; token/cost telemetry недоступна.
+
 ## WORLD-LOAD-001-A01 — typed read-only loader
 
 - Добавлен `beta_core::world` с `WorldLimits`, `WorldMetadata`, `LoadedChunk`, `WorldError`, `load_level_gzip` и `load_chunk_nbt`. Для level gzip повторно используется bounded `region::decompress(1, ...)`; эффективный decoded cap — минимум `max_level_decompressed_bytes` и `nbt.max_total_payload`, compressed cap проверяется до декодирования.
