@@ -1057,3 +1057,9 @@ COLOR estimate stays16% pending visibleintegration. No push until +5–10pp.
   after the shared queue contract is integrated into both role snapshots.
 - Estimate remains about20%; a geometry reference alone adds no game capability and
   does not advance the 5–10pp GitHub push interval.
+
+## FLUID-001-C02 — native water geometry runner
+
+Added `tools/parity/fluid_run.py`, the `fluid` dispatch in `tools/parity/run.py`, and `fluid_review.py` for retained evidence validation. The strict runner captures the original renderer twice, requires byte-identical output against the committed 44-scene / 1,242-vertex C01 fixture, and when A02 adds `fluid_probe`, compares ordered case rows and all eight raw words per vertex. Reports bind JAR, oracle/classes, inputs, sources, processes, logs and Rust binary/output hashes. Before the probe exists, `fluid --strict` correctly returns `not_implemented` after native verification.
+
+Verification: 8 relevant Python tests pass (1 opt-in live test skipped); `python3 tools/check.py` passes all Python and workspace checks; strict native run produced and retained a 44-case report and `fluid_review.py` verified its evidence; `git diff --check` passes. Commit: `7934634`.

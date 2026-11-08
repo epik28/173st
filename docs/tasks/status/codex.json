@@ -566,9 +566,15 @@
       ]
     },
     "FLUID-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлены native water runner и retained report verifier. Runner делает два native JVM capture, сверяет committed C01, проверяет process/source/JAR hashes, строгий Rust TSV protocol и сохраняемую evidence. До fluid_probe strict возвращает not_implemented.",
+      "checks": [
+        "python3 -m unittest tests.python.test_fluid_runner tests.python.test_fluid_corpus -v → PASS: 8 tests, 1 opt-in live test skipped",
+        "python3 -m py_compile tools/parity/fluid_run.py tools/parity/fluid_review.py tests/python/test_fluid_runner.py → PASS",
+        "python3 tools/check.py → PASS: full Python/workspace checks, clippy, all-target/doc tests",
+        "python3 tools/parity/run.py fluid --strict → expected not_implemented before probe; native 44 cases / 1,242 vertices; retained report protocol verified",
+        "git diff --check → PASS; commit 7934634"
+      ]
     },
     "FLUID-001-C03": {
       "state": "pending",
