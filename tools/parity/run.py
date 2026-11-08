@@ -918,7 +918,7 @@ def run_region(root=ROOT, timeout=60):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -930,9 +930,16 @@ def main(argv=None):
         print("chunk: CHUNK-001 original Beta nibble class; requires configured client JAR and chunk_probe")
         print("nbt: NBT-001 original Beta ij/nu reader/writer; requires configured client JAR and nbt_probe")
         print("region: REGION-001 original qj reads hash-verified copies; requires configured Prism instance/client JAR and region_probe")
+        print("world: WORLD-LOAD-001 original ij/ei/qj reads two hash-verified copies; requires configured Prism instance/client JAR and world_probe")
         return 0
     try:
-        report, path = run_region(timeout=args.timeout) if args.group == "region" else run_rng(timeout=args.timeout, suite=args.group)
+        if args.group == "region":
+            report, path = run_region(timeout=args.timeout)
+        elif args.group == "world":
+            from world_run import run_world
+            report, path = run_world(timeout=args.timeout)
+        else:
+            report, path = run_rng(timeout=args.timeout, suite=args.group)
     except (OSError, ValueError) as error:
         print(f"error: {error}")
         return 1

@@ -24,6 +24,9 @@ def main():
     if report["suite"] == "region":
         from region_review import verify_region
         return verify_region(args.report, report, args.protocol)
+    if report["suite"] == "world":
+        from world_review import verify_world
+        return verify_world(args.report, report, args.protocol)
     input_data = Path(report["log_paths"]["input"]).read_bytes()
     reference = Path(report["log_paths"]["java-run"]["stdout"]).read_bytes()
     actual = Path(report["log_paths"]["rust-run"]["stdout"]).read_bytes()
