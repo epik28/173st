@@ -268,7 +268,10 @@ mod tests {
         assert_eq!(output.as_slice(), expected);
         let records = input.iter().filter(|byte| **byte == b'\n').count();
         assert!(records >= 5_000);
-        assert_eq!(output.iter().filter(|byte| **byte == b'\n').count(), records);
+        assert_eq!(
+            output.iter().filter(|byte| **byte == b'\n').count(),
+            records
+        );
     }
 
     #[test]
