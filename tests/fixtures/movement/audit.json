@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "suite": "movement",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "class_sha256": {
+    "sn": "b53107a5bdd5ff92637582aaed4fd49366443a11cba96cef0a6ad719e197b7be",
+    "ls": "b70fbb1499cd1b37ef27dd5dec7637c7338439ef03fe13012dca93fb2326d078",
+    "eq": "81a4cf4a682b2c830e78160d944aa71342e2f6b6d415863c9f18600b08cd191f",
+    "bt": "32018dcec6f1af1efa93baac09178456d9d2537367721875dae6547588a308f8",
+    "in": "8693f3179fb0ff1df382e1d3388d23ab688ad3e26415454655da88f10b054f63",
+    "uu": "caeaf354357d66fc168c7f03bf62bb6c6a1fe459e9be6b537d4d5d1efabd0845"
+  },
+  "code_sources": {
+    "sn": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "ls": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "eq": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "bt": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "in": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+    "uu": "file:///home/andrew/173st/.local/minecraft/client-b1.7.3.jar"
+  },
+  "method_mapping": {
+    "move": {
+      "class": "sn",
+      "name": "b",
+      "descriptor": "(DDD)V"
+    },
+    "travel": {
+      "class": "ls",
+      "name": "a_",
+      "descriptor": "(FF)V"
+    },
+    "jump": {
+      "class": "ls",
+      "name": "R",
+      "descriptor": "()V"
+    }
+  },
+  "field_mapping": {
+    "position_x": "aM",
+    "position_y": "aN",
+    "position_z": "aO",
+    "velocity_x": "aP",
+    "velocity_y": "aQ",
+    "velocity_z": "aR",
+    "bbox_min_x": "aW.a",
+    "bbox_min_y": "aW.b",
+    "bbox_min_z": "aW.c",
+    "bbox_max_x": "aW.d",
+    "bbox_max_y": "aW.e",
+    "bbox_max_z": "aW.f",
+    "y_offset": "bf",
+    "y_size": "bo",
+    "step_height": "bp",
+    "fall_distance": "bk",
+    "yaw_degrees": "aS",
+    "on_ground": "aX",
+    "collided_horizontally": "aY",
+    "collided_vertically": "aZ",
+    "collided": "ba",
+    "no_clip": "bq",
+    "in_web": "bc",
+    "sneaking": "t()",
+    "allow_slide": "bd"
+  },
+  "invocations": {
+    "move": 1045,
+    "travel": 7168,
+    "jump": 192
+  },
+  "surfaces": {
+    "1": "3f19999a",
+    "79": "3f7ae148"
+  },
+  "case_count": 643,
+  "state_count": 8213,
+  "collision_queries": 8680,
+  "native_world_constructors": 0,
+  "environment": "synthetic-static-dry",
+  "registry_stdout_bytes": 0,
+  "registry_stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "input_sha256": "bca640811348144a11586b79fbb8a65a769dfc984299cfbe2de201889e6869e7",
+  "output_sha256": "80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd",
+  "repeat_output_sha256": "80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd",
+  "oracle_sha256": "8360cd126861f8e67e1a766189fd996056eba5ff7ca2841cfd060cf6b4bf18d1"
+}
