@@ -94,7 +94,7 @@ public final class MathOracle {
           if (f.length < 3 || f[0].isEmpty() || !f[0].matches("[a-zA-Z0-9_.:-]{1,96}")
               || !ids.add(f[0])) throw new IllegalArgumentException("bad or duplicate case id");
           String[] a = java.util.Arrays.copyOfRange(f, 2, f.length);
-          System.out.println(f[0] + "\t" + eval(f[1], a));
+          System.out.print(f[0] + "\t" + eval(f[1], a) + "\n");
         } catch (Exception e) {
           System.err.println("MathOracle line " + lineNo + ": " + e.getClass().getSimpleName() + ": " + e.getMessage());
           System.exit(2);

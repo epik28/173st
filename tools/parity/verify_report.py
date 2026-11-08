@@ -19,6 +19,9 @@ def main():
     if report.get("suite") == "view":
         from view_review import verify_view
         return verify_view(args.report, report, args.protocol)
+    if report.get("suite") == "math":
+        from math_review import verify_math
+        return verify_math(args.report, report, args.protocol)
     if report["status"] != "pass":
         raise SystemExit("requires a successful live report")
     if report["suite"] == "nbt":

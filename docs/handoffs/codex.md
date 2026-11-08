@@ -784,3 +784,24 @@ Python и parity наборы не запускались повторно, ко
 - C01 oracle/corpus does not claim Rust parity; C02 runner and A01/A02 remain.
   Whole-game estimate stays approximately 10%; this data-only package adds no
   accepted gameplay capability yet.
+
+## MATH-001-C02 — parity runner and evidence review
+
+- Added `math` to `tools/parity/run.py`: checks pinned client JAR and original
+  `in` class hashes, runs the Java adapter twice, compares exact ordered TSV
+  values and raw float bits, builds/runs `math_probe`, and records source,
+  toolchain, process, and output hashes in a saved report. Strict mode returns
+  failure until a Rust probe exists.
+- Added saved-report verification and separately labelled synthetic checks for
+  output bit/type/order/row-count and source-hash mutations. Optional protocol
+  review sends malformed operations, float bits, integer ranges, UTF-8 and
+  duplicate IDs to both implementations.
+- Corrected the shared `floor_div_i32` contract after direct bytecode/fixture
+  inspection: `i32::MIN / -1` returns `2147483646` through the original
+  intermediate overflow; only division by zero is reported as an error.
+- `python3 tools/oracle/math_corpus.py` → PASS; 131,408 original outputs remain
+  byte-identical to the committed reference. `python3 -m unittest
+  tests.python.test_math_runner -v` → PASS (4). Python compilation and
+  `git diff --check` → PASS. Live strict run is recorded below after completion.
+- C02 adds the repeatable differential harness, not gameplay behavior; overall
+  estimate remains approximately 10% until MathHelper and its probe are accepted.

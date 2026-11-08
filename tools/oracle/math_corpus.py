@@ -13,7 +13,6 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/fixtures/math"
 JAR_SHA = "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c"
-CLASS_SHA = ""
 MULTIPLIER = struct.unpack(">f", struct.pack(">f", 10430.378))[0]
 
 

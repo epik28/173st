@@ -281,9 +281,16 @@
       ]
     },
     "MATH-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен math differential runner и saved evidence review: Java oracle запускается дважды; raw float bits сравниваются в exact ordered TSV; проверены строгий not_implemented без Rust probe и контролируемый timeout. Review отклоняет синтетические подмены типа/бита/порядка/числа строк/источника и поддерживает live malformed protocol checks.",
+      "checks": [
+        "python3 tools/parity/run.py math --strict → ожидаемый not_implemented, exit 1 до появления A02 probe; 131408 оригинальных случаев выполнено дважды, оба output SHA feddfb35ebc8b36f1403d16ffe6f7d3190036af721d0bad840bbabe6f9ec9f3f; report artifacts/parity/math/run-84hbl669/report.json",
+        "python3 tools/parity/run.py math --timeout 0.001 → PASS: timeout оформлен как error, report artifacts/parity/math/run-e7y_tlwl/report.json",
+        "python3 -m unittest tests.python.test_math_runner -v → PASS: 4 tests; python3 -m unittest discover -s tests/python -q → PASS: 89 tests",
+        "python3 tools/check.py → PASS: 89 Python tests, fmt/check/clippy, workspace all-targets и doc tests",
+        "python3 tools/oracle/math_corpus.py → PASS: committed input/reference hashes и 131408 native rows не изменились",
+        "python3 -m py_compile tools/parity/math_run.py tools/parity/math_review.py tools/parity/run.py tools/parity/verify_report.py; git diff --check → PASS"
+      ]
     },
     "MATH-001-C03": {
       "state": "pending",
