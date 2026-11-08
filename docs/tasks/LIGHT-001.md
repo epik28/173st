@@ -81,3 +81,25 @@ calls from inferred internal calls; no fake instrumentation counts.
   previous math/Java strict, update progress honestly. C04 viewer wiring will be
   frozen separately once native APIs and LEAF accepted. No auto readiness points
   for tests alone; push after requested cumulative5–10pp gain.
+
+## C04 — frozen viewer integration
+
+After native A01 exact comparison and reviewed LEAF renderer, wire the graphical
+viewer to these APIs. Keep legacy loader/probe and mesh output compatible.
+Add a viewer loader entry returning saved WorldMetadata (seed/time/dimension)
+from the validated copied level.dat; do not modify the source save. Support
+only dimensions 0/-1, return an explicit error for others. Use saved time with
+partial tick 1.0 and clear-weather sky subtraction; this is a static saved-time
+preview, not a running day/weather simulation.
+
+Carry source-block emission minimum to graphical mesh vertices, including grass
+overlays, without changing existing block/sky nibble values, UVs or directional
+shade. Default minimum is zero for legacy helpers. Compute each GPU vertex's
+saved-light multiplier using sample_brightness and the source-block minimum;
+remove the previous max(nibbles)/15 and 0.08 floor. Preserve native encoded-color
+multiplication, leaf alpha cutoff and LEQUAL depth. Flat ordinary-cube/leaf
+lighting only: no AO, propagation, special slab/stair queries or fluid overrides.
+Meaningful tests must cover saved metadata, unsupported dimension rejection,
+night/day and Nether brightness, emission minima and legacy mesh compatibility.
+C04 owns beta-view mesh emission plumbing and beta-viewer loader/main only;
+core light/oracle/fixtures remain owned by A01/C01. No new dependencies.
