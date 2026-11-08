@@ -598,9 +598,15 @@
       ]
     },
     "BLOCK-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Added strict ray-only block runner and saved-report reviewer. The pinned Java input fixture carries endpoints, stop-liquid flag and block scene ID/meta/coordinates/shape from the same case table as the native oracle. Native captures repeat exactly; strict exits nonzero/not_implemented without block_probe. Actions stay not_implemented and are rejected from the probe schema.",
+      "checks": [
+        "python3 -m unittest tests.python.test_block_corpus tests.python.test_block_runner -v → 10 PASS; malformed/extra/order/limit, side/coordinate/raw-bit mutation, action-field rejection, wrong JAR, and timeout paths",
+        "python3 tools/parity/run.py block --strict → expected exit 1 / not_implemented because crates/beta-core/examples/block_probe.rs is absent; two native captures plus two matching Java-generated input captures, 17 cases",
+        "python3 tools/parity/block_review.py artifacts/parity/block/run-vxiftqw0/report.json → PASS; retained report verifies 6 process logs/hashes, pinned JAR/classes, input/output fixtures, repeatability, ray-only/action-not-implemented status",
+        "python3 tools/check.py → PASS: full Python suite and locked offline workspace tests/checks",
+        "python3 -m py_compile tools/oracle/block_corpus.py tools/parity/block_run.py tools/parity/block_review.py tools/parity/run.py tests/python/test_block_corpus.py tests/python/test_block_runner.py → PASS; git diff --check → PASS"
+      ]
     },
     "BLOCK-001-C03": {
       "state": "pending",

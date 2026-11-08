@@ -9,8 +9,11 @@ and `uu.a(fd,int,int,int,bt,bt):vf`; `vf` exposes the hit type, block xyz,
 side, and `bt` hit point. `ob.b():float` returns `5.0f`, and `pj` extends `ob`.
 
 Reproduce with `python3 tools/oracle/block_corpus.py` (two native JVM captures)
-or regenerate the reviewed fixture with `python3 tools/oracle/block_corpus.py
---write`. `BlockOracle.java` creates each scene in a fresh in-memory world using
+or regenerate the reviewed output and `input.tsv` fixtures with
+`python3 tools/oracle/block_corpus.py --write`. `BlockOracle.java --inputs`
+emits `input.tsv` directly from the same immutable Java case table as the live
+ray trace; the input records endpoints, stop-on-liquid flag, scene block ID,
+metadata, coordinates, and shape. `BlockOracle.java` creates each scene in a fresh in-memory world using
 native `fd` ray tracing and per-block native shape dispatch. The process checks
 all source class code locations and hashes the class bytes. It does not open a
 save, Prism instance, JAR for writing, or assets. `native.tsv` stores live rows

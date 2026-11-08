@@ -27,6 +27,7 @@ class BlockCorpusTests(unittest.TestCase):
         audit = json.loads(block_corpus.AUDIT.read_text())
         self.assertEqual(audit["classes"], block_corpus.CLASS_SHA)
         self.assertEqual(audit["native_cases"], 17)
+        self.assertEqual(audit["input_sha256"], block_corpus.digest(block_corpus.INPUT_FIXTURE.read_bytes()))
         self.assertEqual(audit["reach"], "ob.b():5.0f; pj extends ob")
         self.assertEqual(audit["actions"]["break"], "not_verified")
         self.assertEqual(audit["actions"]["place"], "not_verified")

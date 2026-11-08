@@ -38,21 +38,37 @@ public final class BlockOracle {
     @Override public void a(ei data) {}
     @Override public File a(String name) { return null; }
   }
-  record Ray(String id, String shape, double sx, double sy, double sz, double ex, double ey, double ez, int stopLiquid) {}
+  record Ray(String id, String shape, double sx, double sy, double sz, double ex, double ey, double ez,
+             int stopLiquid, int blockX, int blockY, int blockZ, int blockId, int metadata) {}
+  static Ray ray(String id,String shape,double sx,double sy,double sz,double ex,double ey,double ez,int stop,
+                 int bx,int by,int bz,int blockId) {
+    return new Ray(id,shape,sx,sy,sz,ex,ey,ez,stop,bx,by,bz,blockId,0);
+  }
   static List<Ray> rays() { return List.of(
-    new Ray("face_west","stone",-2,.5,.5,2,.5,.5,0), new Ray("face_east","stone",2,.5,.5,-2,.5,.5,0),
-    new Ray("face_down","stone",.5,-2,.5,.5,2,.5,0), new Ray("face_up","stone",.5,2,.5,.5,-2,.5,0),
-    new Ray("face_north","stone",.5,.5,-2,.5,.5,2,0), new Ray("face_south","stone",.5,.5,2,.5,.5,-2,0),
-    new Ray("miss","stone",-2,2,.5,2,2,.5,0), new Ray("negative_voxel","stone",-2,.5,.5,2,.5,.5,0),
-    new Ray("tie_corner","stone",-1,-1,-1,2,2,2,0),
-    new Ray("endpoint_before","stone",-2,.5,.5,-Math.ulp(1d),.5,.5,0),
-    new Ray("endpoint_face","stone",-2,.5,.5,0,.5,.5,0),
-    new Ray("shape_slab","slab",-2,.25,.5,2,.25,.5,0),
-    new Ray("liquid_stop_false","water",-2,.5,.5,2,.5,.5,0),
-    new Ray("liquid_stop_true","water",-2,.5,.5,2,.5,.5,1),
-    new Ray("range_before","stone",0,.5,.5,4.999,.5,.5,0),
-    new Ray("range_at","stone",0,.5,.5,5,.5,.5,0),
-    new Ray("range_after","stone",0,.5,.5,5.001,.5,.5,0)); }
+    ray("face_west","cube",-2,.5,.5,2,.5,.5,0,0,0,0,1), ray("face_east","cube",2,.5,.5,-2,.5,.5,0,0,0,0,1),
+    ray("face_down","cube",.5,-2,.5,.5,2,.5,0,0,0,0,1), ray("face_up","cube",.5,2,.5,.5,-2,.5,0,0,0,0,1),
+    ray("face_north","cube",.5,.5,-2,.5,.5,2,0,0,0,0,1), ray("face_south","cube",.5,.5,2,.5,.5,-2,0,0,0,0,1),
+    ray("miss","cube",-2,2,.5,2,2,.5,0,0,0,0,1), ray("negative_voxel","cube",-2,.5,.5,2,.5,.5,0,-1,0,0,1),
+    ray("tie_corner","cube",-1,-1,-1,2,2,2,0,0,0,0,1),
+    ray("endpoint_before","cube",-2,.5,.5,-Math.ulp(1d),.5,.5,0,0,0,0,1),
+    ray("endpoint_face","cube",-2,.5,.5,0,.5,.5,0,0,0,0,1),
+    ray("shape_slab","slab",-2,.25,.5,2,.25,.5,0,0,0,0,44),
+    ray("liquid_stop_false","liquid",-2,.5,.5,2,.5,.5,0,0,0,0,8),
+    ray("liquid_stop_true","liquid",-2,.5,.5,2,.5,.5,1,0,0,0,8),
+    ray("range_before","cube",0,.5,.5,4.999,.5,.5,0,5,0,0,1),
+    ray("range_at","cube",0,.5,.5,5,.5,.5,0,5,0,0,1),
+    ray("range_after","cube",0,.5,.5,5.001,.5,.5,0,5,0,0,1)); }
+  static String inputRow(Ray r) {
+    return String.join("\t",r.id,Double.toString(r.sx),Double.toString(r.sy),Double.toString(r.sz),
+      Double.toString(r.ex),Double.toString(r.ey),Double.toString(r.ez),Integer.toString(r.stopLiquid),
+      Integer.toString(r.blockX),Integer.toString(r.blockY),Integer.toString(r.blockZ),
+      Integer.toString(r.blockId),Integer.toString(r.metadata),r.shape);
+  }
+  static void emitInputs(PrintStream out) {
+    out.println("#BLOCK_CASES\t1\tray-only");
+    out.println("#id\tsx\tsy\tsz\tex\tey\tez\tstop_liquid\tblock_x\tblock_y\tblock_z\tblock_id\tmetadata\tshape");
+    for(Ray r:rays()) out.println(inputRow(r));
+  }
   static fd newWorld(MemoryProvider provider) throws Exception {
     // fd's copy constructor skips new-world spawn generation and accepts a
     // provider whose only chunks are explicitly allocated by this oracle.
@@ -73,23 +89,15 @@ public final class BlockOracle {
     lm chunk = w.b(x >> 4,z >> 4);
     if (!chunk.a(x & 15,y,z & 15,id,0)) throw new IllegalStateException("native chunk refused block setup");
   }
-  static void scene(fd w, Ray ray) {
-    if (ray.id.equals("negative_voxel")) { put(w,-1,0,0,1); return; }
-    if (ray.id.startsWith("range_")) { put(w,5,0,0,1); return; }
-    if (ray.id.equals("shape_slab")) { put(w,0,0,0,44); return; }
-    if (ray.id.startsWith("liquid_")) { put(w,0,0,0,8); return; }
-    put(w,0,0,0,ray.shape.equals("slab")?44:1);
-  }
+  static void scene(fd w, Ray ray) { put(w,ray.blockX,ray.blockY,ray.blockZ,ray.blockId); }
   static String raw(double d) { return String.format(Locale.ROOT,"%016x",Double.doubleToRawLongBits(d)); }
   static String hit(String id, vf h) {
     if (h == null) return id+"\tlive\tmiss\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-";
     bt p=h.f;
     return String.join("\t",id,"live",h.a==jg.a?"block":"other",Integer.toString(h.b),Integer.toString(h.c),Integer.toString(h.d),Integer.toString(h.e),String.valueOf(p.a),String.valueOf(p.b),String.valueOf(p.c),raw(p.a),raw(p.b),raw(p.c));
   }
-  public static void main(String[] args) throws Exception {
-    if(args.length!=1) throw new IllegalArgumentException("BlockOracle CLIENT_JAR");
-    Path jar=Path.of(args[0]).toRealPath();
-    if(!sha(Files.readAllBytes(jar)).equals(JAR_SHA)) throw new IOException("wrong pinned JAR SHA-256");
+  static Map<String,String> verifySources(Path jar)throws Exception {
+    if(!sha(Files.readAllBytes(jar)).equals(JAR_SHA))throw new IOException("wrong pinned JAR SHA-256");
     Class<?>[] classes={fd.class,vf.class,bt.class,uu.class,ob.class,pj.class,iz.class,gm.class};
     Map<String,String> hashes=new LinkedHashMap<>();
     for(int i=0;i<classes.length;i++){
@@ -97,6 +105,13 @@ public final class BlockOracle {
       if(!Path.of(c.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath().equals(jar))throw new IOException("class not loaded from pinned jar: "+NAMES[i]);
       hashes.put(NAMES[i],classSha(c));
     }
+    return hashes;
+  }
+  public static void main(String[] args) throws Exception {
+    if(args.length<1||args.length>2) throw new IllegalArgumentException("BlockOracle CLIENT_JAR [--inputs]");
+    Path jar=Path.of(args[0]).toRealPath();
+    Map<String,String> hashes=verifySources(jar);
+    if(args.length==2){if(!args[1].equals("--inputs"))throw new IllegalArgumentException("unknown option");emitInputs(System.out);return;}
     PrintStream report=System.out;
     System.setOut(new PrintStream(OutputStream.nullOutputStream()));
     report.println("#BLOCK_NATIVE\t1\t"+JAR_SHA);
