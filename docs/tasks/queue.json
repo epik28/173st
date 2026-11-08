@@ -2,6 +2,44 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "LIGHT-001-C01",
+      "owner": "codex",
+      "title": "Original saved-light and sun oracle",
+      "card": "docs/tasks/LIGHT-001.md",
+      "depends_on": [
+        "COLOR-001-C03"
+      ]
+    },
+    {
+      "id": "LIGHT-001-A01",
+      "owner": "agy",
+      "title": "Pure brightness and celestial arithmetic",
+      "card": "docs/tasks/LIGHT-001.md",
+      "depends_on": [
+        "COLOR-001-C03"
+      ]
+    },
+    {
+      "id": "LIGHT-001-C02",
+      "owner": "codex",
+      "title": "Light native runner and saved evidence",
+      "card": "docs/tasks/LIGHT-001.md",
+      "depends_on": [
+        "LIGHT-001-C01"
+      ]
+    },
+    {
+      "id": "LIGHT-001-C03",
+      "owner": "codex",
+      "title": "Light numerical integration acceptance",
+      "card": "docs/tasks/LIGHT-001.md",
+      "depends_on": [
+        "LIGHT-001-C01",
+        "LIGHT-001-A01",
+        "LIGHT-001-C02"
+      ]
+    },
+    {
       "id": "LEAF-001-C01",
       "owner": "codex",
       "title": "Native leaf and grass material submissions",

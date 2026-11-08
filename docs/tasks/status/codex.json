@@ -2,6 +2,21 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "LIGHT-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LIGHT-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LIGHT-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "LEAF-001-C01": {
       "state": "done",
       "summary": "Native leaf/grass adapter01dfacd verifies fancy/fast tiles, opacity, culling and original collision bounds, captures grass flat renderer top/side/overlay packed vertices. Early speculative bytecode notes were contradicted by actual live calls and corrected before contract/implementation.",
