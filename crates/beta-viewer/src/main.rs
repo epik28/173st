@@ -327,6 +327,26 @@ struct Gpu {
     camera_buffer: wgpu::Buffer,
 }
 
+fn preferred_surface_format(formats: &[wgpu::TextureFormat]) -> Option<wgpu::TextureFormat> {
+    [
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Bgra8UnormSrgb,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+    ]
+    .into_iter()
+    .find(|format| formats.contains(format))
+}
+
+#[cfg(test)]
+fn srgb_to_linear(channel: f32) -> f32 {
+    if channel <= 0.04045 {
+        channel / 12.92
+    } else {
+        ((channel + 0.055) / 1.055).powf(2.4)
+    }
+}
+
 fn depth(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::TextureView {
     device
         .create_texture(&wgpu::TextureDescriptor {
@@ -379,9 +399,12 @@ impl App {
                     ..Default::default()
                 })
                 .await?;
-            let c = surface
+            let mut c = surface
                 .get_default_config(&a, 1280, 720)
                 .ok_or("surface has no format")?;
+            let capabilities = surface.get_capabilities(&a);
+            c.format = preferred_surface_format(&capabilities.formats)
+                .ok_or("surface supports no 8-bit RGBA/BGRA unorm or sRGB format")?;
             Ok::<_, Box<dyn std::error::Error>>((d, q, c))
         })?;
         surface.configure(&device, &config);
@@ -396,7 +419,7 @@ impl App {
             mip_level_count: atlas_mips.len() as u32,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
@@ -496,6 +519,10 @@ impl App {
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
+        let output_srgb_constant = [(
+            "OUTPUT_SRGB",
+            if config.format.is_srgb() { 1.0 } else { 0.0 },
+        )];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("terrain pipeline"),
             layout: Some(&pl),
@@ -512,7 +539,10 @@ impl App {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &output_srgb_constant,
+                    ..Default::default()
+                },
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
@@ -835,7 +865,41 @@ impl ApplicationHandler for App {
 
 #[cfg(test)]
 mod tests {
-    use super::build_atlas_mips;
+    use super::{build_atlas_mips, preferred_surface_format, srgb_to_linear};
+
+    #[test]
+    fn surface_format_prefers_native_numeric_unorm_with_srgb_fallback() {
+        use wgpu::TextureFormat as F;
+
+        assert_eq!(
+            preferred_surface_format(&[F::Rgba8UnormSrgb, F::Rgba8Unorm, F::Bgra8Unorm]),
+            Some(F::Bgra8Unorm)
+        );
+        assert_eq!(
+            preferred_surface_format(&[F::Bgra8UnormSrgb, F::Rgba8UnormSrgb]),
+            Some(F::Bgra8UnormSrgb)
+        );
+        assert_eq!(preferred_surface_format(&[F::Rgba16Float]), None);
+    }
+
+    #[test]
+    fn inverse_srgb_attachment_conversion_matches_known_channels() {
+        let byte_cases = [
+            (0_u8, 0.0),
+            (10, 0.003_035_27),
+            (11, 0.003_346_536),
+            (128, 0.215_860_5),
+            (255, 1.0),
+        ];
+        for (encoded_byte, expected_linear) in byte_cases {
+            let encoded = f32::from(encoded_byte) / 255.0;
+            assert!((srgb_to_linear(encoded) - expected_linear).abs() < 1.0e-7);
+        }
+        assert!((srgb_to_linear(0.04045) - (0.04045 / 12.92)).abs() < 1.0e-7);
+        assert!(include_str!("shader.wgsl").contains("override OUTPUT_SRGB: u32 = 0u;"));
+        assert!(include_str!("shader.wgsl").contains("if OUTPUT_SRGB != 0u {"));
+        assert!(include_str!("shader.wgsl").contains("srgb_to_linear(native_rgb)"));
+    }
 
     #[test]
     fn atlas_mips_preserve_tile_colors_without_neighbor_bleed() {

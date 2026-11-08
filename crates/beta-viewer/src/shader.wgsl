@@ -1,7 +1,14 @@
 struct Camera { view_projection: mat4x4<f32>, };
+override OUTPUT_SRGB: u32 = 0u;
 @group(0) @binding(0) var atlas: texture_2d<f32>;
 @group(0) @binding(1) var atlas_sampler: sampler;
 @group(0) @binding(2) var<uniform> camera: Camera;
+
+fn srgb_to_linear(encoded: vec3<f32>) -> vec3<f32> {
+    let low = encoded / vec3<f32>(12.92);
+    let high = pow((encoded + vec3<f32>(0.055)) / vec3<f32>(1.055), vec3<f32>(2.4));
+    return select(low, high, encoded > vec3<f32>(0.04045));
+}
 
 struct VertexIn {
     @location(0) position: vec3<f32>,
@@ -29,7 +36,12 @@ struct VertexOut {
 @fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
     let color = textureSample(atlas, atlas_sampler, input.uv);
     if color.a <= 0.1 { discard; }
-    // This bounded approximation uses saved nibble light. It does not reproduce
-    // native packed uu.d brightness conversion or per-corner ambient occlusion.
-    return vec4<f32>(color.rgb * input.tint * input.shade * input.saved_light, 1.0);
+    // Native numeric channel multiplication is encoded-value arithmetic. This
+    // viewer still approximates uu.d float brightness from saved light nibbles;
+    // it does not reproduce that conversion or per-corner ambient occlusion.
+    let native_rgb = color.rgb * input.tint * input.shade * input.saved_light;
+    if OUTPUT_SRGB != 0u {
+        return vec4<f32>(srgb_to_linear(native_rgb), 1.0);
+    }
+    return vec4<f32>(native_rgb, 1.0);
 }
