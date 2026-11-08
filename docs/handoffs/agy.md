@@ -588,7 +588,7 @@ Follow-up verification: `cargo test --locked --offline -p beta-core` → PASS
   Edits never reach the loaded source save. C01 action captures do not exist, so
   this is local sandbox behavior only; no native break/place parity is claimed.
 - Checks: `cargo test --locked --offline -p beta-core --all-targets` → PASS
-  (77 library tests, 2 block probe tests and existing example tests);
+  (77 library tests, 3 block probe tests and existing example tests);
   `cargo test --locked --offline -p beta-viewer --all-targets` → PASS (13 library,
   6 binary, 4 example tests); `cargo clippy --locked --offline -p beta-core
   -p beta-viewer --all-targets -- -D warnings`, `cargo fmt --all -- --check`,
