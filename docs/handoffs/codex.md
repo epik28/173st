@@ -665,3 +665,12 @@ Python и parity наборы не запускались повторно, ко
 - WIP файлы: `tools/parity/run.py`, `tools/parity/world_run.py`, `tools/parity/verify_report.py`, `tools/parity/world_review.py`, `docs/tasks/status/codex.json`. Раннер содержит dispatch, координатный TSV parser/comparator, hash-verified copy flow, native JAR/class/call audit, Java запуск и retained raw byte binding, Rust build/run путь и сохранённый verifier/protocol/mutation scaffolding.
 - Проверки только быстрые: `git diff --check` → PASS; `python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tools/parity/run.py tools/parity/verify_report.py` → PASS. Live Java/Rust run, Python unit suite, saved-report/protocol review, status queue check и общий check.py **не выполнялись**. C02 не принят и status оставлен `in_progress`.
 - Следующий шаг: reviewer должен внимательно отладить Python API/путь subprocess и verifier, добавить `tests/python` coverage (включая `-0`, лишние строки, missing/error/timeout и actual retained-byte tampering), затем дождаться зафиксированного Rust SHA от координатора перед live parity. После unit checks собрать runner; при отсутствии probe только Java 749-row run со strict `not_implemented`, без false pass. Не запускать world edges: их готовит координатор.
+
+## Coordinator checkpoint (2026-11-08)
+
+- Accepted baseline remains `main` at planning commit `bf18c34`; WORLD-LOAD is not accepted. Overall project estimate remains approximately **7%**.
+- C01 is complete: original Java oracle, pinned copied save inputs and 749 live rows (704 present, 44 absent). A01 is complete: read-only typed Rust metadata/chunk loader. Details and checks are recorded above and in task status.
+- C02 WIP is checkpointed as `a2c11ba` (`tools/parity/world_run.py`, `world_review.py`, runner dispatch and verifier). Only `git diff --check` and Python syntax compilation were run. There are no unit or live parity acceptance results yet; review and fixes remain.
+- A02 is not implemented. Agent checkpoint `8eb5703` records contract findings and next steps; no probe or A02 checks exist.
+- C03 remains pending. Do not claim Rust↔Java world parity or increase the completion estimate until A02 and C02 are reviewed and C03 accepts the complete package.
+- Resume from `docs/tasks/WORLD-LOAD-001.md`, this handoff and `docs/tasks/status/{codex,agy}.json`; inspect C02 WIP, implement A02 on `agy/development`, then run contract checks and C03 acceptance. WIP snapshots are merged into `codex/verification` at `332939d`.
