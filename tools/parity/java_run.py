@@ -103,7 +103,9 @@ def source_snapshot(root=ROOT):
              Path("tests/python/test_java_runner.py"),
              Path("tools/parity/run.py"), Path("tools/parity/java_run.py"),
              Path("tools/parity/java_review.py"), Path("tools/parity/verify_report.py"),
-             Path("crates/beta-core/src/java_compat.rs")}
+             Path("crates/beta-core/src/java_compat.rs"), Path(".cargo/config"), Path(".cargo/config.toml")}
+    for pattern in ("*.rs", "Cargo.toml"):
+        fixed.update(p.relative_to(root) for p in (root / "crates/beta-core").rglob(pattern))
     return {str(path): sha256((root / path).read_bytes()) if (root / path).is_file() else None
             for path in sorted(fixed)}
 

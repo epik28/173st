@@ -129,8 +129,9 @@ def source_snapshot(root=ROOT):
              Path("tests/python/test_math_runner.py"),
              Path("tools/oracle/math_corpus.py"), Path("tools/parity/run.py"),
              Path("tools/parity/math_run.py"), Path("tools/parity/verify_report.py"),
-             PROBE, Path("crates/beta-core/src/math.rs")}
+             PROBE, Path("crates/beta-core/src/math.rs"), Path(".cargo/config"), Path(".cargo/config.toml")}
     paths = set(fixed)
+    paths.update(path.relative_to(root) for path in (root / "crates/beta-core").rglob("Cargo.toml"))
     for folder in (root / "tools/parity", root / "tools/oracle", root / "crates/beta-core"):
         if folder.exists():
             paths.update(path.relative_to(root) for path in folder.rglob("*.py" if "parity" in str(folder) else ("*.java" if "oracle" in str(folder) else "*.rs")))
