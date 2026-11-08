@@ -53,7 +53,12 @@ committed fixture и будущего `fluid_probe`: точное число/п�
 bits, class/JAR/source/input/output hashes, повторы и отсутствие лишних строк.
 Проверить missing JAR/probe, неверный protocol, duplicate cases, malformed и
 late-invalid input, timeout, output mutation и synthetic mutation. До Rust probe
-strict обязан вернуть `not_implemented`.
+strict обязан вернуть `not_implemented`. Probe — Cargo example
+`crates/beta-viewer/examples/fluid_probe.rs`; stdin — frozen one-line suite из
+`tests/fixtures/fluid/input.tsv`; stdout — только упорядоченные `case` и `vertex`
+TSV rows. Case row сохраняет имя, ID, metadata, rendered flag и vertex count;
+vertex row хранит восемь native `nw.g` words как lowercase raw-u32 hex. Остальные
+строки stdout запрещены.
 
 ### FLUID-001-A01 — Pure native-compatible water geometry
 
