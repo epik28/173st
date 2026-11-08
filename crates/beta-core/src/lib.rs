@@ -4,6 +4,7 @@
 //! compatibility will be added in small, independently verified tasks.
 
 pub mod chunk;
+pub mod geometry;
 pub mod java_compat;
 pub mod java_random;
 pub mod math;
