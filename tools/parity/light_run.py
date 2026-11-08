@@ -31,6 +31,20 @@ class LightError(ValueError):
     """Malformed LIGHT input, output, audit or retained execution evidence."""
 
 
+def require_int_counts(actual, expected, label):
+    if (not isinstance(actual, dict) or set(actual) != set(expected)
+            or any(type(value) is not int for value in actual.values()) or actual != expected):
+        raise LightError(label + " must contain exactly the expected integer counts")
+
+
+def validate_report_counts(report, cases):
+    from collections import Counter
+    operations = dict(Counter(case["op"] for case in cases))
+    if type(report.get("case_count")) is not int or report["case_count"] != len(cases):
+        raise LightError("case count differs or is not a JSON integer")
+    require_int_counts(report.get("operation_counts"), operations, "operation_counts")
+
+
 def decode_lines(data, label):
     if not data or len(data) > 16 * 1024 * 1024:
         raise LightError(f"{label} must be nonempty and <=16MiB")
@@ -200,11 +214,9 @@ def validate_audit(audit, cases, jar, pinned, input_bytes=None, output_bytes=Non
                 "xa_a_JF": time_count, "fd_a_F": time_count,
                 "xa_factory": len(worlds), "xa_e": len(worlds), "ei_a_J": time_count,
                 "uu_s_reads": emission_count}
-    if direct != expected:
-        raise LightError(f"native direct call counts differ from input: expected {expected}")
+    require_int_counts(direct, expected, "native direct_counts")
     constructors = audit.get("constructors")
-    if constructors != {"fd": 0, "synthetic_fd": 0, "lm": len(worlds)}:
-        raise LightError("native constructor seam differs")
+    require_int_counts(constructors, {"fd": 0, "synthetic_fd": 0, "lm": len(worlds)}, "native constructors")
 
 
 def validate_pinned(root, pinned):
@@ -219,10 +231,9 @@ def validate_pinned(root, pinned):
     if pinned.get("classes") != native_hashes(jar, pinned.get("classes", {})):
         raise LightError("committed class hashes differ from configured JAR")
     counts = pinned.get("direct_counts", {})
-    if counts != {"lm_c_explicit": 24608, "fd_a_IIII": 24608, "xa_a_JF": 48064,
-                  "fd_a_F": 48064, "xa_factory": 2, "xa_e": 2, "ei_a_J": 48064,
-                  "uu_s_reads": 256}:
-        raise LightError("committed native counters differ from captured corpus")
+    require_int_counts(counts, {"lm_c_explicit": 24608, "fd_a_IIII": 24608, "xa_a_JF": 48064,
+                                "fd_a_F": 48064, "xa_factory": 2, "xa_e": 2, "ei_a_J": 48064,
+                                "uu_s_reads": 256}, "pinned direct_counts")
 
 
 def source_snapshot(root=ROOT):

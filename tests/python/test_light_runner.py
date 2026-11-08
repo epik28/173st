@@ -3,6 +3,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,7 +13,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/parity"))
 import light_run as light
-from light_review import retained, verify_light
+from light_review import retained, validate_revision_sources, verify_light
 
 
 def sample(case_id="s", dimension=0, block=8, sky=5, subtraction=3, minimum=7):
@@ -30,6 +31,10 @@ class LightRunnerTests(unittest.TestCase):
         with patch.object(light, "jar_path", return_value=Path("/tmp/pinned-light.jar")), \
                 patch.object(light, "native_hashes", return_value=pinned["classes"]):
             light.validate_pinned(ROOT, pinned)
+            bad_pinned = copy.deepcopy(pinned)
+            bad_pinned["direct_counts"]["fd_a_IIII"] = True
+            with self.assertRaises(light.LightError):
+                light.validate_pinned(ROOT, bad_pinned)
         self.assertEqual(pinned["direct_counts"]["fd_a_IIII"], 24_608)
         self.assertEqual(pinned["direct_counts"]["xa_a_JF"], 48_064)
 
@@ -115,12 +120,45 @@ class LightRunnerTests(unittest.TestCase):
             with patch.object(light, "JAR_SHA", jar_hash), patch.object(light, "native_hashes", return_value=classes):
                 light.validate_audit(audit, cases, jar, pinned, raw, output)
                 for key, value in (("code_source", str(Path(temporary) / "other.jar")),
-                                   ("direct_counts", {**audit["direct_counts"], "fd_a_IIII": 0}),
-                                   ("constructors", {"fd": 1, "synthetic_fd": 0, "lm": 2}),
+                                   ("direct_counts", {**audit["direct_counts"], "fd_a_IIII": True}),
+                                   ("constructors", {"fd": False, "synthetic_fd": 0, "lm": 2}),
                                    ("output_sha256", "0" * 64),
                                    ("bootstrap_base64", "not base64")):
                     with self.subTest(key=key), self.assertRaises(light.LightError):
                         light.validate_audit({**audit, key: value}, cases, jar, pinned, raw, output)
+
+    def test_report_counts_reject_json_booleans(self):
+        cases = light.parse_input(sample() + b"e\temission\t89\n")
+        good = {"case_count": 2, "operation_counts": {"sample": 1, "emission": 1}}
+        light.validate_report_counts(good, cases)
+        for bad in ({**good, "case_count": True},
+                    {**good, "operation_counts": {"sample": True, "emission": 1}}):
+            with self.subTest(bad=bad), self.assertRaises(light.LightError):
+                light.validate_report_counts(bad, cases)
+
+    def test_captured_source_revision_allows_docs_only_descendant_but_rejects_code_change(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.run(["git", *args], cwd=root, capture_output=True, check=True).stdout
+            git("init", "-q")
+            git("config", "user.email", "test@example.invalid")
+            git("config", "user.name", "LIGHT test")
+            source = root / "src.rs"
+            source.write_text("pub fn value() -> u8 { 1 }\n")
+            git("add", "src.rs")
+            git("commit", "-qm", "source")
+            captured = git("rev-parse", "HEAD").decode().strip()
+            snapshot = {"src.rs": light.sha256(source.read_bytes()), "missing.txt": None}
+            (root / "README.md").write_text("docs only\n")
+            git("add", "README.md")
+            git("commit", "-qm", "docs")
+            validate_revision_sources(captured, snapshot, root)
+            source.write_text("pub fn value() -> u8 { 2 }\n")
+            git("add", "src.rs")
+            git("commit", "-qm", "source change")
+            with self.assertRaisesRegex(light.LightError, "current source differs"):
+                validate_revision_sources(captured, snapshot, root)
 
     def test_saved_review_rejects_missing_process_and_escaping_artifact(self):
         with tempfile.TemporaryDirectory() as temporary:

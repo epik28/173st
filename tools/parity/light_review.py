@@ -6,7 +6,8 @@ import re
 
 from light_run import (ROOT, FIXTURES, EXAMPLE, REQUIRED, JAR_SHA, LightError, compare,
                        expected_commands, jar_path, native_hashes, parse_input, parse_output,
-                       source_snapshot, strict_json, validate_audit, validate_pinned)
+                       source_snapshot, strict_json, validate_audit, validate_pinned,
+                       validate_report_counts)
 from run import sha256
 
 
@@ -20,6 +21,44 @@ def retained(path, directory):
     require(not path.is_symlink() and path.is_file(), "missing or symlinked retained artifact: " + str(path))
     require(path.resolve().is_relative_to(directory.resolve()), "retained artifact escapes report directory: " + str(path))
     return path.read_bytes()
+
+
+def validate_revision_sources(revision, snapshot, root=ROOT):
+    """Bind a clean current descendant to the exact captured source tree."""
+    root = Path(root).resolve()
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise LightError("captured revision is not a full Git object ID")
+    ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"],
+                              cwd=root, capture_output=True, check=False)
+    if ancestor.returncode != 0:
+        raise LightError("captured revision is not an ancestor of current HEAD")
+    for name, expected in snapshot.items():
+        path = Path(name)
+        if path.is_absolute() or ".." in path.parts:
+            raise LightError("unsafe source path in captured manifest")
+        current_path = root / path
+        current = sha256(current_path.read_bytes()) if current_path.is_file() else None
+        if current != expected:
+            raise LightError("current source differs from captured manifest: " + name)
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", name],
+                                 cwd=root, capture_output=True, check=False)
+        if tracked.returncode == 0:
+            if expected is None:
+                raise LightError("captured tracked source is missing: " + name)
+            captured = subprocess.run(["git", "show", f"{revision}:{name}"],
+                                      cwd=root, capture_output=True, check=False)
+            if captured.returncode != 0 or sha256(captured.stdout) != expected:
+                raise LightError("captured Git source differs from manifest: " + name)
+        elif name == "config/local.toml":
+            ignored = subprocess.run(["git", "check-ignore", "--quiet", "--", name],
+                                     cwd=root, capture_output=True, check=False)
+            if expected is not None and ignored.returncode != 0:
+                raise LightError("untracked local config is not ignored")
+        else:
+            absent = subprocess.run(["git", "cat-file", "-e", f"{revision}:{name}"],
+                                    cwd=root, capture_output=True, check=False)
+            if expected is not None or absent.returncode == 0:
+                raise LightError("untracked or unexpectedly absent source path: " + name)
 
 
 def verify_light(report_path, report, protocol=False):
@@ -49,13 +88,11 @@ def _verify_light(report_path, report, protocol):
     require(re.fullmatch(r"[0-9a-f]{40}", revision) and revision == report.get("rust_revision"),
             "revision metadata differs from retained git output")
     require(retained(processes["git-dirty"]["stdout"], directory) == b"", "captured worktree was dirty")
-    current_revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=False)
-    require(current_revision.returncode == 0 and current_revision.stdout.decode("ascii").strip() == revision,
-            "report revision is not the current HEAD")
     current_dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, check=False)
     require(current_dirty.returncode == 0 and not current_dirty.stdout, "current worktree is dirty")
     require(report.get("source_hashes") == report.get("source_hashes_after") == source_snapshot(ROOT),
             "captured source hashes differ from current sources")
+    validate_revision_sources(revision, report["source_hashes"])
     for name, digest in report["source_hashes"].items():
         if digest is not None:
             require(sha256(retained(directory / "sources" / name, directory)) == digest,
@@ -100,10 +137,7 @@ def _verify_light(report_path, report, protocol):
     raw = retained(logs["input"], directory)
     require(sha256(raw) == report.get("input_sha256"), "retained input hash differs")
     cases = parse_input(raw)
-    require(len(cases) == report.get("case_count"), "case count differs")
-    from collections import Counter
-    require(dict(Counter(case["op"] for case in cases)) == report.get("operation_counts"),
-            "operation counts differ")
+    validate_report_counts(report, cases)
     require(report.get("scenario") in {"pinned", "custom"}, "invalid scenario")
     if report["scenario"] == "pinned":
         require(raw == (ROOT / FIXTURES / "input.tsv").read_bytes(), "pinned input differs from fixture")
