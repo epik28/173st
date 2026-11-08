@@ -918,7 +918,7 @@ def run_region(root=ROOT, timeout=60):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java"))
+    parser.add_argument("group", choices=("list", "rng", "rng-extended", "chunk", "nbt", "region", "world", "view", "math", "java", "geometry"))
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--timeout", type=float, default=60, help="per-process timeout in seconds")
     args = parser.parse_args(argv)
@@ -934,6 +934,7 @@ def main(argv=None):
         print("view: VIEW-001 original uu/cv mappings on a hash-verified 5x5 scene; requires configured Prism instance/client JAR/resource and view_probe")
         print("math: MATH-001 original client MathHelper; requires configured client JAR and math_probe")
         print("java: JAVA-001 direct JVM casts/String.hashCode; requires java_compat_probe")
+        print("geometry: GAME-ORACLE-001 original eq/bt/vf geometry; custom input via tools/parity/geometry_run.py --input FILE")
         return 0
     try:
         if args.group == "region":
@@ -950,6 +951,9 @@ def main(argv=None):
         elif args.group == "java":
             from java_run import run_java_suite
             report, path = run_java_suite(timeout=args.timeout)
+        elif args.group == "geometry":
+            from geometry_run import run_geometry_suite
+            report, path = run_geometry_suite(timeout=args.timeout)
         else:
             report, path = run_rng(timeout=args.timeout, suite=args.group)
     except (OSError, ValueError) as error:

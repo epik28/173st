@@ -86,3 +86,27 @@ VIEW-001: `python3 tools/parity/run.py view --strict` запускает ори�
 Она проверяет JAR/atlas/world/source/class/output hashes, вызовы native mapping,
 повторяемость, malformed/duplicate TSV и искусственную однобайтовую мутацию.
 Вершины, live brightness и pixel parity не измеряются.
+# Agent-facing native geometry checks
+
+The `geometry` suite calls the original Beta 1.7.3 AABB (`eq`), Vec3 (`bt`)
+and ray-intersection methods. It compares all f64 results by raw bits, including
+signed zeros. Configure the local original client JAR in `config/local.toml`.
+
+```bash
+python3 tools/parity/run.py list
+python3 tools/parity/run.py geometry --strict
+python3 tools/parity/verify_report.py artifacts/parity/geometry/run-.../report.json --protocol
+```
+
+Agents can supply their own cases to the same original-vs-Rust runner:
+
+```bash
+printf 'agent-normalize\tvec_normalize\t4008000000000000\t4010000000000000\t0000000000000000\n' > /tmp/geometry-case.tsv
+python3 tools/parity/geometry_run.py --input /tmp/geometry-case.tsv --strict
+```
+
+Custom runs are labelled `scenario: custom`; they invoke the original methods
+twice, retain independent audits, and never overwrite committed fixtures. Saved
+verification also supports custom reports. Protocol and operation definitions:
+[GAME-ORACLE-001](../../docs/tasks/GAME-ORACLE-001.md). This verifies geometry;
+player ticks, World simulation and rendering require their own suites.

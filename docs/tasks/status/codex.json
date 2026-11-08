@@ -13,9 +13,14 @@
       ]
     },
     "GAME-ORACLE-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлены geometry runner/reviewer, strict ordered raw-bit protocol, live native audit validation и custom-input CLI. Проверены malformed parser/output/audit и controlled timeout; до A02 probe strict честно возвращает not_implemented. Интеграционные protocol/artifact mutation проверки выполняются C03.",
+      "checks": [
+        "python3 -m unittest tests.python.test_geometry_runner -v → PASS: 7 unit tests; opt-in native mutation test skipped (BETA_LIVE_GEOMETRY=1 enables C03)",
+        "python3 tools/parity/run.py geometry --strict → expected not_implemented after two native runs; artifacts/parity/geometry/run-5_qxry_2/report.json",
+        "python3 tools/parity/geometry_run.py --timeout 0.001 → captured process timeout/error; artifacts/parity/geometry/run-_s6hns9f/report.json",
+        "git diff --check → PASS"
+      ]
     },
     "GAME-ORACLE-001-C03": {
       "state": "pending",
