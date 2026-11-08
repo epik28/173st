@@ -391,3 +391,35 @@ native reference states (SHA-256
 `cargo test --all-targets --locked --offline` (58 library, 39 examples, 16
 view/viewer tests), workspace clippy, and fmt passed. Oracle and fixtures were
 not changed.
+
+## UV-001-A01 — cube face UV association
+
+Consumed C01 observations from `tests/fixtures/uv/cases.tsv` and `native.tsv`
+after fast-forwarding `a936ffe`. The provenance header identifies pinned client
+JAR SHA-256
+`af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`, native
+`cv.a-f(uu,DDD,I) -> nw.a(DDDDD)`, and packed float32 Tessellator vertex values.
+The corpus has 84 direct-face observations; each submits six triangle vertices
+with four unique xyz corners.
+
+Added a fixture-driven regression in `crates/beta-view/src/lib.rs`. It maps
+native UV bits by case ID and xyz instead of assuming submission order, checks
+duplicate triangle vertices have equal UV, and compares all 336 unique Rust
+corners by raw f32 bits. Against the unchanged renderer this test first failed
+with 112 mismatches: 56 on face 1 (top) and 56 on face 3 (+Z), across
+asymmetric tiles and positive/negative origins. Faces 0, 2, 4, and 5 already
+matched. Example: `f1-t0-p0` at xyz `[40400000,40800000,40a00000]` had native
+UV `[3d7fd70a,3d7fd70a]` while Rust produced `[3d7fd70a,00000000]`.
+
+Corrected only the UV association arrays for faces 1 and 3 and updated the
+existing six-face UV expectation. Vertex positions, outward winding, indices,
+tile selection, shade, light, and collision code are unchanged. The C01 oracle
+and fixtures were not modified.
+
+Verification: pre-fix fixture test failed as expected with the mismatch set
+above; after the change `cargo test --locked --offline -p beta-view` passed (8
+unit tests and doc tests), including all 84 observations / 336 unique corners.
+`cargo clippy --locked --offline -p beta-view --all-targets -- -D warnings`,
+`cargo fmt --all -- --check`, and `git diff --check` passed. Broader viewer
+integration and screenshot acceptance remain C02 scope. No other agents were
+used.

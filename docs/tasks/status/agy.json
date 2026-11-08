@@ -3,9 +3,15 @@
   "role": "agy",
   "tasks": {
     "UV-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Исправлена native UV association стандартных cube faces 1 (top) и 3 (+Z); остальные face mappings сохранены. Добавлен fixture-driven raw-f32 regression на 84 native observations / 336 уникальных xyz corners, keyed независимо от native submission order. Geometry, tile selection, winding, lighting, shade, indices и collision не изменялись.",
+      "checks": [
+        "До fix: cargo test --locked --offline -p beta-view cube_face_uv_associations_match_native_tessellator_vertices -- --nocapture → ожидаемый FAIL, 112 raw-bit mismatches: face 1 = 56, face 3 = 56; faces 0,2,4,5 совпадали. Первый repro f1-t0-p0, position [40400000,40800000,40a00000], native UV [3d7fd70a,3d7fd70a], Rust [3d7fd70a,00000000].",
+        "После fix: cargo test --locked --offline -p beta-view → PASS, 8 unit tests + doc tests; fixture сравнил 84 observations / 336 unique corners exact raw f32 bits и проверил одинаковость duplicated native triangle UVs.",
+        "cargo clippy --locked --offline -p beta-view --all-targets -- -D warnings → PASS",
+        "cargo fmt --all -- --check; git diff --check → PASS",
+        "Fixture native provenance остается в C01: pinned JAR SHA af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c; cv.a-f(uu,DDD,I) -> nw.a(DDDDD), actual direct face invocations=84, native packed float32 vertex bits; A01 не менял oracle/fixtures."
+      ]
     },
     "MOVE-001-A01": {
       "state": "done",

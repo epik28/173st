@@ -638,7 +638,9 @@ fn append_face(
     let shade = face_shade(face)?;
     let uvs = match face {
         0 => [[u0, v1], [u0, v0], [u1, v0], [u1, v1]],
-        1..=4 => [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
+        1 => [[u1, v1], [u1, v0], [u0, v0], [u0, v1]],
+        2 | 4 => [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
+        3 => [[u0, v0], [u0, v1], [u1, v1], [u1, v0]],
         5 => [[u0, v1], [u1, v1], [u1, v0], [u0, v0]],
         _ => return Err(ViewError::InvalidFace(face)),
     };
@@ -787,6 +789,7 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     fn mapping(id: u8) -> BlockMapping {
         BlockMapping {
@@ -925,9 +928,9 @@ mod tests {
         let v1 = 15.99 / 256.0;
         let uvs = [
             [[u0, v1], [u0, v0], [u1, v0], [u1, v1]],
+            [[u1, v1], [u1, v0], [u0, v0], [u0, v1]],
             [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
-            [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
-            [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
+            [[u0, v0], [u0, v1], [u1, v1], [u1, v0]],
             [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
             [[u0, v1], [u1, v1], [u1, v0], [u0, v0]],
         ];
@@ -954,6 +957,74 @@ mod tests {
                 "face {face} winding"
             );
         }
+    }
+
+    #[test]
+    fn cube_face_uv_associations_match_native_tessellator_vertices() {
+        let mut native_uv = HashMap::new();
+        for row in include_str!("../../../tests/fixtures/uv/native.tsv").lines() {
+            if row.is_empty() || row.starts_with('#') {
+                continue;
+            }
+            let fields: Vec<_> = row.split('\t').collect();
+            assert_eq!(fields.len(), 7, "native row {row}");
+            let position = [
+                u32::from_str_radix(fields[2], 16).unwrap(),
+                u32::from_str_radix(fields[3], 16).unwrap(),
+                u32::from_str_radix(fields[4], 16).unwrap(),
+            ];
+            let uv = [
+                u32::from_str_radix(fields[5], 16).unwrap(),
+                u32::from_str_radix(fields[6], 16).unwrap(),
+            ];
+            if let Some(previous) = native_uv.insert((fields[0].to_owned(), position), uv) {
+                assert_eq!(previous, uv, "native triangle duplicates differ for {row}");
+            }
+        }
+        assert_eq!(native_uv.len(), 84 * 4);
+
+        let mut case_count = 0;
+        let mut checked_vertices = 0;
+        let mut mismatches = Vec::new();
+        for row in include_str!("../../../tests/fixtures/uv/cases.tsv").lines() {
+            if row.is_empty() || row.starts_with('#') {
+                continue;
+            }
+            let fields: Vec<_> = row.split('\t').collect();
+            assert_eq!(fields.len(), 6, "case row {row}");
+            let face = fields[1].parse::<u8>().unwrap();
+            let tile = fields[2].parse::<u16>().unwrap();
+            let origin = [
+                fields[3].parse::<i32>().unwrap(),
+                fields[4].parse::<i32>().unwrap(),
+                fields[5].parse::<i32>().unwrap(),
+            ];
+            let mut mesh = Mesh::default();
+            append_face(&mut mesh, origin, face, tile, 0, 0).unwrap();
+            assert_eq!(mesh.vertices.len(), 4);
+            for vertex in mesh.vertices {
+                let position = vertex.position.map(f32::to_bits);
+                let actual_uv = vertex.uv.map(f32::to_bits);
+                let expected_uv = native_uv
+                    .get(&(fields[0].to_owned(), position))
+                    .unwrap_or_else(|| panic!("missing native corner {} {position:?}", fields[0]));
+                if &actual_uv != expected_uv {
+                    mismatches.push(format!(
+                        "{} face {face} position {position:08x?}: native {expected_uv:08x?}, Rust {actual_uv:08x?}",
+                        fields[0]
+                    ));
+                }
+                checked_vertices += 1;
+            }
+            case_count += 1;
+        }
+        assert_eq!(case_count, 84);
+        assert_eq!(checked_vertices, 336);
+        assert!(
+            mismatches.is_empty(),
+            "native UV mismatches:\n{}",
+            mismatches.join("\n")
+        );
     }
 
     #[test]
