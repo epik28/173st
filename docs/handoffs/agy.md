@@ -351,15 +351,43 @@ native double-expression order.
 
 Review of `ls.a_(FF)` showed two friction lookups: each starts at `0.91f`, or
 `0.54600006f` when grounded, then replaces it with block slipperiness × `0.91f`
-only when a non-air block is found. The first lookup controls acceleration; the
-second occurs after movement and controls horizontal drag. `dry_travel` now
-performs both lookups using the state at their respective points in the frame.
+only when a non-air block is found. Both lookups occur before `sn.b(DDD)`; the
+first controls acceleration and the second controls post-movement horizontal
+drag. A02's exact corpus test caught the previous post-movement lookup order.
 Regression tests cover grounded Air with no supporting voxel, partial-height
 step landing, and the allow-slide-disabled step retry/base restoration.
 
 Verification: `cargo test --locked --offline -p beta-core motion::tests::` → 6
 PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings`,
 `cargo test --all-targets --locked --offline` (58 beta-core library, 39 examples,
-11 view/viewer tests), workspace doc tests, fmt, JSON validation and `git diff
---check` all pass. No contract, fixtures, oracle, or probe changes; native parity
-remains pending C01/A02.
+16 view/viewer tests), workspace doc tests, fmt, JSON validation and `git diff
+--check` all pass. At the A01 stage, native parity remained pending C01/A02.
+
+## MOVE-001-A02 — strict movement probe and native parity
+
+Added `crates/beta-core/examples/movement_probe.rs` implementing the frozen
+six-field MOVE-001 TSV protocol. It validates each full state, ordered collider,
+surface and mode-specific frame before simulating any row; IDs and all resource
+limits are checked, and output is buffered until all scenarios pass. The output
+serializes 18 state components as raw float bits plus decimal flags. Regression
+tests cover the complete native fixture, malformed input after valid rows with
+empty stdout, scenario/step/byte/frame/collider limits, and protocol bounds.
+
+The first comparison exposed a concrete `dry_travel` issue: `ls.a_(FF)` performs
+both ground-friction lookups before invoking `sn.b(DDD)`. The prior implementation
+looked up horizontal drag after movement, where contact flags/support could have
+changed. Against the unchanged native fixture, that order produced 5376/8213
+state mismatches. First repro: `travel-000-stone`, frame 0, reference Z velocity
+`3fa65d39973abc40`, post-move-lookup result `3fb2a305380d1b60`. Moving the drag
+lookup before `move_entity` restored exact parity. The grounded Air regression
+also now asserts the native fallback drag `0.54600006f` when no support voxel is
+found.
+
+Verification: `cargo test --locked --offline -p beta-core --example
+movement_probe` → 4 PASS; `cargo test --locked --offline -p beta-core --lib
+motion::tests` → 6 PASS; direct probe output compares byte-for-byte with all 8213
+native reference states (SHA-256
+`80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd`). Full
+`cargo test --all-targets --locked --offline` (58 library, 39 examples, 16
+view/viewer tests), workspace clippy, and fmt passed. Oracle and fixtures were
+not changed.

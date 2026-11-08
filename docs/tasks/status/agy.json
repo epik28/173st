@@ -4,20 +4,31 @@
   "tasks": {
     "MOVE-001-A01": {
       "state": "done",
-      "summary": "Реализован beta_core::motion: pure move_entity по sn.b(DDD), dry_travel по ls.a_(FF), sn.a(FFF) и ls.R(). Включены ordered AABB candidates, no-clip/web, двухосевая sneak support, allow_slide deltas, step ascent/descent/tie, flags/velocity/fall distance, f32 movement input/yaw/jump/gravity и отдельные начальный/post-move friction lookups с air/stone/ice. Native parity не заявляется до C01/A02.",
+      "summary": "Реализован beta_core::motion: pure move_entity по sn.b(DDD), dry_travel по ls.a_(FF), sn.a(FFF) и ls.R(). Включены ordered AABB candidates, no-clip/web, sneak support, allow_slide, step ascent/descent/tie, flags/velocity/fall distance, f32 movement input/yaw/jump/gravity и две friction lookup до native sn.b(DDD), включая air/stone/ice. A02 сравнил все 8213 native states exact-bit.",
       "checks": [
         "cargo test --locked --offline -p beta-core motion::tests:: → PASS: 6 meaningful unit tests на constructor/no-clip, Y-X-Z collision/flags/fall, web, sneak ledge support, allow_slide, step clearance/base tie, acceleration/yaw/jump/gravity and air/stone/ice friction",
         "cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS",
         "cargo test --all-targets --locked --offline → PASS: 58 beta-core library + 39 example + 5 beta-view + 5 beta-viewer loader + 1 viewer binary tests",
         "cargo fmt --all -- --check → PASS",
         "Native bytecode reviewed from pinned /tmp/173st-movement-research/sn.javap and ls.javap; no C01 movement parity claimed yet",
-        "A01 follow-up: regressions for grounded Air fallback friction 0.54600006f, ascent/horizontal/descent step clipping, partial-height landing, and allow_slide=false comparison to original Y pass; parity still deferred until C01/A02"
+        "A01 follow-up: regressions for grounded Air fallback friction 0.54600006f, ascent/horizontal/descent step clipping, partial-height landing, and allow_slide=false comparison to original Y pass",
+        "A02 correction: both ls.a_ friction queries (acceleration and horizontal drag) happen before sn.b(DDD); delaying drag lookup until after movement caused 5376/8213 native fixture mismatches. Moved the lookup before movement; grounded-Air fallback regression now checks 0.54600006f drag.",
+        "cargo test --locked --offline -p beta-core --example movement_probe → PASS: exact 8213-state fixture, malformed/late-error atomicity, scenario/step/byte/frame/collider limits",
+        "cargo run --quiet --locked --offline -p beta-core --example movement_probe < tests/fixtures/movement/input.tsv > /tmp/agy-movement-probe.tsv; cmp .../reference.tsv → PASS, 8213 lines, SHA-256 80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd",
+        "cargo test --all-targets --locked --offline → PASS: 58 beta-core library + 39 examples + 6 beta-view + 10 beta-viewer tests",
+        "cargo clippy --workspace --all-targets --locked --offline -- -D warnings; cargo fmt --all -- --check → PASS"
       ]
     },
     "MOVE-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен strict atomic bounded movement_probe для frozen MOVE-001 protocol. Все 8213 состояний C01 совпали с native reference по raw bits. В ходе пробинга исправлено положение второй friction lookup: bytecode ls.a_ делает её до sn.b(DDD), а не после движения.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example movement_probe → 4 PASS: все 8213 native states exact; malformed/late-error atomic rejection; scenario, step, input-byte, per-frame and collider limits",
+        "cargo run --quiet --locked --offline -p beta-core --example movement_probe < tests/fixtures/movement/input.tsv > /tmp/agy-movement-probe.tsv; cmp /tmp/agy-movement-probe.tsv tests/fixtures/movement/reference.tsv → PASS, 8213 LF rows; both outputs SHA-256 80e3faef85ac842d756c0ac85731208db583d009ecd884627ff33e94dbc91bbd",
+        "Counterfactual post-move friction run against the unchanged fixture produced 5376 mismatches; first reproducible row is travel-000-stone frame 0 (reference velocity Z 3fa65d39973abc40 vs post-move-query 3fb2a305380d1b60). Restored native pre-move lookup and exact corpus passes.",
+        "cargo test --locked --offline -p beta-core --lib motion::tests → 6 PASS, including grounded Air fallback drag 0.54600006f",
+        "cargo fmt --all -- --check; cargo test --all-targets --locked --offline; cargo clippy --workspace --all-targets --locked --offline -- -D warnings → PASS"
+      ]
     },
     "GAME-ORACLE-001-A01": {
       "state": "done",
