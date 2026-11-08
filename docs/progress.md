@@ -2,14 +2,14 @@
 
 ## Текущее состояние
 
-Открыт WORLD-LOAD-001: параметры level.dat и typed chunk data без графики/тиков.
-Реализованные ранее пакеты остаются принятыми; новая очередь содержит пять карточек.
+WORLD-LOAD-001 принят: read-only metadata и typed chunk data из Beta 1.7.3 save.
+Следующий шаг — подготовить контракт VIEW-001; графика и игровой цикл ещё не начаты.
 
-Оценка готовности **полной игры — около 7%** после REGION-001.
+Оценка готовности **полной игры — около 9%** после WORLD-LOAD-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
-- **RNG-001, RNG-002, CHUNK-001, NBT-001 и REGION-001 приняты**.
+- **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001 и WORLD-LOAD-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.
@@ -21,6 +21,11 @@
   executions и пять синтетических мутаций проверены отдельно.
 - REGION-001: 704 occupied + 44 absent slot точно совпали с оригинальным qj;
   37 synthetic cases/74 reader executions проверены отдельно от live parity.
+- WORLD-LOAD-001: 749 live rows (level.dat + 748 slots) совпали с native Java;
+  704 chunk payload present, 44 absent. Отдельно проверены 22 protocol executions
+  и 42 generated edge cases/84 executions. Native audit: qj=748, ij=705, ei=1,
+  full native chunk/world loads=0. Это read-only data extraction, без генерации,
+  тиков, создания игровых объектов и записи.
 - Rust принадлежит роли agy. Текущий REGION реализован внутренним агентом
   `gpt-6-luna low`, runner C02 — другим агентом той же модели. Координатор
   Codex выполнил ревью, запросил исправления Rust и принял объединённый результат;
@@ -30,6 +35,13 @@
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+WORLD-LOAD-001: clean Rust snapshot `a7aa6856f81da7f3e008b4c1d7ad9ac89cffac18`,
+объединённая ревизия `8292470d5cdcba84ad42527496226e2c1ca33f8d`; Rust↔Java
+749/749 exact. `python3 tools/check.py` — 75 Python + 66 Rust tests,
+fmt/check/clippy/doc PASS. Все пять прежних strict parity suites и новый world
+suite PASS; полный world protocol/saved review и generated edges PASS. Отчёты и
+артефакты перечислены в `docs/tasks/status/codex.json` и `docs/handoffs/codex.md`.
 
 REGION-001: snapshot agy `4f6c41c6a1edef399ac4bfa001f6be13d5089158`,
 C02 `e388657`, объединённая ревизия `1e076324e992412d396a15da72f808facb00632f`.
@@ -77,8 +89,7 @@ NBT parity относится к общей области оригинальн�
 сохранены. Java DataOutput нормализует NaN; входные биты остаются в evidence.
 Root-End/trailing-byte/TSV guards принадлежат адаптеру, не оригиналу.
 
-Игровая логика, полная загрузка настоящего сохранения, графика и производительность
-игры ещё не проверялись. REGION-001 извлекает сырые NBT payload из read-only
-McRegion; семантическая загрузка level.dat/чанков ещё не реализована.
-Текущий пакет — WORLD-LOAD-001, контракт и пять карточек открыты. Затем планируется
-VIEW-001. Координатор запускает внутренних агентов по `docs/workflow.md`.
+Игровая логика, симуляция мира, запись сохранения, графика и производительность
+игры ещё не проверялись. WORLD-LOAD-001 даёт безопасные typed metadata/chunk
+данные и сохраняет исходные NBT; он не загружает игровой World и не запускает тики.
+Следующий пакет — VIEW-001 после подготовки контракта и тестовой сцены.

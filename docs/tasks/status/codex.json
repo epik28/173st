@@ -14,21 +14,34 @@
       ]
     },
     "WORLD-LOAD-001-C02": {
-      "state": "in_progress",
-      "summary": "Добавлены world runner/verifier и 11 Python-тестов. Исправлена ошибочная классификация разрешённого -0 и усилена проверка input-copy (ровно 5 файлов + 2 маркера, без symlink/лишних записей); verifier выдаёт ясные ошибки для missing logs/JAR. C02 остаётся in_progress: world_probe не закоммичен, поэтому native/probe live parity и исполняемый protocol review ещё не подтверждены.",
+      "state": "done",
+      "summary": "Реализованы и проверены world runner/reviewer: strict TSV parser/comparator, две hash-verified copied worlds, pinned native Java calls, retained raw payload binding, saved-report/protocol verifier. Во время C03 исправлены три обнаруженных дефекта: -0 protocol test, отсутствующий audit трактовался как пустой native manifest, неверное имя copy evidence; payload mutation теперь правильно считается отклонённой. Полный saved review пройден.",
       "checks": [
-        "python3 tools/check.py → PASS: 74 Python tests; cargo fmt/check/clippy; 36 beta-core + 22 example tests; doc tests",
-        "python3 -m unittest tests.python.test_world_runner tests.python.test_world_corpus → PASS: 15 tests",
+        "python3 tools/check.py на принятом снимке → PASS: 75 Python tests; cargo fmt/check/clippy; 40 library + 26 example Rust tests; doc tests",
+        "python3 -m unittest tests.python.test_world_runner tests.python.test_world_corpus → PASS: 15 tests; дополнительный регрессионный test retained manifest → PASS",
         "python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tests/python/test_world_runner.py → PASS",
         "python3 tools/parity/run.py list → PASS: world group is registered",
         "git diff --check → PASS",
-        "WORLD Java/Rust live parity and saved --protocol review → NOT RUN: world_probe source/commit absent"
+        "python3 tools/parity/run.py world --strict → PASS: 749/749 exact rows, 704 present + 44 absent; artifacts/parity/world/run-eb0qhh2b/report.json; rust_revision=8292470d5cdcba84ad42527496226e2c1ca33f8d; rust_dirty=false",
+        "python3 tools/parity/verify_report.py artifacts/parity/world/run-eb0qhh2b/report.json --protocol → PASS: saved source/JAR/class/binary/native audit/payload hashes; 22 Java/Rust protocol executions; scalar/array/payload/audit mutation guards",
+        "python3 tools/parity/world_edges.py artifacts/parity/world/run-eb0qhh2b/report.json → PASS: 42 generated cases / 84 executions; separate from live parity"
       ]
     },
     "WORLD-LOAD-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "WORLD-LOAD-001 принят на clean Rust snapshot a7aa6856f81da7f3e008b4c1d7ad9ac89cffac18 и объединённой ревизии 8292470d5cdcba84ad42527496226e2c1ca33f8d. Совпали typed metadata/chunk arrays/raw bytes всех 749 live rows; original world/JAR/input/source hashes неизменны, native audit подтверждает qj=748/ij=705/ei=1 и native_chunk_loads=0. Это read-only data loading; World/ticks/generation/save не реализованы.",
+      "checks": [
+        "python3 tools/check.py → PASS: 75 Python tests; fmt/check/clippy; 40 library + 26 example Rust tests; doc tests",
+        "python3 tools/parity/run.py rng --strict → PASS: 96/96; artifacts/parity/rng/run-ogckns96/report.json",
+        "python3 tools/parity/run.py rng-extended --strict → PASS: 13227/13227; artifacts/parity/rng-extended/run-runih6b0/report.json",
+        "python3 tools/parity/run.py chunk --strict → PASS: 4182/4182; artifacts/parity/chunk/run-taeb1q9q/report.json",
+        "python3 tools/parity/run.py nbt --strict → PASS: 5250/5250; artifacts/parity/nbt/run-e4b1s6zl/report.json",
+        "python3 tools/parity/run.py region --strict → PASS: 748/748; artifacts/parity/region/run-jar9jg2_/report.json",
+        "python3 tools/parity/run.py world --strict → PASS: 749/749; artifacts/parity/world/run-eb0qhh2b/report.json",
+        "python3 tools/parity/verify_report.py artifacts/parity/world/run-eb0qhh2b/report.json --protocol → PASS: 22 executions, saved evidence and mutations verified",
+        "python3 tools/parity/world_edges.py artifacts/parity/world/run-eb0qhh2b/report.json → PASS: 42 generated cases / 84 executions",
+        "Source and copy hashes unchanged; git diff --check → PASS"
+      ]
     },
     "RNG-001-C01": {
       "state": "done",

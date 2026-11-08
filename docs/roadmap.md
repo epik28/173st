@@ -5,9 +5,9 @@
 и приёмкой, который готовит Codex перед началом соответствующего пакета.
 Наличие пункта в этом документе не означает готовность функции.
 
-RNG-001, RNG-002, CHUNK-001, NBT-001 и [REGION-001](tasks/REGION-001.md)
-приняты в `main`. Открыт [WORLD-LOAD-001](tasks/WORLD-LOAD-001.md): пять карточек
-read-only world metadata/chunk loading. Следующий визуальный пакет — VIEW-001.
+RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001 и
+[WORLD-LOAD-001](tasks/WORLD-LOAD-001.md) приняты. WORLD-LOAD даёт read-only
+metadata/chunk loading; следующий пакет — VIEW-001 после подготовки контракта.
 
 ## Общий цикл каждого пакета
 
@@ -42,7 +42,7 @@ JAVA-001 и MATH-001 закрывают зависимости конкретн�
 | 1.1 CHUNK-001 — принят | Координаты, массивы 16×128×16, ID и три nibble-массива | Границы, отрицательные координаты, порядок байтов и оригинальный nibble-класс | 4182 операции совпали; нет порчи соседнего nibble |
 | 1.2 NBT-001 — принят | Теги 0–11, big-endian, modified UTF-8, строгие лимиты | 5250 live cases с настоящими `ij`/`nu`, отдельно wire extensions и отличия native | NBT parity в согласованной общей области; исходный оригинал и расхождения описаны |
 | 1.3 REGION-001 — принят | Read-only McRegion `.mcr`, header/sectors, bounded gzip/zlib и raw NBT payload | Native qj: 704 occupied + 44 absent; 37 отдельно помеченных synthetic cases | Совпали наличие, timestamp, compression и raw chunk bytes; источник не изменён |
-| 1.4 WORLD-LOAD-001 — в работе | `level.dat`, spawn, время, seed, измерение, сохранённые NBT игрока/сущностей/tile entities | Native metadata constructor и NBT extraction; snapshots и неизвестные поля | Headless загрузчик выдаёт проверяемую сводку участка; исходный мир не меняется |
+| 1.4 WORLD-LOAD-001 — принят | `level.dat`, spawn, время, seed, измерение, typed chunk arrays, сохранённые raw NBT игрока/сущностей/tile entities | Native metadata constructor, NBT extraction, 749 live rows, protocol и generated edges | Данные читаются без изменения исходного мира; native World/tick/entity loading не заявляются |
 
 NBT и Region сначала читают данные. Запись вводится отдельно после проверки
 сохранности неизвестных тегов. Зависимости для сжатия фиксируются интегратором
@@ -112,7 +112,7 @@ singleplayer оригинального клиента. Метрики соби�
 
 ## Порядок открытия следующих контрактов
 
-После REGION-001 Codex готовит WORLD-LOAD-001, затем VIEW-001. Параллельно
+После WORLD-LOAD-001 Codex готовит VIEW-001. Параллельно
 перед их потребителями уточняет JAVA-001,
 GAME-ORACLE-001 и MATH-001. Новые API/зависимости фиксируются до начала работы agy.
 Это план продолжения, а не разрешение двум агентам независимо расширять queue.json.

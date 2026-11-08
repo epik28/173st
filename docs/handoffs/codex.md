@@ -658,19 +658,18 @@ Python и parity наборы не запускались повторно, ко
 - Checks: `python3 -m unittest discover -s tests/python -p test_world_corpus.py -v` → 4 PASS; `python3 tools/check.py` → 64 Python + 58 Rust all-targets, fmt/check/clippy/doc PASS; `git diff --check` PASS. A no-write corpus run left tracked audit/generated fixtures unchanged.
 - C01 establishes native extraction/default evidence only; Rust parity and report runner belong to later cards. Next: coordinator review/integration; C02/A01 may proceed from the contract and this snapshot.
 
-## WORLD-LOAD-001-C02 — WIP checkpoint (not accepted)
+## WORLD-LOAD-001-C02 — implementation and C03 acceptance
 
 - Назначенная модель: `gpt-6-luna`, reasoning `low`; без делегирования. Worktree `/home/andrew/173st/world-runner`, ветка `agents/world-runner`.
 - Начальный C01 snapshot `374f6e6` получен fast-forward. Разрешённый C01 post-review `88b510d0fc37304d4b26ef50b2af5ea8b6f567f1` не был потомком merge HEAD, поэтому включён отдельным `--no-ff` merge; добавлены лимиты входных файлов Oracle.
 - Проверенные изменения в этом checkpoint: `tools/parity/run.py`, `tools/parity/world_run.py`, `tools/parity/verify_report.py`, `tools/parity/world_review.py`, новый `tests/python/test_world_runner.py`, status/handoff. Runner содержит dispatch, строгий координатный TSV parser/comparator, две независимые hash-verified копии, Java native audit и retained-byte binding, Rust build/run путь и saved-report/protocol/mutation verifier.
 - Review нашёл и исправил дефект: `-0` разрешён контрактом, но одновременно попадал в список protocol-invalid inputs; теперь он проверяется отдельным положительным случаем, включая канонический вывод `0,0` и точную ширину typed row. Дополнительно `_check_copy` теперь отклоняет лишние файлы, директории и symlinks, проверяя ровно ожидаемые входы и два маркера. Saved verifier выдаёт явные ошибки при отсутствии process logs или pinned JAR.
-- Проверки: `python3 tools/check.py` → PASS: 75 Python tests; cargo fmt/check/clippy; 36 library + 22 example Rust tests; doc tests. `python3 -m unittest tests.python.test_world_runner tests.python.test_world_corpus` → 15 PASS; `python3 -m py_compile tools/parity/world_run.py tools/parity/world_review.py tests/python/test_world_runner.py` → PASS; `python3 tools/parity/run.py list` → PASS; `git diff --check` → PASS.
-- C02 остаётся `in_progress`, не принят: `crates/beta-core/examples/world_probe.rs` пока отсутствует в этом snapshot, поэтому live Java↔Rust parity и saved `verify_report.py ... --protocol` не запускались. После коммита A02 получить точный clean Rust SHA, выполнить `python3 tools/parity/run.py world --strict`, затем `python3 tools/parity/verify_report.py <report.json> --protocol`; исправлять только воспроизводимые дефекты runner/verifier. Не запускать world edges: их готовит координатор.
-- C02 WIP is committed as `dad835e` and merged into `codex/verification`; its completion awaits a committed A02 probe and live/saved protocol verification.
+- C02 implementation commit `dad835e` was reviewed and merged; C03 found and fixed three concrete runner/reviewer defects (snapshot evidence key, absent-vs-empty native audit manifest, missing mutation exception import). These fixes are in the final accepted revision below.
+- Final `python3 tools/check.py` → PASS: 75 Python tests; cargo fmt/check/clippy; 40 library + 26 example Rust tests; doc tests. Focused world runner/corpus tests: 15 PASS, plus retained-manifest regression PASS.
+- On the final accepted revision all five earlier parity suites and WORLD passed. WORLD report `artifacts/parity/world/run-eb0qhh2b/report.json`: 749/749 exact rows, `rust_dirty=false`. Saved report/protocol review passed 22 Java/Rust executions; generated edge review passed 42 cases / 84 reader executions. Full commands and report paths are in `docs/tasks/status/codex.json`.
 
-## Coordinator checkpoint (2026-11-08)
+## Final package state (2026-11-08)
 
-- Accepted baseline remains `main` at planning commit `bf18c34`; WORLD-LOAD is not accepted. Overall project estimate remains approximately **7%**.
-- C01 and A01 are complete. C02 runner/reviewer checks are recorded above. A02 probe is currently being completed on `agy/development`; its earlier checkpoint `8eb5703` records contract findings.
-- C03 remains pending. Do not claim full world parity or increase the completion estimate until A02 and C02 are verified and C03 accepts the complete package.
-- Resume/acceptance order: obtain exact clean A02 SHA; run the 749-row `world --strict` parity; run saved report review with `--protocol`; run generated `world_edges.py` on that report; then C03 checks and main integration.
+- Rust snapshot: `a7aa6856f81da7f3e008b4c1d7ad9ac89cffac18`; accepted clean combined revision: `8292470d5cdcba84ad42527496226e2c1ca33f8d`.
+- WORLD-LOAD-001 is accepted and fast-forwarded into `main`; all five stage cards are done. Overall game completion estimate is approximately **9%**.
+- Scope is read-only typed world data loading. The project still lacks game simulation, save writing, graphics and the play loop. Next, prepare the VIEW-001 contract.

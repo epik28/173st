@@ -1,6 +1,7 @@
 # WORLD-LOAD-001 — read-only headless world data loading
 
-Статус: подготовка после REGION-001 (`37d64c9`). Реализуем загрузку `level.dat`
+Статус: принят в `main` после REGION-001 (`37d64c9`), revision
+`8292470d5cdcba84ad42527496226e2c1ca33f8d`. Реализована загрузка `level.dat`
 и семантическое чтение сохранённых чанков через уже принятые gzip/NBT/McRegion.
 Результат — пригодные для клиента параметры мира, `ChunkData`, height map и
 сохранённые NBT-записи игрока/сущностей/tile entities. Окно, тики, генерация,
