@@ -2,6 +2,55 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "GAME-ORACLE-001-C01",
+      "owner": "codex",
+      "title": "Native geometry oracle and deterministic behavior corpus",
+      "card": "docs/tasks/GAME-ORACLE-001.md",
+      "depends_on": [
+        "JAVA-001-C03"
+      ]
+    },
+    {
+      "id": "GAME-ORACLE-001-C02",
+      "owner": "codex",
+      "title": "Geometry live runner and evidence review",
+      "card": "docs/tasks/GAME-ORACLE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C01"
+      ]
+    },
+    {
+      "id": "GAME-ORACLE-001-A01",
+      "owner": "agy",
+      "title": "Original-compatible AABB and Vec3 geometry",
+      "card": "docs/tasks/GAME-ORACLE-001.md",
+      "depends_on": [
+        "JAVA-001-C03"
+      ]
+    },
+    {
+      "id": "GAME-ORACLE-001-A02",
+      "owner": "agy",
+      "title": "Geometry probe and protocol regressions",
+      "card": "docs/tasks/GAME-ORACLE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-A01",
+        "GAME-ORACLE-001-C01"
+      ]
+    },
+    {
+      "id": "GAME-ORACLE-001-C03",
+      "owner": "codex",
+      "title": "Geometry integration and agent-facing CLI acceptance",
+      "card": "docs/tasks/GAME-ORACLE-001.md",
+      "depends_on": [
+        "GAME-ORACLE-001-C01",
+        "GAME-ORACLE-001-C02",
+        "GAME-ORACLE-001-A01",
+        "GAME-ORACLE-001-A02"
+      ]
+    },
+    {
       "id": "EVIDENCE-001-C01",
       "owner": "codex",
       "title": "Bind saved math/java reports to processes and executable artifacts",
