@@ -297,6 +297,37 @@ mod tests {
     }
 
     #[test]
+    fn scalar_climate_matches_every_native_climate_fixture_raw_bit() {
+        let cases = include_str!("../../../tests/fixtures/color/cases.tsv");
+        let native = include_str!("../../../tests/fixtures/color/native.tsv");
+        let mut rows = 0;
+        for (case, expected) in cases.lines().zip(native.lines()) {
+            let case: Vec<_> = case.split('\t').collect();
+            let expected: Vec<_> = expected.split('\t').collect();
+            if case[1] != "climate" {
+                continue;
+            }
+            assert_eq!(expected[1], "climate", "fixture row {}", case[0]);
+            let climate = ClimateSampler::new(case[2].parse().unwrap())
+                .sample(case[3].parse().unwrap(), case[4].parse().unwrap());
+            assert_eq!(
+                climate.temperature.to_bits(),
+                u64::from_str_radix(expected[2], 16).unwrap(),
+                "temperature {}",
+                case[0]
+            );
+            assert_eq!(
+                climate.rainfall.to_bits(),
+                u64::from_str_radix(expected[3], 16).unwrap(),
+                "rainfall {}",
+                case[0]
+            );
+            rows += 1;
+        }
+        assert_eq!(rows, 1280);
+    }
+
+    #[test]
     fn native_palette_index_argb_and_leaf_metadata_precedence_are_preserved() {
         let mut palette = vec![0_u32; 65_536].into_boxed_slice();
         for (i, value) in palette.iter_mut().enumerate() {

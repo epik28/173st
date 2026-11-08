@@ -423,3 +423,33 @@ unit tests and doc tests), including all 84 observations / 336 unique corners.
 `cargo fmt --all -- --check`, and `git diff --check` passed. Broader viewer
 integration and screenshot acceptance remain C02 scope. No other agents were
 used.
+
+## COLOR-001-A01 — seeded biome climate and color palettes
+
+Implemented the frozen `beta_core::biome` API in commit `9dfc4f2`: seeded scalar
+climate sampling follows the native `xv.a(x,z,1,1)` path, including Java RNG
+consumption, wrapped seed multipliers, simplex floor behavior, octave arithmetic
+order, palette index conversion and metadata precedence. Added
+`beta_viewer::colors` in commit `212c79e`: it loads the original grass/foliage
+PNGs only after checking their pinned SHA-256 and exact 256×256 dimensions, then
+stores row-major ARGB values. The `color_probe` example implements the frozen
+ASCII TSV protocol with duplicate-ID detection, canonical numeric parsing,
+4 MiB/4096-row limits and buffered all-or-nothing stdout.
+
+After consuming C01 snapshot `6eb78c6` with a regular merge, added a core
+regression that compares raw `f64` bits for every one of the 1280 native climate
+rows. The full probe was run with the locally prepared original palette assets:
+all 1600 output rows matched `tests/fixtures/color/native.tsv` byte-for-byte;
+both files have SHA-256
+`09301df08d99dfbe094b348d3e6127479090f614e2cbd9542ea1aa284d385944`. No native
+oracle or fixture files were changed. The loader verifies the palette hashes
+`d9b2d9073f06013b9f36b1c61a91678be478760abff31fae942ee52ad898ca1b` (grass)
+and `644a527dd7daea5a195bbed056a6a41e295b6043a05621f4c5c263a25fb171cc`
+(foliage).
+
+Verification: `cargo test --locked --offline --all-targets`, workspace clippy
+with `-D warnings`, `cargo fmt --all -- --check`, and `git diff --check` passed.
+Probe tests cover both output shapes, late invalid rows after valid rows, duplicate
+IDs, strict lowercase raw hex, missing final LF, non-ASCII input, CRLF and limits.
+The fixture run uses the original local PNG assets and is recorded here; those
+assets are not embedded or committed. No external dependencies were added.
