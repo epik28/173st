@@ -830,3 +830,20 @@ Python и parity наборы не запускались повторно, ко
   Updated full-game estimate from approximately 10% to **11%** for the first
   accepted implementation of game math; world simulation, movement, generation,
   interaction and most presentation remain unimplemented.
+
+## JAVA-001-C01 — direct JVM oracle and behavior corpus
+
+- Added `JavaCompatOracle.java` with direct JVM primitive casts and direct
+  `String.hashCode()` on strict UTF-8-decoded strings. Its protocol and oracle
+  source are independent of the Rust implementation and game client JAR.
+- Generated 18,493 committed cases: 4,109 raw-bit inputs for each f32/f64 to
+  i32/i64 conversion, including NaN, infinities, signed zero, subnormals and
+  integer-range boundaries; plus 2,057 deterministic Unicode strings with
+  supplementary scalars, combining marks and long hash-overflow cases.
+- Two independent JVM runs matched exactly. Input SHA
+  `ef9ee6fabab78ee9957abd7b9785ac0708ad9b736c9cc25671095b826bdb55ee`, output
+  SHA `397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8`, oracle
+  SHA `c97fed3d941b130d69e454c190d2d1d4f22a3dfee357666035ed0320495da58f`.
+- `python3 -m unittest tests.python.test_java_compat_corpus -v` → PASS (2);
+  fixture regeneration, `py_compile` and `git diff --check` → PASS. A01 and C02
+  can now proceed independently.

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "suite": "java",
+  "case_count": 18493,
+  "seed": 389748643,
+  "random_conversion_cases_per_operation": 4096,
+  "string_cases": 2057,
+  "operations": {
+    "f32_to_i32": 4109,
+    "f32_to_i64": 4109,
+    "f64_to_i32": 4109,
+    "f64_to_i64": 4109,
+    "string_hash_code": 2057
+  },
+  "oracle": "tools/oracle/src/JavaCompatOracle.java",
+  "oracle_sha256": "c97fed3d941b130d69e454c190d2d1d4f22a3dfee357666035ed0320495da58f",
+  "java_version": "openjdk version \"17.0.21.0.3\" 2026-10-24\nOpenJDK Runtime Environment (build 17.0.21.0.3+1)\nOpenJDK 64-Bit Server VM (build 17.0.21.0.3+1, mixed mode, sharing)",
+  "input_sha256": "ef9ee6fabab78ee9957abd7b9785ac0708ad9b736c9cc25671095b826bdb55ee",
+  "reference_sha256": "397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8",
+  "repeat_reference_sha256": "397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8"
+}

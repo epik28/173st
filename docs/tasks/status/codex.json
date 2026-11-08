@@ -2,7 +2,16 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
-    "JAVA-001-C01": {"state": "pending", "summary": "", "checks": []},
+    "JAVA-001-C01": {
+      "state": "done",
+      "summary": "Добавлены JavaCompatOracle с прямыми JVM casts/String.hashCode и фиксированный corpus из 18493 случаев. Все четыре conversion operation имеют по 4096 детерминированных raw-bit cases плюс edges; добавлено 2057 Unicode string cases. Два Java запуска идентичны.",
+      "checks": [
+        "python3 tools/oracle/java_compat_corpus.py --write → PASS: 18493 rows; input SHA ef9ee6fabab78ee9957abd7b9785ac0708ad9b736c9cc25671095b826bdb55ee; output SHA 397c7c50db72608ccb863d2f00c331da8982dee4cb31cc702ddb158003ab99e8",
+        "python3 tools/oracle/java_compat_corpus.py → PASS: JVM oracle/audit and repeat output match committed fixtures; oracle SHA c97fed3d941b130d69e454c190d2d1d4f22a3dfee357666035ed0320495da58f",
+        "python3 -m unittest tests.python.test_java_compat_corpus -v → PASS: 2 tests",
+        "python3 -m py_compile tools/oracle/java_compat_corpus.py; git diff --check → PASS"
+      ]
+    },
     "JAVA-001-C02": {"state": "pending", "summary": "", "checks": []},
     "JAVA-001-C03": {"state": "pending", "summary": "", "checks": []},
     "WORLD-LOAD-001-C01": {
