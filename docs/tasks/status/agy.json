@@ -12,7 +12,13 @@
         "git diff --check → PASS"
       ]
     },
-    "WORLD-LOAD-001-A02": {"state":"pending","summary":"","checks":[]},
+    "WORLD-LOAD-001-A02": {
+      "state": "in_progress",
+      "summary": "A02 ещё не реализован. Прочитан контракт/protocol и начат анализ C01 helper с правилами markers, canonical output-parent overlap guard, TSV и retained payload. Следующий шаг — добавить examples/world_probe.rs, затем протокольные/synthetic tests, fmt/clippy/check и отдельный commit.",
+      "checks": [
+        "git status --short --branch → чистое дерево после A01 commit 2bf4bcb5c2fbb993dd3e7bd6cb0933a7676a9d77; A02 checks не запускались"
+      ]
+    },
     "RNG-001-A01": {
       "state": "done",
       "summary": "Реализован JavaRandom (LCG) с начальным преобразованием seed и методом next_int(). Проверены граничные seed (0, 1, -1, 42, min/max i64). Другие методы RNG и внешние зависимости не добавлялись.",
