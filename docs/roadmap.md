@@ -126,5 +126,6 @@ VIEW-001 и MATH-001 приняты. Следом готовим JAVA-001/GAME-O
 
 - UV-001 — принят: user screenshot 2026-11-08, исправлены faces1/3;
   все6 faces проверены по actual native Tessellator buffer.
-- VIEW-002: серый верх травы (отсутствующий biome tint), листья/alpha-test.
+- COLOR-001 — принят: exact scalar climate + grass/foliage palettes.
+- LEAF-001 — в работе: серый верх травы (подключение biome tint), листья/alpha-test.
   Не смешивать эти дефекты с UV-ориентацией; каждый имеет отдельную приёмку.

@@ -12,8 +12,8 @@ GAME-ORACLE-001 принят: оригинальные AABB/Vec3/ray метод�
 CLI с пользовательскими входами, Rust geometry сверена по raw bits.
 EVIDENCE-001 усилил сохранённые доказательства. MOVE-001 принят: native dry
 movement и фиксированный игровой шаг подключены к viewer. UV-001 принят: исправлена ориентация UV на верхней грани и грани +Z по
-оригинальному Tessellator buffer. Следом — листья, alpha test и biome tint
-(VIEW-002, контракт перед реализацией).
+оригинальному Tessellator buffer. COLOR-001 принят: scalar biome climate и палитры точно сверены с оригиналом.
+LEAF-001 подключает их к viewer вместе с листьями и alpha-test.
 
 Оценка готовности **полной игры — около 16%** после MOVE-001.
 Методика и веса: [completion-estimate.md](completion-estimate.md).
@@ -46,6 +46,16 @@ movement и фиксированный игровой шаг подключен�
   `flate2 =1.1.9` (`rust_backend`) и probe-only `sha2 =0.10.9`; lockfile проверен offline.
 
 ## Последняя независимая приёмка
+
+COLOR-001 принят: Rust snapshot `ea8bcfc`, clean tested source `c332ebb`.
+1280 climate +320 palette rows exact, включая raw f64 и полныйARGB. Дополнительно
+320 custom rows across64 diverse seeds и singleton newseed точно совпали с JVM.
+Проверены retained artifacts/processes/commands/sources/resources,4 output
+mutations,24 malformed executions; full workspace check147 Python cases15 skips
+и прежние RNG/math/java strict suites PASS. Core APIs Java-free, PNG palette
+resources читаются локально с проверкойSHA. Видимый tint/leaf renderer ещё
+принимается отдельно LEAF-001; оценка пока остаётся около16%.
+
 
 UV-001 принят: Rust snapshot `6312bcf`, clean merged test revision `a3ca583`.
 Прямые original cv.a..f calls → native nw.g packed xyz/uv дали 84 случая,

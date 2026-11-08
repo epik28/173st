@@ -969,3 +969,33 @@ Local main acceptance; user requested push only each5–10pp so no new push for
 this bugfix. Estimate stays about16%. Next VIEW-002 tint/leaves; do not claim
 grey grass or absent canopy fixed by UV correction. No direct engine Rust
 changes by coordinator.
+
+## COLOR-001 accepted; LEAF-001 C01 ready
+
+Integrated Rust ea8bcfc (gpt-6-luna low); native C01 6eb78c6/3719b0e by separate
+gpt-6-luna low; independent C02 review same model, coordinator wrote runner.
+Root direct engineRust changes:none. Clean validated c332ebb.
+147 Python tests15 optin skips +allworkspaceRustchecks PASS; 11 explicit native
+color/corpus/runner tests PASS, saved evidence mutations and24 malformed
+subprocesses. Latest pinned strict report artifacts/parity/color/run-6l18gnu9,
+saved protocol PASS; customsingleton run-ib05q2ko/protocol PASS.
+
+Concern: five baseline seed extrema include equal JavaRandom low48bit states,
+so independently tested64 diverse seeds×5 points320additionalcases, exactnative
+match run-n5ra0fx2; saved review4 mutations PASS. Reproduce seeds by
+s=(i*0x9e3779b97f4a7c15+0x0123456789abcdef) mod2^64, reinterpret signed, i0..63;
+points (0,0),(-17,31),(1234567,-7654321),(30000000,-30000000),(-30000000,30000000).
+Retained input/source/assets/classes/executable/commands/logs in each reportdir.
+Previous strict RNG96,extended13227,math131408,java18493 PASS at
+run-kmg8v2xt/run-dj8u2naf/run-30q7ykig/run-u4s_v3yy.
+
+LEAF C01 01dfacd native actual calls confirmed constructor-default leaves
+opaque=true tile52; fancy settertrue=>opaque false52/132, leafleaf faces shown;
+fastfalse=>opaque true53/133, leafleaf faces hidden. Grass nativeflat top tinted,
+sidebasewhite plus tinted tile38 overlays; collision originaluu.f fullcube.
+Earlier read-only agent guessedwrongfrombytecode; root directliveexperiment
+GraphicsBehaviorProbe overturned guesses before freezing LEAF contract.
+Fresh root two-JVM retained capture artifacts/leaf-review-dgf6nlww/report.json
+PASS; native GL_LEQUAL515 and alphaGREATER516,.1 verified viajavap.
+Renderer C04 in separate /173st/leaf-viewer worktree stillinprogress.
+COLOR estimate stays16% pending visibleintegration. No push until +5–10pp.

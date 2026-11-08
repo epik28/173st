@@ -3,9 +3,14 @@
   "role": "codex",
   "tasks": {
     "LEAF-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native leaf/grass adapter01dfacd verifies fancy/fast tiles, opacity, culling and original collision bounds, captures grass flat renderer top/side/overlay packed vertices. Early speculative bytecode notes were contradicted by actual live calls and corrected before contract/implementation.",
+      "checks": [
+        "Root python3 tools/oracle/leaf_corpus.py --live →2 original JVM captures equal fixture; GL_LEQUAL and GL_GREATER.1 verified in originalMinecraft bytecode",
+        "Independent retained root source/classes/commands/logs +2 native outputs at artifacts/leaf-review-dgf6nlww/report.json →PASS",
+        "192 leaf tile cases,48 neighbor visibility,33opacity queries,1null-world fullcube collision,2grassrendercalls/96trianglevertices; nativeWorld/chunkload0, noGLdraw/flush",
+        "C04 renderer work explicitly delegated to gpt-6-luna low in separate leaf-viewer checkout; awaiting finalintegration"
+      ]
     },
     "LEAF-001-C04": {
       "state": "pending",
@@ -18,19 +23,33 @@
       "checks": []
     },
     "COLOR-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Native xv(fd)/wp/bk/ia/jh oracle6eb78c6+3719b0e, 1280 climate+320 palette rows, two original JVM traces exact. Synthetic seed-only fd allocated without constructors; actual direct calls, seed reads, original class/resources/bootstrap/code source audited. Internal block calls explicitly not instrumented.",
+      "checks": [
+        "BETA_LIVE_COLOR=1 python3 -m unittest tests.python.test_color_corpus tests.python.test_color_runner -v →11 PASS, including 2 native JVM repeats, wrongJAR and lateerror atomic rejection",
+        "Native output SHA09301df08d99dfbe094b348d3e6127479090f614e2cbd9542ea1aa284d385944; actual1280 xv samples,1280wp,5120bk,320ia direct,320jh direct,5managerconstructors,15seedreads,0nativeWorldconstructors"
+      ]
     },
     "COLOR-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Exact typed climate/ARGB comparator, retained process/source/class/binary/assets evidence and saved reviewer, custominput CLI. Missing originals/probe errors cannot pass. Independent gpt-6-luna low review; minor URI query/fragment hardening applied.",
+      "checks": [
+        "python3 -m unittest tests.python.test_color_runner -v →5 PASS +1optin skip",
+        "Explicit live evidence test PASS: source/process/command/resource/binary/output tamper rejected,4 output mutations,24 malformed subprocess executions",
+        "Pinned strict and custom1row/newseed strict PASS; saved --protocol both24 malformed executions each; captures original PNGbytes into ignoredreportdir",
+        "python3 tools/prepare_assets.py → verified local palette copies beside terrain; no overwrite/JAR/save changes"
+      ]
     },
     "COLOR-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted agy snapshot ea8bcfc (core9dfc4f, colors/probe212c79e), merged clean source c332ebb. Native 1600 rows exact; additional320 cases across64 diverse seeds exact and singletoncustom validates generality. Color computation ready for renderer; no visible tint/leaf implementation claimed yet.",
+      "checks": [
+        "python3 tools/check.py →147 Python cases15optin skips; fmt/check/clippy, all-target/doc tests PASS; subsequent URI-only Python hardening unit tests PASS",
+        "python3 tools/parity/run.py color --strict →PASS artifacts/parity/color/run-6l18gnu9/report.json; clean c332ebb,1600exact",
+        "Saved pinned --protocol PASS4 mutations24 malformed executions; customsingleton report run-ib05q2ko same; diverse64seed320row report run-n5ra0fx2 saved review PASS",
+        "Previous strict rng96/rng-extended13227/math131408/java18493 PASS: run-kmg8v2xt/run-dj8u2naf/run-30q7ykig/run-u4s_v3yy",
+        "Core/renderer support authored gpt-6-luna low, coordinator no direct engineRust edits; estimate staysabout16 pending visibleintegration"
+      ]
     },
     "UV-001-C01": {
       "state": "done",
