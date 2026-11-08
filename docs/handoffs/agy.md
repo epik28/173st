@@ -338,3 +338,28 @@ changes.
 
 Scope: only `motion.rs`, `lib.rs`, `docs/tasks/status/agy.json`, and this handoff.
 Next: wait for accepted C01 snapshot before MOVE-001-A02.
+
+### MOVE-001-A01 follow-up — step descent and grounded friction defaults
+
+Bytecode review of `sn.b(DDD)` showed that a step retry clips and offsets the
+box downward by `-stepHeight` using the same step candidate list before comparing
+horizontal paths. Implemented this descent, including `allow_slide=false` checks
+against the original movement Y (the native comparisons at the up/down retry
+boundaries), and retained BASE on equal horizontal distance. Fractional y-size
+smoothing now groups `fractionalY + 0.01` before adding old `y_size`, as in the
+native double-expression order.
+
+Review of `ls.a_(FF)` showed two friction lookups: each starts at `0.91f`, or
+`0.54600006f` when grounded, then replaces it with block slipperiness × `0.91f`
+only when a non-air block is found. The first lookup controls acceleration; the
+second occurs after movement and controls horizontal drag. `dry_travel` now
+performs both lookups using the state at their respective points in the frame.
+Regression tests cover grounded Air with no supporting voxel, partial-height
+step landing, and the allow-slide-disabled step retry/base restoration.
+
+Verification: `cargo test --locked --offline -p beta-core motion::tests::` → 6
+PASS; `cargo clippy --workspace --all-targets --locked --offline -- -D warnings`,
+`cargo test --all-targets --locked --offline` (58 beta-core library, 39 examples,
+11 view/viewer tests), workspace doc tests, fmt, JSON validation and `git diff
+--check` all pass. No contract, fixtures, oracle, or probe changes; native parity
+remains pending C01/A02.
