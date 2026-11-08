@@ -16,6 +16,9 @@ def main():
     parser.add_argument("--protocol", action="store_true", help="also check live rejection of invalid TSV")
     args = parser.parse_args()
     report = json.loads(args.report.read_text())
+    if report.get("suite") == "movement":
+        from movement_review import verify_movement
+        return verify_movement(args.report, report, args.protocol)
     if report.get("suite") == "geometry":
         from geometry_review import verify_geometry
         return verify_geometry(args.report, report, args.protocol)
