@@ -8,6 +8,7 @@ pub mod chunk;
 pub mod geometry;
 pub mod java_compat;
 pub mod java_random;
+pub mod light;
 pub mod math;
 pub mod motion;
 pub mod nbt;
