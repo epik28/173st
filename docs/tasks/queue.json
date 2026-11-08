@@ -2,6 +2,36 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "LEAF-001-C01",
+      "owner": "codex",
+      "title": "Native leaf and grass material submissions",
+      "card": "docs/tasks/LEAF-001.md",
+      "depends_on": [
+        "UV-001-C02"
+      ]
+    },
+    {
+      "id": "LEAF-001-C04",
+      "owner": "codex",
+      "title": "Fancy leaves and exact tint viewer integration",
+      "card": "docs/tasks/LEAF-001.md",
+      "depends_on": [
+        "LEAF-001-C01",
+        "COLOR-001-A01"
+      ]
+    },
+    {
+      "id": "LEAF-001-C03",
+      "owner": "codex",
+      "title": "Leaf and tint visual integration acceptance",
+      "card": "docs/tasks/LEAF-001.md",
+      "depends_on": [
+        "LEAF-001-C01",
+        "LEAF-001-C04",
+        "COLOR-001-C03"
+      ]
+    },
+    {
       "id": "COLOR-001-C01",
       "owner": "codex",
       "title": "Native climate and palette oracle",

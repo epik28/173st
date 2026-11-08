@@ -2,6 +2,21 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "LEAF-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LEAF-001-C04": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LEAF-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "COLOR-001-C01": {
       "state": "pending",
       "summary": "",
