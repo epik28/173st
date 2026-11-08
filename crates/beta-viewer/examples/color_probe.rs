@@ -302,7 +302,10 @@ mod tests {
         let mut output = Vec::new();
         assert!(process_stream("id\té\t0\n".as_bytes(), &mut output, &maps()).is_err());
         assert!(output.is_empty());
-        let mut late = b"first\tpalette\t3fe0000000000000\t3fe0000000000000\n".repeat(32);
+        let mut late = (0..32)
+            .map(|index| format!("first-{index}\tpalette\t3fe0000000000000\t3fe0000000000000\n"))
+            .collect::<String>()
+            .into_bytes();
         late.extend_from_slice(b"last\tpalette\t7ff0000000000000\t0000000000000000\n");
         let mut output = Vec::new();
         assert!(process_stream(late.as_slice(), &mut output, &maps()).is_err());
