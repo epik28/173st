@@ -388,7 +388,7 @@ def _validate_audit(audit, source_hashes, row_count):
             or audit.get("input_sha256") != source_hashes):
         raise WorldRunError("native call/class/source audit does not match pinned C01 evidence")
     code_sources = audit.get("code_sources", {})
-    if len(code_sources) != 4 or set(code_sources.values()) != {"client-b1.7.3.jar"}:
+    if len(code_sources) != 4 or {Path(value).name for value in code_sources.values()} != {"client-b1.7.3.jar"}:
         raise WorldRunError("native classes did not load from the pinned client JAR")
 
 

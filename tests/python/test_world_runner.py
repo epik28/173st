@@ -104,6 +104,14 @@ class WorldRunnerTests(unittest.TestCase):
     def test_native_audit_mutation_is_rejected_by_pinned_audit_validator(self):
         audit = json.loads((ROOT / "tests/fixtures/world/audit.json").read_text())["native"]
         world_run._validate_audit(audit, audit["input_sha256"], audit["live_rows"])
+        portable = json.loads(json.dumps(audit))
+        portable["code_sources"] = {
+            name: f"/arbitrary/checkout/client-b1.7.3.jar" for name in portable["code_sources"]
+        }
+        world_run._validate_audit(portable, portable["input_sha256"], portable["live_rows"])
+        portable["code_sources"]["qj"] = "/arbitrary/checkout/other.jar"
+        with self.assertRaisesRegex(world_run.WorldRunError, "native classes did not load"):
+            world_run._validate_audit(portable, portable["input_sha256"], portable["live_rows"])
         audit["native_calls"]["qj_a_int_int"] -= 1
         with self.assertRaisesRegex(world_run.WorldRunError, "native call/class/source audit"):
             world_run._validate_audit(audit, audit["input_sha256"], audit["live_rows"])
