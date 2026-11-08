@@ -368,6 +368,23 @@ fn saved_vertex_brightness(
     )
 }
 
+fn native_packed_vertex_color(vertex: &Vertex, brightness: f32) -> [f32; 3] {
+    std::array::from_fn(|channel| {
+        let shaded = if vertex.tint_after_light {
+            vertex.shade * brightness
+        } else {
+            vertex.shade * vertex.tint[channel]
+        };
+        let encoded = if vertex.tint_after_light {
+            shaded * vertex.tint[channel]
+        } else {
+            shaded * brightness
+        };
+        let packed = (encoded * 255.0).trunc().clamp(0.0, 255.0) as u8;
+        f32::from(packed) / 255.0
+    })
+}
+
 #[cfg(test)]
 fn srgb_to_linear(channel: f32) -> f32 {
     if channel <= 0.04045 {
@@ -561,9 +578,9 @@ impl App {
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: 40,
+                    array_stride: 32,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32,3=>Float32,4=>Float32x3],
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32x3],
                 })],
             },
             fragment: Some(wgpu::FragmentState {
@@ -591,31 +608,32 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
-        let packed: Vec<[f32; 10]> = if self.mesh.vertices.is_empty() {
-            vec![[0.0; 10]]
+        let packed: Vec<[f32; 8]> = if self.mesh.vertices.is_empty() {
+            vec![[0.0; 8]]
         } else {
             self.mesh
                 .vertices
                 .iter()
                 .map(|v| {
+                    let brightness =
+                        saved_vertex_brightness(v, self.sky_subtraction, self.light_dimension)?;
+                    let color = native_packed_vertex_color(v, brightness);
                     Ok::<_, beta_core::light::LightError>([
                         v.position[0],
                         v.position[1],
                         v.position[2],
                         v.uv[0],
                         v.uv[1],
-                        v.shade,
-                        saved_vertex_brightness(v, self.sky_subtraction, self.light_dimension)?,
-                        v.tint[0],
-                        v.tint[1],
-                        v.tint[2],
+                        color[0],
+                        color[1],
+                        color[2],
                     ])
                 })
                 .collect::<Result<Vec<_>, _>>()?
         };
         let vertex_bytes = packed
             .len()
-            .checked_mul(std::mem::size_of::<[f32; 10]>())
+            .checked_mul(std::mem::size_of::<[f32; 8]>())
             .ok_or("vertex buffer size overflow")?;
         let index_bytes = self
             .mesh
@@ -896,8 +914,8 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, preferred_surface_format,
-        saved_vertex_brightness, srgb_to_linear,
+        LightDimension, Vertex, build_atlas_mips, native_packed_vertex_color,
+        preferred_surface_format, saved_vertex_brightness, srgb_to_linear,
     };
 
     #[test]
@@ -944,6 +962,7 @@ mod tests {
             minimum_light: 0,
             shade: 1.0,
             tint: [1.0; 3],
+            tint_after_light: false,
         };
         let day_subtraction =
             beta_core::light::sky_subtraction(6_000, 1.0, LightDimension::Overworld).unwrap();
@@ -979,6 +998,61 @@ mod tests {
             saved_vertex_brightness(&emitted, night_subtraction, LightDimension::Overworld),
             Ok(1.0)
         );
+    }
+
+    #[test]
+    fn packed_vertex_colors_match_direct_native_capture() {
+        const FIXTURE: &str = include_str!("../../../tests/fixtures/light/vertex-color.tsv");
+        let mut cases = 0;
+        let mut vertices = 0;
+        for line in FIXTURE.lines().filter(|line| !line.starts_with('#')) {
+            let fields: Vec<_> = line.split('\t').collect();
+            if fields[0] == "case" {
+                assert_eq!(fields[4], "1", "native renderer should render this case");
+                cases += 1;
+            } else if fields[0] == "vertex" {
+                let block_id = fields[1].parse::<u8>().unwrap();
+                let brightness = f32::from_bits(u32::from_str_radix(fields[2], 16).unwrap());
+                let face_shade = match fields[4] {
+                    "down" => 0.5,
+                    "up" => 1.0,
+                    "north" | "south" => 0.8,
+                    "west" | "east" => 0.6,
+                    other => panic!("unknown native face {other}"),
+                };
+                let tint_after_light = fields[5] == "overlay";
+                let mut tint = [0.0; 3];
+                for (channel, bits) in tint.iter_mut().zip(&fields[7..10]) {
+                    *channel = f32::from_bits(u32::from_str_radix(bits, 16).unwrap());
+                }
+                // Native grass base sides use white; the top and overlays use palette tint.
+                if block_id == 2 && fields[5] == "base" && fields[4] != "up" {
+                    tint = [1.0; 3];
+                }
+                let vertex = Vertex {
+                    position: [0.0; 3],
+                    uv: [0.0; 2],
+                    block_light: 0,
+                    sky_light: 0,
+                    minimum_light: 0,
+                    shade: face_shade,
+                    tint,
+                    tint_after_light,
+                };
+                let actual = native_packed_vertex_color(&vertex, brightness);
+                let packed = u32::from_str_radix(fields[10], 16).unwrap();
+                let expected = [packed & 0xff, (packed >> 8) & 0xff, (packed >> 16) & 0xff];
+                for channel in 0..3 {
+                    let actual = (actual[channel] * 255.0).round() as u32;
+                    assert_eq!(actual, expected[channel], "native row: {line}");
+                }
+                vertices += 1;
+            } else {
+                panic!("unknown vertex-color fixture row: {line}");
+            }
+        }
+        assert_eq!(cases, 12);
+        assert_eq!(vertices, 504);
     }
 
     #[test]

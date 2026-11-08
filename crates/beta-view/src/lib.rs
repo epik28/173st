@@ -584,6 +584,7 @@ impl Scene {
                                     neighbor.sky_light,
                                     face_tint,
                                     source_minimum,
+                                    false,
                                 )?;
                                 if overlay_grass {
                                     if mesh.vertices.len().saturating_add(4) > vertex_limit
@@ -603,6 +604,7 @@ impl Scene {
                                         neighbor.sky_light,
                                         block_tint.unwrap_or([1.0; 3]),
                                         source_minimum,
+                                        true,
                                     )?;
                                 }
                             }
@@ -641,8 +643,10 @@ pub struct Vertex {
     pub minimum_light: u8,
     /// Native renderer's standard-cube directional shade for this face.
     pub shade: f32,
-    /// Linear multiplier from the exact native palette ARGB/RGB result.
+    /// Encoded RGB multiplier from the exact native palette ARGB/RGB result.
     pub tint: [f32; 3],
+    /// Grass side overlays multiply shade, brightness, then tint in native call order.
+    pub tint_after_light: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -693,6 +697,7 @@ fn append_face(
         sky_light,
         [1.0; 3],
         0,
+        false,
     )
 }
 
@@ -714,6 +719,7 @@ fn append_face_tinted(
     sky_light: u8,
     tint: [f32; 3],
     minimum_light: u8,
+    tint_after_light: bool,
 ) -> Result<(), ViewError> {
     let tile = usize::from(tile);
     let tx = (tile % 16) as f32 * TILE_SIZE;
@@ -784,6 +790,7 @@ fn append_face_tinted(
             minimum_light,
             shade,
             tint,
+            tint_after_light,
         });
     }
     mesh.indices
@@ -1299,6 +1306,7 @@ mod tests {
         let legacy_mesh = scene.mesh(MeshLimits::default()).unwrap();
         assert_eq!(legacy_mesh.visible_faces, 6);
         assert!(legacy_mesh.vertices.iter().all(|v| v.tint == [1.0; 3]));
+        assert!(legacy_mesh.vertices.iter().all(|v| !v.tint_after_light));
         let color = 0x00a1_b2c3;
         let mesh = scene
             .mesh_with_tint(MeshLimits::default(), |id, meta, x, z| {
@@ -1308,6 +1316,24 @@ mod tests {
             .unwrap();
         assert_eq!(mesh.visible_faces, 10);
         assert_eq!(mesh.vertices.len(), 40);
+        assert!(
+            mesh.vertices[0..8]
+                .iter()
+                .all(|vertex| !vertex.tint_after_light)
+        );
+        for side in 2_usize..6 {
+            let base = side * 8 - 8;
+            assert!(
+                mesh.vertices[base..base + 4]
+                    .iter()
+                    .all(|vertex| !vertex.tint_after_light)
+            );
+            assert!(
+                mesh.vertices[base + 4..base + 8]
+                    .iter()
+                    .all(|vertex| vertex.tint_after_light)
+            );
+        }
         assert_eq!(
             &mesh.vertices[0..4]
                 .iter()

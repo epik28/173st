@@ -13,33 +13,25 @@ fn srgb_to_linear(encoded: vec3<f32>) -> vec3<f32> {
 struct VertexIn {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
-    @location(2) shade: f32,
-    @location(3) saved_light: f32,
-    @location(4) tint: vec3<f32>,
+    @location(2) vertex_color: vec3<f32>,
 };
 struct VertexOut {
     @builtin(position) clip: vec4<f32>,
     @location(0) uv: vec2<f32>,
-    @location(1) shade: f32,
-    @location(2) saved_light: f32,
-    @location(3) tint: vec3<f32>,
+    @location(1) vertex_color: vec3<f32>,
 };
 @vertex fn vs_main(input: VertexIn) -> VertexOut {
     var out: VertexOut;
     out.clip = camera.view_projection * vec4<f32>(input.position, 1.0);
     out.uv = input.uv;
-    out.shade = input.shade;
-    out.saved_light = input.saved_light;
-    out.tint = input.tint;
+    out.vertex_color = input.vertex_color;
     return out;
 }
 @fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
     let color = textureSample(atlas, atlas_sampler, input.uv);
     if color.a <= 0.1 { discard; }
-    // Native numeric channel multiplication is encoded-value arithmetic. This
-    // viewer still approximates uu.d float brightness from saved light nibbles;
-    // it does not reproduce that conversion or per-corner ambient occlusion.
-    let native_rgb = color.rgb * input.tint * input.shade * input.saved_light;
+    // Native encoded RGB is packed per vertex before this single texture multiply.
+    let native_rgb = color.rgb * input.vertex_color;
     if OUTPUT_SRGB != 0u {
         return vec4<f32>(srgb_to_linear(native_rgb), 1.0);
     }
