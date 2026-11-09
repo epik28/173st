@@ -433,20 +433,27 @@
       ]
     },
     "FLUID-RENDER-001-A01": {
-      "state": "pending",
-      "summary": "Follow-up fixes are implemented and locally checked; awaiting independent acceptance. Added overlapping-depth ordering and checked fluid GPU layout/draw conversions. Edits stage candidate BlockScene/SceneChunk, CPU meshes, and GPU replacements, then publish the coherent result after preparation succeeds; opaque GPU atomicity remains outside the contract.",
+      "state": "done",
+      "summary": "Accepted indexed transparent-water rendering after independent review. Fluid vertices remain static between scene rebuilds; unchanged frames upload only sorted six-u32 quad index groups with preserved source order/ties. Candidate scene/fluid cache and GPU buffers are staged before publication; opaque chunk GPU atomicity is outside scope.",
       "checks": [
         "cargo test --locked --offline -p beta-viewer → PASS: 17 library + 49 binary tests + doc tests",
         "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
         "python3 tools/check.py → PASS: 214 Python tests (18 skipped), workspace format/check/clippy/all-target/doc/all-target tests",
         "Fluid layout checks whole quads; checked multiplication for packed vertices and u32 indices; enforces 128 MiB bounds and checked u32 draw count before preparing buffers.",
+        "Independent reviewer accepted corrected overlapping-depth regression in ceb4e23: projected footprints intersect, depth intervals overlap, center distances differ, and original vertex/triangle order is asserted.",
         "Xvfb command `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer` exited 124 when timeout stopped the still-running process, with no diagnostic in retained artifacts/fluid-render-smoke/xvfb-cargo.log. Separate six-second capture succeeded (capture=0, viewer killed=143) but artifacts/fluid-render-smoke/screen.png is black and does not establish rendered scene visibility. Xvfb server diagnostics from another attempt show inability to bind listeners / /tmp/.X11-unix ownership. Smoke is inconclusive."
       ]
     },
     "LIGHT-UPDATE-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Реализован bounded C01 relight для in-memory BlockScene: candidate state, atomic queue-limit failure, native unloaded-column availability включая diagonal chunk footprint, sorted unique light updates и dirty chunks. Полная general height-map/LIFO parity не заявляется.",
+      "checks": [
+        "cargo test -p beta-core --test light_update_fixture -- --nocapture → PASS: all five native C01 scenarios across 4 test functions, включая edge-x31 и diagonal availability regression",
+        "cargo test -p beta-core --lib block::tests → PASS: 11 block tests",
+        "cargo clippy -p beta-core --all-targets -- -D warnings; cargo fmt → PASS",
+        "python3 tools/check.py → PASS: workspace checks, tests, clippy, format and docs",
+        "Source-world hashes, native fixtures and oracle files unchanged"
+      ]
     },
     "WORLD-SELECT-001-A01": {
       "state": "done",
@@ -459,9 +466,14 @@
       ]
     },
     "WORLD-SELECT-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "in_progress",
+      "summary": "The startup has a chooser window and dynamic selected-world loading, but the world list is only encoded in the window title; rows are not graphically rendered and mouse clicks do not select a clicked row. A02 remains in progress pending a usable rendered list/input.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --lib → PASS: 23 tests for chooser navigation/activation and loader modules",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets --locked --offline -- -D warnings → PASS; cargo fmt --all; git diff --check → PASS",
+        "Startup calls the dynamic selected-world loader without scene.tsv; first-world auto-start is removed",
+        "C02 review: titlebar-only rows and click-without-row-hit-testing are not accepted as the visible chooser; rendered world rows and pointer selection remain required"
+      ]
     }
   }
 }
