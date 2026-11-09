@@ -3,9 +3,16 @@
   "role": "agy",
   "tasks": {
     "INVENTORY-INTERACTION-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен visible held cursor item render по C01: mouse-relative 16x16 icon с ID-based terrain/items atlas dispatch, count shadow/foreground и native pass order после slot contents. Core clicks и full-inventory safeguard сохранены.",
+      "checks": [
+        "cargo fmt --all; cargo test --locked --offline -p beta-viewer → PASS: 17 library + 38 viewer tests + doc tests",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
+        "Тесты покрывают pickup, right-click split, place/merge, native hitbox edges at scale 3, closed-screen gating, cursor return и selected hotbar preservation",
+        "Изменения только in-memory; native fixtures/oracle, save parsing, world guard, persistence и outside-drop не затронуты",
+        "Review fix: return_cursor treats only Ok(true) as success; full inventory preserves the held stack and keeps/reopens the screen",
+        "C01 cursor render: icon top-left = mouse coordinates - inventory panel origin - (8,8) scaled pixels; 16x16; ID<256 terrain, otherwise gui/items; count only >1; tests cover UV/position, both atlas groups, count passes and mouse movement"
+      ]
     },
     "LIGHT-001-A01": {
       "state": "done",
@@ -415,17 +422,10 @@
         "Count follow-up: native digit widths [8,8,8,8,9,9,8,9,8,8], 8x8 glyph UVs, anchor x+17-width/y+9, shadow offset +1/+1 and white foreground; tests cover count 1 omission, 2/16, scaling and inventory/hotbar"
       ]
     },
-    "INVENTORY-INTERACTION-001-A01": {
-      "state": "done",
-      "summary": "Добавлен visible held cursor item render по C01: mouse-relative 16x16 icon с ID-based terrain/items atlas dispatch, count shadow/foreground и native pass order после slot contents. Core clicks и full-inventory safeguard сохранены.",
-      "checks": [
-        "cargo fmt --all; cargo test --locked --offline -p beta-viewer → PASS: 17 library + 38 viewer tests + doc tests",
-        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
-        "Тесты покрывают pickup, right-click split, place/merge, native hitbox edges at scale 3, closed-screen gating, cursor return и selected hotbar preservation",
-        "Изменения только in-memory; native fixtures/oracle, save parsing, world guard, persistence и outside-drop не затронуты",
-        "Review fix: return_cursor treats only Ok(true) as success; full inventory preserves the held stack and keeps/reopens the screen",
-        "C01 cursor render: icon top-left = mouse coordinates - inventory panel origin - (8,8) scaled pixels; 16x16; ID<256 terrain, otherwise gui/items; count only >1; tests cover UV/position, both atlas groups, count passes and mouse movement"
-      ]
+    "HEALTH-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

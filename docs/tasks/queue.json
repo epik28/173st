@@ -1011,6 +1011,32 @@
       "depends_on": [
         "PLAYER-SAVE-001-C01"
       ]
+    },
+    {
+      "id": "HEALTH-001-C01",
+      "owner": "codex",
+      "title": "Native health field and heart rendering audit",
+      "card": "docs/tasks/HEALTH-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HEALTH-001-A01",
+      "owner": "agy",
+      "title": "Display saved health in native HUD hearts",
+      "card": "docs/tasks/HEALTH-001.md",
+      "depends_on": [
+        "HEALTH-001-C01"
+      ]
+    },
+    {
+      "id": "HEALTH-001-C02",
+      "owner": "codex",
+      "title": "Accept saved health HUD integration",
+      "card": "docs/tasks/HEALTH-001.md",
+      "depends_on": [
+        "HEALTH-001-C01",
+        "HEALTH-001-A01"
+      ]
     }
   ]
 }
