@@ -966,3 +966,23 @@ pending acceptance: full five-case native fixture parity and bounded edge
 propagation still need correction. Emissive transitions and persistence remain
 outside this package. Follow-up fixed viewer synchronization so every relit
 cell updates candidate `scene_chunks`, rather than only the edited cell.
+
+### LIGHT-UPDATE-001-A01 — bounded C01 parity
+
+Реализация доведена до bounded C01 parity. `BlockScene::relight` строит
+candidate state и публикует его только после успешного обхода; queue-limit и
+ошибки материала остаются atomic. Native availability проверяется по полному
+footprint чанков, пересекающих `x-1..x+1,z-1..z+1`, включая диагональные
+чанки. Это воспроизводит native пропуск целого `(x,z)` столбца при отсутствии
+любого чанка footprint и исправляет `edge-x31`.
+
+Проверки: `cargo test -p beta-core --test light_update_fixture -- --nocapture`
+→ PASS, all five C01 scenarios across 4 test functions; `cargo test -p
+beta-core --lib block::tests` → PASS, 11 tests; `cargo fmt` и `cargo clippy -p beta-core --all-targets --
+-D warnings` → PASS; `python3 tools/check.py` → PASS. Source-world hashes,
+native fixtures и oracle files не изменялись.
+
+Ограничения: native LIFO/coalescing очереди регионов и общая height-map
+propagation пока не реализованы полностью; parity заявлена только для
+bounded C01 probes. Emissive transitions и persistence остаются вне этого
+пакета.

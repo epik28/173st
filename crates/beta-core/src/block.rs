@@ -293,9 +293,9 @@ impl BlockScene {
         self.revision
     }
 
-    /// Recomputes the native-observed six-cardinal sky-light update in the
-    /// already loaded scene. The operation is pure with respect to disk and
-    /// reports unloaded boundary cells explicitly.
+    /// Recomputes bounded block and sky light in the already loaded scene.
+    /// The operation is pure with respect to disk and reports unloaded
+    /// boundary cells explicitly.
     pub fn relight<F>(
         &mut self,
         changed: (i32, i32, i32),
@@ -311,83 +311,143 @@ impl BlockScene {
         if !(0..128).contains(&changed.1) {
             return Err(RelightError::InvalidCoordinate);
         }
+        if self
+            .block(changed.0, changed.1, changed.2)
+            .map_err(RelightError::from)?
+            .is_none()
+        {
+            return Err(RelightError::InvalidCoordinate);
+        }
         let mut next = self.clone();
         let mut updates = Vec::new();
         let mut unloaded = Vec::new();
-        let mut visited = 0usize;
-        for x in changed.0.saturating_sub(1)..=changed.0.saturating_add(1) {
-            for y in 0..=changed.1 as u8 {
-                for z in changed.2.saturating_sub(1)..=changed.2.saturating_add(1) {
-                    let (cx, lx) = split_block_coord(x);
-                    let (cz, lz) = split_block_coord(z);
-                    if !self.bounds.contains(cx, cz) || !self.chunks.contains_key(&(cx, cz)) {
-                        continue;
-                    }
-                    visited += 1;
-                    if visited > max_visited_cells {
-                        return Err(RelightError::QueueLimitExceeded {
-                            limit: max_visited_cells,
-                        });
-                    }
-                    let block = self
-                        .block(x, i32::from(y), z)
-                        .map_err(RelightError::from)?
-                        .ok_or(BlockError::TargetUnloaded {
-                            x,
-                            y: i32::from(y),
-                            z,
-                        })
-                        .map_err(RelightError::from)?;
-                    let (opacity, emission) = material(block.id, block.metadata);
-                    if emission > 15 {
-                        return Err(RelightError::InvalidMaterial);
-                    }
-                    let new_sky = if opacity != 0 {
-                        0
-                    } else if y == 0 {
-                        0
-                    } else if y == 127 {
-                        15
-                    } else {
-                        let mut blocked_above = false;
-                        for sy in (u16::from(y) + 1)..128 {
-                            if self
-                                .block(x, i32::from(sy), z)
-                                .map_err(RelightError::from)?
-                                .is_some_and(|b| material(b.id, b.metadata).0 != 0)
+        let mut visited = std::collections::BTreeSet::new();
+        let initial = (
+            changed
+                .0
+                .checked_sub(1)
+                .ok_or(RelightError::InvalidCoordinate)?,
+            0,
+            changed
+                .2
+                .checked_sub(1)
+                .ok_or(RelightError::InvalidCoordinate)?,
+            changed
+                .0
+                .checked_add(1)
+                .ok_or(RelightError::InvalidCoordinate)?,
+            127,
+        );
+        let initial = (
+            initial.0,
+            initial.1,
+            changed
+                .2
+                .checked_sub(1)
+                .ok_or(RelightError::InvalidCoordinate)?,
+            initial.3,
+            initial.4,
+            changed
+                .2
+                .checked_add(1)
+                .ok_or(RelightError::InvalidCoordinate)?,
+        );
+        let mut regions = std::collections::VecDeque::from([initial]);
+        let mut queued = std::collections::BTreeSet::new();
+        queued.insert(initial);
+        while let Some((x0, y0, z0, x1, y1, z1)) = regions.pop_front() {
+            let xa = x0.max(i32::MIN + 1);
+            let xb = x1.min(i32::MAX - 1);
+            let ya = y0.max(0);
+            let yb = y1.min(127);
+            let za = z0.max(i32::MIN + 1);
+            let zb = z1.min(i32::MAX - 1);
+            for x in xa..=xb {
+                for z in za..=zb {
+                    for y in ya..=yb {
+                        let Some(old) = next.block(x, y, z)? else {
+                            if (x - changed.0).abs() + (z - changed.2).abs() == 1
+                                && (y - changed.1).abs() <= 1
                             {
-                                blocked_above = true;
-                                break;
+                                unloaded.push((x, y, z));
                             }
+                            continue;
+                        };
+                        if visited.insert((x, y, z)) && visited.len() > max_visited_cells {
+                            return Err(RelightError::QueueLimitExceeded {
+                                limit: max_visited_cells,
+                            });
                         }
-                        if !blocked_above {
-                            15
-                        } else {
-                            let mut best = 0u8;
-                            let mut missing = false;
-                            for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                                if let Some(n) = self
-                                    .block(x + dx, i32::from(y), z + dz)
-                                    .map_err(RelightError::from)?
-                                {
-                                    best = best.max(n.sky_light.saturating_sub(1));
-                                } else {
-                                    unloaded.push((x + dx, i32::from(y), z + dz));
-                                    missing = true;
+                        let (opacity, emission) = material(old.id, old.metadata);
+                        if emission > 15 {
+                            return Err(RelightError::InvalidMaterial);
+                        }
+                        // Native Block.lightOpacity uses zero for transparent
+                        // blocks.  The attenuation used while propagating is
+                        // clamped separately; keeping this distinction is
+                        // essential for the direct-sky column check.
+                        let attenuation = opacity.max(1);
+                        let direct_sky = (y + 1..128).all(|sy| {
+                            next.block(x, sy, z)
+                                .ok()
+                                .flatten()
+                                .is_some_and(|b| material(b.id, b.metadata).0 == 0)
+                        });
+                        // lm.a() refuses the whole column until fd.b() can
+                        // resolve every chunk intersecting x-1..x+1,z-1..z+1.
+                        // The diagonal chunks matter at chunk corners too.
+                        let boundary_complete = [x - 1, x, x + 1].iter().all(|&nx| {
+                            [z - 1, z, z + 1].iter().all(|&nz| {
+                                let (cx, _) = split_block_coord(nx);
+                                let (cz, _) = split_block_coord(nz);
+                                next.chunks.contains_key(&(cx, cz))
+                            })
+                        });
+                        let mut sky = if direct_sky && opacity < 15 { 15 } else { 0 };
+                        let mut block_light = emission;
+                        for (nx, ny, nz) in [
+                            (x - 1, y, z),
+                            (x + 1, y, z),
+                            (x, y - 1, z),
+                            (x, y + 1, z),
+                            (x, y, z - 1),
+                            (x, y, z + 1),
+                        ] {
+                            if let Some(n) = next.block(nx, ny, nz)? {
+                                if boundary_complete && !direct_sky && opacity < 15 {
+                                    sky = sky.max(n.sky_light.saturating_sub(attenuation));
+                                    block_light =
+                                        block_light.max(n.block_light.saturating_sub(attenuation));
                                 }
+                            } else if (0..128).contains(&ny)
+                                && (x - changed.0).abs() <= 1
+                                && (z - changed.2).abs() <= 1
+                                && (ny - changed.1).abs() <= 1
+                                && ((x == changed.0 && (z - changed.2).abs() == 1)
+                                    || (z == changed.2 && (x - changed.0).abs() == 1))
+                                && (nx - changed.0).abs() + (nz - changed.2).abs() == 1
+                            {
+                                unloaded.push((nx, ny, nz));
                             }
-                            if missing { 0 } else { best }
                         }
-                    };
-                    if new_sky != block.sky_light {
-                        updates.push(((x, i32::from(y), z), block.block_light, new_sky));
-                        let mut v = block;
-                        v.sky_light = new_sky;
+                        if block_light == old.block_light && sky == old.sky_light {
+                            continue;
+                        }
+                        let (cx, lx) = split_block_coord(x);
+                        let (cz, lz) = split_block_coord(z);
+                        let mut value = old;
+                        value.block_light = block_light;
+                        value.sky_light = sky;
                         next.chunks
                             .get_mut(&(cx, cz))
                             .unwrap()
-                            .set(lx, y, lz, v)
+                            .set(lx, y as u8, lz, value)
                             .map_err(|e| RelightError::Scene(e.into()))?;
+                        updates.push(((x, y, z), block_light, sky));
+                        // st.a(fd) scans the submitted inclusive region in order;
+                        // fd.j() submits follow-up regions separately.  The edit API
+                        // supplies the complete native point region, so keep this
+                        // primitive bounded to that region.
                     }
                 }
             }

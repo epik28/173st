@@ -855,6 +855,14 @@ fn interaction_shape(mappings: &[BlockMapping], id: u8, metadata: u8) -> RayShap
     }
 }
 
+fn dirty_chunk_union(edit: &[(i32, i32)], relight: &[(i32, i32)]) -> Vec<(i32, i32)> {
+    let mut result = edit.to_vec();
+    result.extend_from_slice(relight);
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
 #[cfg(test)]
 fn srgb_to_linear(channel: f32) -> f32 {
     if channel <= 0.04045 {
@@ -1069,11 +1077,12 @@ impl App {
         let relight = next_block_scene.relight(
             edit.changed,
             beta_core::block::MAX_RELIGHT_CELLS,
-            |id, metadata| {
+            |id, _metadata| {
                 let emission = beta_core::light::emission_level(id);
                 (if id == 0 { 0 } else { 255 }, emission)
             },
         )?;
+        let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight.dirty_chunks);
         let (chunk_x, local_x) = split_block_coord(x);
         let (chunk_z, local_z) = split_block_coord(z);
         let value: BlockData = next_block_scene
@@ -1100,12 +1109,12 @@ impl App {
             state.sky_light = sky_light;
             target.data.set(lx, ly as u8, lz, state)?;
         }
-        self.rebuild_dirty_chunks(&relight.dirty_chunks, next_block_scene, next_scene_chunks)?;
+        self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
             if breaking { "broke" } else { "placed" },
-            relight.dirty_chunks.len()
+            dirty_chunks.len()
         );
         Ok(edit)
     }
@@ -2251,6 +2260,14 @@ mod tests {
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
+
+    #[test]
+    fn dirty_chunk_union_keeps_edit_corner_and_relight_neighbors() {
+        assert_eq!(
+            super::dirty_chunk_union(&[(1, 1), (0, 0), (1, 1)], &[(2, 1), (0, 0), (-1, 0)]),
+            vec![(-1, 0), (0, 0), (1, 1), (2, 1)]
+        );
+    }
 
     #[test]
     fn transparent_water_quad_indices_sort_groups_without_reordering_triangles() {

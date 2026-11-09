@@ -445,13 +445,14 @@
       ]
     },
     "LIGHT-UPDATE-001-A01": {
-      "state": "in_progress",
-      "summary": "Черновая bounded relight реализация с frozen C01 API; acceptance pending native fixture parity and bounded edge propagation review.",
+      "state": "done",
+      "summary": "Реализован bounded C01 relight для in-memory BlockScene: candidate state, atomic queue-limit failure, native unloaded-column availability включая diagonal chunk footprint, sorted unique light updates и dirty chunks. Полная general height-map/LIFO parity не заявляется.",
       "checks": [
-        "cargo test --locked --offline -p beta-core --lib → PASS: 86 тестов, включая atomic queue-limit relight regression",
-        "cargo test --locked --offline -p beta-viewer --lib → PASS: 17 тестов",
-        "cargo fmt --all → PASS",
-        "Frozen API merged from codex f29c2b4; native C01 fixture/oracle files не изменялись"
+        "cargo test -p beta-core --test light_update_fixture -- --nocapture → PASS: all five native C01 scenarios across 4 test functions, включая edge-x31 и diagonal availability regression",
+        "cargo test -p beta-core --lib block::tests → PASS: 11 block tests",
+        "cargo clippy -p beta-core --all-targets -- -D warnings; cargo fmt → PASS",
+        "python3 tools/check.py → PASS: workspace checks, tests, clippy, format and docs",
+        "Source-world hashes, native fixtures and oracle files unchanged"
       ]
     }
   }
