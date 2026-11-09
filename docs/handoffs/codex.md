@@ -1168,3 +1168,37 @@ Creative break/place are **not verified**: no action output, neighbor snapshot,
 or stack change is claimed because a native Player/controller action adapter
 was not completed. Do not treat C01 as action parity. Next assigned work is
 BLOCK-001-C02; it was not started in this commit. Model: gpt-6-luna, low.
+
+## ITEMS-001-C01 — native in-memory ItemStack/inventory evidence, 2026-11-09
+
+Added `ItemsOracle.java`, `items_corpus.py`, six scenario inputs, the ordered
+native output/audit/provenance, and two fixture/protocol tests. The pinned client
+JAR SHA-256 is `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`.
+Native mapping: `iz` ItemStack (`iz(int,int,int)`, `iz.a(int)` split, `iz.c()`
+limit, `iz.h()` damage); `ix` inventory (`ix(gs)` with null owner, `ix.a(int,iz)`
+set, `ix.a(int,int)` split/remove, `ix.c(int)` remove one by item ID,
+`ix.a(iz)` insert/merge, `ix.b(int)` hotbar cycle, `ix.b()` selected lookup,
+`ix.a(int,boolean)` select by item ID). Exact class hashes and runtime code source
+are pinned in `tests/fixtures/items/audit.json`.
+
+The native registry needs `Class.forName("uu")` before first stack item lookup;
+otherwise the JAR enters a circular static initialization path. This ordinary
+registry bootstrap completes without a World/player/window/save; its native
+stdout is captured and hashed separately. `ix(null)` supports all tested slot
+operations. No Prism save or mutable world/resource was opened.
+
+Two independent original-JAR captures match byte-for-byte across 21 ordered
+states. Every row contains the selected stack and all 36 main slots. Cases show
+stone limit 64, snowball limit 16, iron sword limit 1, split of 10 into 4,
+native item-ID decrement, slot replacement, merge 50+20 into stacks 64+6,
+small-limit insertion 15+3 into 16+2, full-inventory incompatible overflow
+preserving its input, and selected-slot behavior at -1/9 plus cycling and
+selection by item ID. Native output SHA-256:
+`b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916`.
+
+Checks: `python3 tools/oracle/items_corpus.py --write` regenerated only after two
+equal native runs; sequential `python3 tools/oracle/items_corpus.py` verified the
+committed audit and output hashes; `python3 -m unittest
+tests.python.test_items_corpus -v` → 2 PASS; `git diff --check` → PASS. Rust,
+runner C02, general item catalog, tagged stacks, GUI and save behavior remain out
+of this card. Next step: C02 strict runner, after this C01 commit is reviewed.

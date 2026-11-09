@@ -1,0 +1,7 @@
+# scenario	parameters; each row is executed against fresh native in-memory objects
+split_remove_replace	1	10	4
+merge	1	50	20
+overflow	1	3
+smaller_limit	332	15	3
+non_stackable	267
+hotbar_bounds

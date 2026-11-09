@@ -1,0 +1,42 @@
+{
+  "bootstrap": "Class.forName(uu) before iz/gm registry access; no World/player/window/save",
+  "bootstrap_stdout_sha256": "0b280c253ec80f2690447bfc42cadac3ed78f1d388bdbe2d10b340c76daacc4e",
+  "classes": {
+    "gm": "f9d971a83efa0c6399f1fc4bc0bc06c6a6249908afc6b46f5889a49365c190c7",
+    "gs": "52e2d97748d9a306703e018822fece7d0ef9ca8ddf3448a1d0e568f2fbe29202",
+    "ix": "03eb35aef64c71087942c5dc8b2849e9b47e9482c97be825895cfc2149b8e009",
+    "iz": "3e8a07bf8c43729c8367bab454af876e698505620f230e012432c04e3828d6d6",
+    "jl": "6d2e9bd2062c7a8641e83ddd2ef1fe72a8a0efc5170c9856eaa4392436f65569",
+    "uu": "caeaf354357d66fc168c7f03bf62bb6c6a1fe459e9be6b537d4d5d1efabd0845"
+  },
+  "code_source": "/home/andrew/173st/.local/minecraft/client-b1.7.3.jar",
+  "direct_calls": {
+    "hotbar_cycle": 3,
+    "insert_merge": 4,
+    "inventory_ctor": 6,
+    "item_id_remove": 1,
+    "selected_slot_lookup": 21,
+    "slot_set": 43,
+    "slot_split": 1,
+    "stack_ctor": 48
+  },
+  "input_sha256": "3adfca053da661ec5f58e7c55079a0b535543323c790c418172af4ef062d8d2d",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "native_methods": {
+    "hotbar_cycle": "ix.b(int)",
+    "insert_merge": "ix.a(iz)",
+    "inventory_ctor": "ix(gs) with null owner",
+    "item_id_remove": "ix.c(int)",
+    "select_item_id": "ix.a(int,boolean)",
+    "selected_slot_lookup": "ix.b()",
+    "slot_set": "ix.a(int,iz)",
+    "slot_split_or_remove": "ix.a(int,int)",
+    "stack_ctor": "iz(int,int,int)",
+    "stack_damage": "iz.h()",
+    "stack_limit": "iz.c()",
+    "stack_split": "iz.a(int)"
+  },
+  "output_sha256": "b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916",
+  "repeat_output_sha256": "b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916",
+  "rows": 21
+}

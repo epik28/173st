@@ -626,9 +626,15 @@
       "checks": []
     },
     "ITEMS-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Подготовлен повторяемый in-memory oracle на оригинальных iz/ix. Зафиксированы 21 упорядоченная native state row для 36 main slots, split/remove/replace, merge и overflow, limits 64/16/1 и hotbar bounds; две прямые JVM записи идентичны.",
+      "checks": [
+        "python3 tools/oracle/items_corpus.py --write → PASS: две native JVM capture совпали; 21 строки; native.tsv SHA-256 b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916",
+        "python3 tools/oracle/items_corpus.py → PASS: повторный sequential capture и committed input/output/audit hashes совпали",
+        "python3 -m unittest tests.python.test_items_corpus -v → PASS: 2 теста на native repeat, audit/JAR/classes, порядок rows и структуру всех 36 слотов",
+        "JAR SHA-256 af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c; iz/ix/gm/uu/gs/jl class hashes и exact code source сохранены в tests/fixtures/items/audit.json; Prism save/world/player/window не создавались и не читались",
+        "git diff --check → PASS"
+      ]
     },
     "ITEMS-001-C02": {
       "state": "pending",
