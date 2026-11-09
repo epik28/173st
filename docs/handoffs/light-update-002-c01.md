@@ -190,3 +190,36 @@ V2 checks run in C01:
   — 12 focused Python tests passed at capture commit; the added V2 integrity
   hardening was separately checked by all 6 V2 tests.
 - `git diff --check` — passed for the V2 capture commit.
+
+## Settled native baseline V3
+
+V2's all-air default had sky light 0 at y=0 because that is the state immediately
+after `lm.c()`. For a separate settled-world comparison, the V3 oracle applies
+the native full-height `fd.a(eb.a, ...)` relight operation to each of the nine
+loaded chunks and drains `fd.j()` after each operation before seeding and editing.
+The fixture `tests/fixtures/light_material/native_edits_settled_v1.tsv` encodes
+sky light 15 at y=0..127 as its sparse default; V2 remains unchanged. Its SHA-256
+is `7582860cf08809550eebe8adb4db307ad9857f58a45863a39da8e42b96399d4c`, and two
+fresh native captures match byte-for-byte (1,434,350 bytes, 21,776 rows).
+
+The Rust `light_snapshot_probe` accepts both exact baseline descriptors and was
+run against V3. Settling removes the broad y=0 false-positive differences:
+leaf placement/removal and water placement/removal now match all 294,912 cells.
+The canopy/log sequence still has 0 light differences on placement and removal,
+with 12 metadata differences on removal. Glowstone at the loaded chunk edge
+still fails: 4,088 light cells differ after placement and 3,852 after removal.
+The first differences are local around `(15,64,8)`: native block light reaches
+adjacent cells at levels 1..2 while Rust remains 0 after placement, then Rust
+retains levels 1..2 where native is 0 after removal. No y=0 differences remain.
+This confirms an emissive-light update/propagation mismatch in the synthetic
+scene, but does not reproduce the user's exact screenshot or establish its full
+cause. The required work remains in A01; C01 stays open for exact user-world
+reproduction and paired frames.
+
+V3 checks run by the coordinator:
+
+- `python3 tools/oracle/light_material_edit_settled_audit.py` — two fresh
+  captures match the frozen fixture and manifest.
+- `cargo run --locked --offline -p beta-core --example light_snapshot_probe < tests/fixtures/light_material/native_edits_settled_v1.tsv`
+  — completed with the counts above; expected nonzero exit because glowstone
+  placement/removal and native leaf metadata do not fully match.

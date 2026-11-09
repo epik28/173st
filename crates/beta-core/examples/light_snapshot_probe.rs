@@ -1,4 +1,4 @@
-//! Diagnostic full-domain comparison for the native light-material V2 corpus.
+//! Diagnostic full-domain comparison for native light-material V2/V3 corpora.
 //! Each edit starts from its preceding native snapshot, isolating one mutation.
 
 use beta_core::{
@@ -25,6 +25,7 @@ struct Edit {
 #[derive(Default)]
 struct Case {
     domain_seen: bool,
+    default_sky_y0: u8,
     snapshots: BTreeMap<String, Snapshot>,
     edits: Vec<Edit>,
 }
@@ -112,14 +113,20 @@ fn parse(text: &str) -> Result<BTreeMap<String, Case>, Box<dyn std::error::Error
                         return Err(format!("unsupported domain: {key}").into());
                     }
                 }
-                if case.domain_seen
-                    || fields
-                        .get("default_sky")
-                        .is_none_or(|value| *value != "0@y0;15@y1..127(native-lm.c-all-air)")
-                {
+                let default_sky = fields
+                    .get("default_sky")
+                    .copied()
+                    .ok_or("missing default_sky")?;
+                let default_sky_y0 = match default_sky {
+                    "0@y0;15@y1..127(native-lm.c-all-air)" => 0,
+                    "15@y0..127(native-chunkwise-relight)" => 15,
+                    _ => return Err("unsupported default skylight".into()),
+                };
+                if case.domain_seen {
                     return Err("duplicate domain or unsupported default skylight".into());
                 }
                 case.domain_seen = true;
+                case.default_sky_y0 = default_sky_y0;
             }
             // A snapshot declares even an all-default (zero state-row) phase.
             Some("snapshot") if row.len() == 4 => {
@@ -149,15 +156,16 @@ fn parse(text: &str) -> Result<BTreeMap<String, Case>, Box<dyn std::error::Error
     Ok(cases)
 }
 
-fn expected(snapshot: &Snapshot, point: Position) -> BlockData {
+fn expected(snapshot: &Snapshot, point: Position, default_sky_y0: u8) -> BlockData {
     snapshot.get(&point).copied().unwrap_or(BlockData {
-        sky_light: if point.1 == 0 { 0 } else { 15 },
+        sky_light: if point.1 == 0 { default_sky_y0 } else { 15 },
         ..BlockData::default()
     })
 }
 
 fn edited_scene(
     snapshot: &Snapshot,
+    default_sky_y0: u8,
     edit: &Edit,
 ) -> Result<BlockScene, Box<dyn std::error::Error>> {
     let mut chunks = Vec::new();
@@ -172,7 +180,7 @@ fn edited_scene(
                             i32::from(y),
                             cz * 16 + i32::from(lz),
                         );
-                        let mut value = expected(snapshot, point);
+                        let mut value = expected(snapshot, point, default_sky_y0);
                         if point == edit.position {
                             value.id = edit.id;
                             value.metadata = edit.metadata;
@@ -212,20 +220,31 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
                 .snapshots
                 .get(&edit.phase)
                 .ok_or("missing resulting snapshot")?;
-            let mut scene = edited_scene(before, edit)?;
+            let mut scene = edited_scene(before, case.default_sky_y0, edit)?;
             scene.relight(edit.position, MAX_RELIGHT_CELLS, |id, _| {
                 (opacity_level(id), emission_level(id))
             })?;
             let (mut lights, mut ids, mut metadata) = (0, 0, 0);
+            let mut light_mismatches_by_y = BTreeMap::<i32, usize>::new();
+            let mut local_light_mismatches = 0;
             let mut printed = 0;
             for x in -16..32 {
                 for z in -16..32 {
                     for y in 0..128 {
-                        let native = expected(after, (x, y, z));
+                        let native = expected(after, (x, y, z), case.default_sky_y0);
                         let rust = scene.block(x, y, z)?.ok_or("missing loaded cell")?;
                         let light_diff = (native.block_light, native.sky_light)
                             != (rust.block_light, rust.sky_light);
                         lights += usize::from(light_diff);
+                        if light_diff {
+                            *light_mismatches_by_y.entry(y).or_default() += 1;
+                            if (x - edit.position.0).abs() <= 8
+                                && (y - edit.position.1).abs() <= 8
+                                && (z - edit.position.2).abs() <= 8
+                            {
+                                local_light_mismatches += 1;
+                            }
+                        }
                         ids += usize::from(native.id != rust.id);
                         metadata += usize::from(native.metadata != rust.metadata);
                         if light_diff && printed < 8 {
@@ -246,6 +265,12 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
                 "{name}\t{}\t294912\t{lights}\t{ids}\t{metadata}",
                 edit.phase
             );
+            if lights != 0 {
+                eprintln!(
+                    "{name}/{}: {local_light_mismatches} light mismatches within ±8 blocks of edit; y-buckets={light_mismatches_by_y:?}",
+                    edit.phase
+                );
+            }
             passed &= lights == 0 && ids == 0 && metadata == 0;
             previous = &edit.phase;
         }
