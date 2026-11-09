@@ -67,6 +67,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let client_jar = client_jar_path()?;
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
+    let font_atlas = hud::load_font_atlas(&client_jar)?;
     let (input, source_pins) = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
@@ -149,6 +150,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         icons_atlas,
         inventory_atlas,
         items_atlas,
+        font_atlas,
         window: None,
         gpu: None,
         camera: Camera::new(
@@ -591,6 +593,7 @@ struct App {
     icons_atlas: image::RgbaImage,
     inventory_atlas: image::RgbaImage,
     items_atlas: image::RgbaImage,
+    font_atlas: image::RgbaImage,
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     camera: Camera,
@@ -616,6 +619,7 @@ struct Gpu {
     pipeline: wgpu::RenderPipeline,
     fluid_pipeline: wgpu::RenderPipeline,
     hud_pipeline: wgpu::RenderPipeline,
+    hud_shadow_pipeline: wgpu::RenderPipeline,
     chunk_meshes: BTreeMap<(i32, i32), GpuChunkMesh>,
     fluid_vertex: wgpu::Buffer,
     fluid_vertex_count: u32,
@@ -632,6 +636,9 @@ struct Gpu {
     inventory_icons_vertex: wgpu::Buffer,
     hotbar_terrain_vertex: wgpu::Buffer,
     hotbar_items_vertex: wgpu::Buffer,
+    count_shadow_vertex: wgpu::Buffer,
+    count_foreground_vertex: wgpu::Buffer,
+    font_bind: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -1276,13 +1283,52 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
+        let hud_shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("screen-space native HUD count shadow pipeline"),
+            layout: Some(&pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_hud"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 16,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x2],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_hud_shadow"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &output_srgb_constant,
+                    ..Default::default()
+                },
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
 
         let create_hud_view = |label: &'static str, image: &image::RgbaImage| {
+            let (width, height) = image.dimensions();
             let texture = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
                 size: wgpu::Extent3d {
-                    width: 256,
-                    height: 256,
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -1302,12 +1348,12 @@ impl App {
                 image.as_raw(),
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(256 * 4),
-                    rows_per_image: Some(256),
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
                 },
                 wgpu::Extent3d {
-                    width: 256,
-                    height: 256,
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
             );
@@ -1317,6 +1363,7 @@ impl App {
         let icons_view = create_hud_view("Beta gui/icons.png", &self.icons_atlas);
         let inventory_view = create_hud_view("Beta gui/inventory.png", &self.inventory_atlas);
         let items_view = create_hud_view("Beta gui/items.png", &self.items_atlas);
+        let font_view = create_hud_view("Beta font/default.png", &self.font_atlas);
         let make_hud_bind = |label, texture_view: &wgpu::TextureView| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some(label),
@@ -1341,6 +1388,7 @@ impl App {
         let icons_bind = make_hud_bind("native icons atlas bind", &icons_view);
         let inventory_bind = make_hud_bind("native inventory atlas bind", &inventory_view);
         let items_bind = make_hud_bind("native items atlas bind", &items_view);
+        let font_bind = make_hud_bind("native font atlas bind", &font_view);
         let hud_gui_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hotbar screen-space vertices"),
             size: 12 * 16,
@@ -1380,6 +1428,18 @@ impl App {
         let hotbar_items_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hotbar item vertices"),
             size: 9 * 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let count_shadow_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native item count shadow vertices"),
+            size: 36 * 12 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let count_foreground_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native item count foreground vertices"),
+            size: 36 * 12 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -1442,6 +1502,7 @@ impl App {
             pipeline,
             fluid_pipeline,
             hud_pipeline,
+            hud_shadow_pipeline,
             chunk_meshes: gpu_chunk_meshes,
             fluid_vertex,
             fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
@@ -1458,6 +1519,9 @@ impl App {
             inventory_icons_vertex,
             hotbar_terrain_vertex,
             hotbar_items_vertex,
+            count_shadow_vertex,
+            count_foreground_vertex,
+            font_bind,
             camera_buffer,
         });
         self.window = Some(w);
@@ -1605,6 +1669,32 @@ impl App {
         } else {
             (0, 0)
         };
+        let count_pass = if inventory_open || show_hud {
+            let counts = inventory_screen::count_vertices(
+                &self.inventory,
+                g.config.width,
+                g.config.height,
+                hud::gui_scale(g.config.width, g.config.height),
+                inventory_open,
+            );
+            if !counts.shadow.is_empty() {
+                g.queue.write_buffer(
+                    &g.count_shadow_vertex,
+                    0,
+                    bytemuck::cast_slice(&counts.shadow),
+                );
+            }
+            if !counts.foreground.is_empty() {
+                g.queue.write_buffer(
+                    &g.count_foreground_vertex,
+                    0,
+                    bytemuck::cast_slice(&counts.foreground),
+                );
+            }
+            (counts.shadow.len() as u32, counts.foreground.len() as u32)
+        } else {
+            (0, 0)
+        };
         match g.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame)
             | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -1666,6 +1756,15 @@ impl App {
                             p.set_vertex_buffer(0, g.inventory_icons_vertex.slice(..));
                             p.draw(0..inventory_icon_count, 0..1);
                         }
+                        if count_pass.0 > 0 {
+                            p.set_pipeline(&g.hud_shadow_pipeline);
+                            p.set_bind_group(0, &g.font_bind, &[]);
+                            p.set_vertex_buffer(0, g.count_shadow_vertex.slice(..));
+                            p.draw(0..count_pass.0, 0..1);
+                            p.set_pipeline(&g.hud_pipeline);
+                            p.set_vertex_buffer(0, g.count_foreground_vertex.slice(..));
+                            p.draw(0..count_pass.1, 0..1);
+                        }
                     } else if show_hud {
                         p.set_pipeline(&g.hud_pipeline);
                         p.set_bind_group(0, &g.gui_bind, &[]);
@@ -1683,6 +1782,15 @@ impl App {
                             p.set_bind_group(0, &g.items_bind, &[]);
                             p.set_vertex_buffer(0, g.hotbar_items_vertex.slice(..));
                             p.draw(0..hotbar_items_count, 0..1);
+                        }
+                        if count_pass.0 > 0 {
+                            p.set_pipeline(&g.hud_shadow_pipeline);
+                            p.set_bind_group(0, &g.font_bind, &[]);
+                            p.set_vertex_buffer(0, g.count_shadow_vertex.slice(..));
+                            p.draw(0..count_pass.0, 0..1);
+                            p.set_pipeline(&g.hud_pipeline);
+                            p.set_vertex_buffer(0, g.count_foreground_vertex.slice(..));
+                            p.draw(0..count_pass.1, 0..1);
                         }
                     }
                 }
