@@ -1,5 +1,13 @@
 # Отчёт Codex
 
+## LIGHT-UPDATE-001-C01 — native edit and light-update oracle
+
+Implemented `tools/oracle/src/LightUpdateOracle.java` and its verifier. The adapter allocates a synthetic `fd` with nine native `lm` chunks, initializes native `wi` block/sky arrays, and invokes the original `fd.d(int,int,int,int,int)` update entry point. The fixture records ordered raw block/sky nibble and combined-light queries for opaque removal, placement, an opaque roof at y=127, and a chunk-edge edit. The bounded domain is chunks -1..1, y 0..127, with 27 loaded chunks and explicit unloaded outer edges. Emission is explicitly excluded because the viewer full-cube edit API does not reach an emissive transition.
+
+Frozen A01 API/limits: candidate relight is bounded to this observed domain and queue limit; it returns exact block/sky nibble changes, sorted dirty chunks, and explicit unloaded boundaries, and never treats unloaded chunks as air. Diagonal shortcuts, fluids, new chunk loading, persistence, and emission transitions remain unsupported.
+
+Pinned JAR SHA-256 is `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`. The audit repeats the original JVM capture twice and compares both outputs to the committed 42-row fixture.
+
 ## HEALTH-001-C01 — native Player.Health and heart audit
 
 - Расширены `tools/oracle/hud_audit.py` и `tests/fixtures/hud/audit.json`: закреплены

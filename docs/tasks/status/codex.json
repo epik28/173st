@@ -849,9 +849,13 @@
       ]
     },
     "LIGHT-UPDATE-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Bounded original-client light-update oracle and fixture for opaque removal, placement, roof boundary, and chunk-edge edits.",
+      "checks": [
+        "Two independent native JVM captures match tests/fixtures/light_update/native.tsv byte-for-byte",
+        "Native fd.d update path exercised over synthetic in-memory lm chunks; emission transition explicitly excluded as unreachable through viewer edit API",
+        "A01 API frozen in docs/handoffs/codex.md: 27 loaded chunks, y 0..127, explicit unloaded boundaries"
+      ]
     },
     "LIGHT-UPDATE-001-C02": {
       "state": "pending",

@@ -1,0 +1,10 @@
+{
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "input_sha256": "13ec80539c7db32e3846c8e50e7fbc155f78b31b1ce80834c01d8a7497d7a737",
+  "output_sha256": "ee25471f64b359e4d29183136acd586f84e272abd5a568f9b39d6db7c51b3f42",
+  "class": "fd",
+  "entry": "fd.d(IIIII)V",
+  "domain": "chunks -1..1, y 0..127, queue bounded by 27 loaded chunks",
+  "unloaded_edges": ["west","east","north","south"],
+  "emission": "excluded: viewer full-cube edit API does not reach emissive transition"
+}

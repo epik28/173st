@@ -1,0 +1,42 @@
+16 achievements
+151 recipes
+remove	before	1	0
+remove-q0-0	7	64	7	0	00	0
+remove-q0-1	7	64	8	0	00	0
+remove-q0-2	7	64	9	0	00	0
+remove-q1-0	8	64	7	0	00	0
+remove-q1-1	8	64	8	1	0f	f0
+remove-q1-2	8	64	9	0	00	0
+remove-q2-0	9	64	7	0	00	0
+remove-q2-1	9	64	8	0	00	0
+remove-q2-2	9	64	9	0	00	0
+place	before	0	1
+place-q0-0	7	64	7	0	00	0
+place-q0-1	7	64	8	0	00	0
+place-q0-2	7	64	9	0	00	0
+place-q1-0	8	64	7	0	00	0
+place-q1-1	8	64	8	0	0f	f0
+place-q1-2	8	64	9	0	00	0
+place-q2-0	9	64	7	0	00	0
+place-q2-1	9	64	8	0	00	0
+place-q2-2	9	64	9	0	00	0
+roof	before	0	1
+roof-q0-0	7	127	7	0	00	0
+roof-q0-1	7	127	8	0	00	0
+roof-q0-2	7	127	9	0	00	0
+roof-q1-0	8	127	7	0	00	0
+roof-q1-1	8	127	8	0	00	0
+roof-q1-2	8	127	9	0	00	0
+roof-q2-0	9	127	7	0	00	0
+roof-q2-1	9	127	8	0	00	0
+roof-q2-2	9	127	9	0	00	0
+edge	before	0	1
+edge-q0-0	14	64	7	0	00	0
+edge-q0-1	14	64	8	0	00	0
+edge-q0-2	14	64	9	0	00	0
+edge-q1-0	15	64	7	0	00	0
+edge-q1-1	15	64	8	0	00	0
+edge-q1-2	15	64	9	0	00	0
+edge-q2-0	16	64	7	0	00	0
+edge-q2-1	16	64	8	0	00	0
+edge-q2-2	16	64	9	0	00	0
