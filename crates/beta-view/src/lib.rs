@@ -260,9 +260,45 @@ impl Scene {
         self.chunks.len()
     }
 
+    /// Replaces a loaded chunk in place so a block edit need not clone the full scene.
+    pub fn replace_chunk(&mut self, chunk: SceneChunk) -> Result<(), ViewError> {
+        if !self.bounds.contains(chunk.x, chunk.z) {
+            return Err(ViewError::ChunkOutsideScene {
+                x: chunk.x,
+                z: chunk.z,
+            });
+        }
+        let Some(data) = self.chunks.get_mut(&(chunk.x, chunk.z)) else {
+            return Err(ViewError::ChunkOutsideScene {
+                x: chunk.x,
+                z: chunk.z,
+            });
+        };
+        *data = chunk.data;
+        Ok(())
+    }
+
     /// Builds a separate, bounded transparent mesh for water blocks in the scene.
     /// The ordinary cube mesh remains unchanged and continues to own the opaque pass.
     pub fn fluid_mesh(&self, limits: MeshLimits) -> Result<fluid::Mesh, ViewError> {
+        self.fluid_mesh_selected(limits, None)
+    }
+
+    /// Builds water geometry only for selected chunks while sampling neighbors
+    /// from the complete scene.
+    pub fn fluid_mesh_chunks(
+        &self,
+        limits: MeshLimits,
+        chunks: &[(i32, i32)],
+    ) -> Result<fluid::Mesh, ViewError> {
+        self.fluid_mesh_selected(limits, Some(chunks))
+    }
+
+    fn fluid_mesh_selected(
+        &self,
+        limits: MeshLimits,
+        selected_chunks: Option<&[(i32, i32)]>,
+    ) -> Result<fluid::Mesh, ViewError> {
         let mut mesh = fluid::Mesh {
             vertices: Vec::new(),
         };
@@ -281,6 +317,9 @@ impl Scene {
             for chunk_x in 0..self.bounds.width {
                 let cx = self.bounds.min_chunk_x + i32::from(chunk_x);
                 let cz = self.bounds.min_chunk_z + i32::from(chunk_z);
+                if selected_chunks.is_some_and(|selected| !selected.contains(&(cx, cz))) {
+                    continue;
+                }
                 let Some(chunk) = self.chunks.get(&(cx, cz)) else {
                     continue;
                 };
@@ -529,7 +568,7 @@ impl Scene {
     /// Deterministic face mesh in world block coordinates. Unsupported states are omitted
     /// and counted once per occupied block. Adjacent supported full cubes share no face.
     pub fn mesh(&self, limits: MeshLimits) -> Result<Mesh, ViewError> {
-        self.mesh_impl(limits, None, None)
+        self.mesh_impl(limits, None, None, None)
     }
 
     /// Builds the extended render mesh using exact palette colors supplied by the caller.
@@ -539,7 +578,7 @@ impl Scene {
     where
         F: FnMut(u8, u8, i32, i32) -> u32,
     {
-        self.mesh_impl(limits, Some(&mut tint), None)
+        self.mesh_impl(limits, Some(&mut tint), None, None)
     }
 
     /// Builds a tinted render mesh and carries a source-block emission minimum on every
@@ -554,7 +593,28 @@ impl Scene {
         F: FnMut(u8, u8, i32, i32) -> u32,
         G: FnMut(u8) -> u8,
     {
-        self.mesh_impl(limits, Some(&mut tint), Some(&mut emission_minimum))
+        self.mesh_impl(limits, Some(&mut tint), Some(&mut emission_minimum), None)
+    }
+
+    /// Builds only selected chunk meshes while retaining the complete scene for
+    /// neighbor visibility and fluid corner queries.
+    pub fn mesh_chunks_with_tint_and_emission<F, G>(
+        &self,
+        limits: MeshLimits,
+        chunks: &[(i32, i32)],
+        mut tint: F,
+        mut emission_minimum: G,
+    ) -> Result<Mesh, ViewError>
+    where
+        F: FnMut(u8, u8, i32, i32) -> u32,
+        G: FnMut(u8) -> u8,
+    {
+        self.mesh_impl(
+            limits,
+            Some(&mut tint),
+            Some(&mut emission_minimum),
+            Some(chunks),
+        )
     }
 
     fn mesh_impl(
@@ -562,6 +622,7 @@ impl Scene {
         limits: MeshLimits,
         mut tint: Option<&mut dyn FnMut(u8, u8, i32, i32) -> u32>,
         mut emission_minimum: Option<&mut dyn FnMut(u8) -> u8>,
+        only_chunks: Option<&[(i32, i32)]>,
     ) -> Result<Mesh, ViewError> {
         let mut mesh = Mesh::default();
         let vertex_limit = limits.max_vertices.min(MAX_MESH_VERTICES);
@@ -580,6 +641,9 @@ impl Scene {
             for chunk_x in 0..self.bounds.width {
                 let cx = self.bounds.min_chunk_x + i32::from(chunk_x);
                 let cz = self.bounds.min_chunk_z + i32::from(chunk_z);
+                if only_chunks.is_some_and(|selected| !selected.contains(&(cx, cz))) {
+                    continue;
+                }
                 let Some(chunk) = self.chunks.get(&(cx, cz)) else {
                     continue;
                 };
@@ -1218,6 +1282,82 @@ mod tests {
                 "face {face} winding"
             );
         }
+    }
+
+    #[test]
+    fn selected_chunk_mesh_keeps_neighbor_occlusion_and_chunk_replace_updates_data() {
+        let mut west = ChunkData::new();
+        west.set(
+            15,
+            10,
+            4,
+            beta_core::chunk::BlockData {
+                id: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut east = ChunkData::new();
+        east.set(
+            0,
+            10,
+            4,
+            beta_core::chunk::BlockData {
+                id: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let bounds = SceneBounds::new(0, 0, 2, 1).unwrap();
+        let mut scene = Scene::new(
+            bounds,
+            vec![
+                SceneChunk {
+                    x: 0,
+                    z: 0,
+                    data: west,
+                },
+                SceneChunk {
+                    x: 1,
+                    z: 0,
+                    data: east.clone(),
+                },
+            ],
+            vec![mapping(1)],
+        )
+        .unwrap();
+        let full = scene.mesh(MeshLimits::default()).unwrap();
+        let selected = scene
+            .mesh_chunks_with_tint_and_emission(
+                MeshLimits::default(),
+                &[(0, 0)],
+                |_, _, _, _| 0x00ff_ffff,
+                beta_core::light::emission_level,
+            )
+            .unwrap();
+        assert_eq!(full.visible_faces, 10);
+        assert_eq!(selected.visible_faces, 5);
+        assert_eq!(selected.vertices.len(), 20);
+
+        east.set(0, 10, 4, beta_core::chunk::BlockData::default())
+            .unwrap();
+        scene
+            .replace_chunk(SceneChunk {
+                x: 1,
+                z: 0,
+                data: east,
+            })
+            .unwrap();
+        let updated = scene
+            .mesh_chunks_with_tint_and_emission(
+                MeshLimits::default(),
+                &[(0, 0)],
+                |_, _, _, _| 0x00ff_ffff,
+                beta_core::light::emission_level,
+            )
+            .unwrap();
+        assert_eq!(updated.visible_faces, 6);
+        assert_eq!(updated.vertices.len(), 24);
     }
 
     #[test]

@@ -19,10 +19,12 @@ FLUID-001 принят: вода ID 8/9 побитово совпадает с n
 
 BLOCK-001 принят: exact native ray targeting на поддержанных формах, локальный
 creative break/place тестового полного блока и пересборка видимой сцены после
-изменения. Strict runner сверяет 17 native ray cases; действия не имеют native
-oracle и подтверждены Rust tests, без заявления action parity. Источник save
-не изменяется. Survival mining, ориентация блоков и light propagation остаются
-вне пакета.
+изменения. После пользовательского сообщения о задержке пересборка ограничена
+изменённым chunk и соседями; CPU mesh cache и GPU buffers переиспользуются.
+Strict runner сверяет 17 native ray cases; действия не имеют native oracle и
+подтверждены Rust tests, без заявления action parity. Источник save не изменяется.
+Survival mining, ориентация блоков и light propagation остаются вне пакета;
+ручной тест latency ещё нужен.
 
 FLIGHT-SMOOTH-001 принят: debug-flight сохраняет fixed 20 Hz движение, а камера
 рендерит промежуточную позицию. Тесты покрывают 20/30/60/144 Hz, смену режима,

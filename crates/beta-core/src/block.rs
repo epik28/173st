@@ -523,10 +523,17 @@ impl BlockScene {
         )?;
         self.revision = next_revision;
         let mut dirty = vec![(cx, cz)];
-        for (dx, dz) in boundary_neighbors(lx, lz) {
-            let key = (cx + dx, cz + dz);
-            if self.chunks.contains_key(&key) && !dirty.contains(&key) {
-                dirty.push(key);
+        // Fluid corner heights sample diagonal chunks too. Rebuild all chunks
+        // touching the edited chunk corner, not only cardinal edge neighbors.
+        for dx in chunk_neighbor_offsets(lx) {
+            for dz in chunk_neighbor_offsets(lz) {
+                if dx == 0 && dz == 0 {
+                    continue;
+                }
+                let key = (cx + dx, cz + dz);
+                if self.chunks.contains_key(&key) && !dirty.contains(&key) {
+                    dirty.push(key);
+                }
             }
         }
         dirty.sort_unstable();
@@ -620,21 +627,14 @@ fn face_offset(face: u8) -> Option<(i32, i32, i32)> {
     }
 }
 
-fn boundary_neighbors(local_x: u8, local_z: u8) -> Vec<(i32, i32)> {
-    let mut neighbors = Vec::with_capacity(2);
-    if local_x == 0 {
-        neighbors.push((-1, 0));
-    }
-    if local_x == 15 {
-        neighbors.push((1, 0));
-    }
-    if local_z == 0 {
-        neighbors.push((0, -1));
-    }
-    if local_z == 15 {
-        neighbors.push((0, 1));
-    }
-    neighbors
+fn chunk_neighbor_offsets(local: u8) -> impl Iterator<Item = i32> {
+    let at_low_edge = local == 0;
+    let at_high_edge = local == 15;
+    [-1, 0, 1].into_iter().filter(move |offset| match offset {
+        -1 => at_low_edge,
+        1 => at_high_edge,
+        _ => true,
+    })
 }
 
 fn cell_intersects_xz_bounds(bounds: BlockSceneBounds, x: i32, z: i32) -> bool {
@@ -1129,6 +1129,48 @@ mod tests {
         assert_eq!(edit.revision, 1);
         assert_eq!(place_world.block(16, 10, 8).unwrap().unwrap().id, 2);
         assert_eq!(edit.dirty_chunks, vec![(0, 0), (1, 0)]);
+    }
+
+    #[test]
+    fn corner_edits_mark_diagonal_chunk_dirty_for_neighbor_sampling() {
+        let bounds = BlockSceneBounds::new(0, 0, 2, 2).unwrap();
+        let mut world = scene(
+            bounds,
+            vec![
+                BlockSceneChunk {
+                    x: 0,
+                    z: 0,
+                    data: chunk_with(&[(15, 10, 15, 1, 0)]),
+                },
+                BlockSceneChunk {
+                    x: 1,
+                    z: 0,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 0,
+                    z: 1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 1,
+                    z: 1,
+                    data: ChunkData::new(),
+                },
+            ],
+        );
+        let hit = BlockHit {
+            x: 15,
+            y: 10,
+            z: 15,
+            face: 1,
+            position: Vec3::new(15.5, 11.0, 15.5),
+            kind: BlockHitKind::FullCube,
+            id: 1,
+            metadata: 0,
+        };
+        let edit = world.break_block(hit, &|_, _| true).unwrap();
+        assert_eq!(edit.dirty_chunks, vec![(0, 0), (0, 1), (1, 0), (1, 1)]);
     }
 
     #[test]

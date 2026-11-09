@@ -22,7 +22,12 @@ use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Me
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
-use std::{collections::HashMap, fs, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs,
+    sync::Arc,
+    time::Instant,
+};
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
@@ -80,25 +85,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         &palette_dir.join("foliagecolor.png"),
     )?;
     scene.enable_fancy_leaves();
-    let mut climate_sampler = ClimateSampler::new(metadata.seed);
-    let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
-    let mesh = scene.mesh_with_tint_and_emission(
-        beta_view::MeshLimits::default(),
-        |id, block_metadata, x, z| {
-            let climate = *climate_cache
-                .entry((x, z))
-                .or_insert_with(|| climate_sampler.sample(x, z));
-            match id {
-                2 => grass_color(&color_maps.grass, climate)
-                    .expect("native climate sampler returns a valid palette climate"),
-                18 => foliage_color(&color_maps.foliage, climate, block_metadata)
-                    .expect("native climate sampler returns a valid palette climate"),
-                _ => 0x00ff_ffff,
-            }
-        },
-        beta_core::light::emission_level,
-    )?;
-    let fluid_mesh = scene.fluid_mesh(beta_view::MeshLimits::default())?;
+    let (chunk_meshes, chunk_fluid_meshes) =
+        build_chunk_mesh_cache(&scene, &color_maps, metadata.seed)?;
+    let mesh = join_mesh_cache(&chunk_meshes)?;
+    let fluid_mesh = join_fluid_cache(&chunk_fluid_meshes);
     let light_dimension = match metadata.dimension {
         0 => LightDimension::Overworld,
         -1 => LightDimension::Nether,
@@ -141,6 +131,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App {
         mesh,
         fluid_mesh,
+        chunk_meshes,
+        chunk_fluid_meshes,
         light_dimension,
         sky_subtraction,
         loaded_chunks,
@@ -255,6 +247,90 @@ fn client_jar_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
             .join(path)
     };
     Ok(root)
+}
+
+fn append_mesh(target: &mut Mesh, source: Mesh) -> Result<(), Box<dyn std::error::Error>> {
+    let offset = u32::try_from(target.vertices.len()).map_err(|_| "mesh index overflow")?;
+    target.vertices.extend(source.vertices);
+    target.indices.extend(
+        source
+            .indices
+            .into_iter()
+            .map(|index| index.checked_add(offset).ok_or("mesh index overflow"))
+            .collect::<Result<Vec<_>, _>>()?,
+    );
+    target.visible_faces += source.visible_faces;
+    target.unsupported_blocks += source.unsupported_blocks;
+    Ok(())
+}
+
+fn join_mesh_cache(cache: &BTreeMap<(i32, i32), Mesh>) -> Result<Mesh, Box<dyn std::error::Error>> {
+    let mut mesh = Mesh::default();
+    for (_, chunk_mesh) in ordered_chunk_meshes(cache) {
+        append_mesh(&mut mesh, chunk_mesh.clone())?;
+    }
+    Ok(mesh)
+}
+
+fn join_fluid_cache(cache: &BTreeMap<(i32, i32), FluidMesh>) -> FluidMesh {
+    FluidMesh {
+        vertices: ordered_chunk_meshes(cache)
+            .into_iter()
+            .flat_map(|(_, chunk_mesh)| chunk_mesh.vertices.iter().copied())
+            .collect(),
+    }
+}
+
+fn ordered_chunk_meshes<T>(cache: &BTreeMap<(i32, i32), T>) -> Vec<(&(i32, i32), &T)> {
+    let mut chunks: Vec<_> = cache.iter().collect();
+    chunks.sort_by_key(|((x, z), _)| (*z, *x));
+    chunks
+}
+
+type ChunkMeshCache = BTreeMap<(i32, i32), Mesh>;
+type ChunkFluidMeshCache = BTreeMap<(i32, i32), FluidMesh>;
+
+fn build_chunk_mesh_cache(
+    scene: &Scene,
+    color_maps: &beta_viewer::colors::ColorMaps,
+    biome_seed: i64,
+) -> Result<(ChunkMeshCache, ChunkFluidMeshCache), Box<dyn std::error::Error>> {
+    let mut opaque = BTreeMap::new();
+    let mut fluids = BTreeMap::new();
+    // `Scene` exposes its bounded rectangle and its selected mesh methods skip
+    // unloaded positions, so cache only non-empty geometry.
+    let bounds = scene.bounds();
+    for z in bounds.min_chunk_z..bounds.min_chunk_z + i32::from(bounds.depth) {
+        for x in bounds.min_chunk_x..bounds.min_chunk_x + i32::from(bounds.width) {
+            let selected = [(x, z)];
+            let mut climate_sampler = ClimateSampler::new(biome_seed);
+            let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
+            let mesh = scene.mesh_chunks_with_tint_and_emission(
+                beta_view::MeshLimits::default(),
+                &selected,
+                |id, metadata, block_x, block_z| {
+                    let climate = *climate_cache
+                        .entry((block_x, block_z))
+                        .or_insert_with(|| climate_sampler.sample(block_x, block_z));
+                    match id {
+                        2 => grass_color(&color_maps.grass, climate).expect("valid climate"),
+                        18 => foliage_color(&color_maps.foliage, climate, metadata)
+                            .expect("valid climate"),
+                        _ => 0x00ff_ffff,
+                    }
+                },
+                beta_core::light::emission_level,
+            )?;
+            let fluid = scene.fluid_mesh_chunks(beta_view::MeshLimits::default(), &selected)?;
+            if !mesh.vertices.is_empty() || mesh.unsupported_blocks != 0 {
+                opaque.insert((x, z), mesh);
+            }
+            if !fluid.vertices.is_empty() {
+                fluids.insert((x, z), fluid);
+            }
+        }
+    }
+    Ok((opaque, fluids))
 }
 
 fn copy_local_world()
@@ -505,6 +581,8 @@ fn sort_fluid_quads(
 struct App {
     mesh: Mesh,
     fluid_mesh: FluidMesh,
+    chunk_meshes: ChunkMeshCache,
+    chunk_fluid_meshes: ChunkFluidMeshCache,
     light_dimension: LightDimension,
     sky_subtraction: u8,
     scene: Scene,
@@ -702,36 +780,55 @@ impl App {
         }
     }
 
-    fn rebuild_scene_mesh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut scene = Scene::new(
-            self.scene.bounds(),
-            self.scene_chunks.clone(),
-            self.mappings.clone(),
-        )?;
-        scene.enable_fancy_leaves();
-        let mut climate_sampler = ClimateSampler::new(self.biome_seed);
-        let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
-        let mesh = scene.mesh_with_tint_and_emission(
-            beta_view::MeshLimits::default(),
-            |id, block_metadata, x, z| {
-                let climate = *climate_cache
-                    .entry((x, z))
-                    .or_insert_with(|| climate_sampler.sample(x, z));
-                match id {
-                    2 => grass_color(&self.color_maps.grass, climate)
-                        .expect("native climate sampler returns a valid palette climate"),
-                    18 => foliage_color(&self.color_maps.foliage, climate, block_metadata)
-                        .expect("native climate sampler returns a valid palette climate"),
-                    _ => 0x00ff_ffff,
-                }
-            },
-            beta_core::light::emission_level,
-        )?;
-        let fluid_mesh = scene.fluid_mesh(beta_view::MeshLimits::default())?;
-        self.loaded_chunks = scene.loaded_chunks();
-        self.scene = scene;
-        self.mesh = mesh;
-        self.fluid_mesh = fluid_mesh;
+    fn rebuild_dirty_chunks(
+        &mut self,
+        dirty: &[(i32, i32)],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for &(x, z) in dirty {
+            if let Some(chunk) = self
+                .scene_chunks
+                .iter()
+                .find(|chunk| chunk.x == x && chunk.z == z)
+            {
+                self.scene.replace_chunk(chunk.clone())?;
+            }
+        }
+        let scene = &self.scene;
+        for &(x, z) in dirty {
+            let selected = [(x, z)];
+            let mut climate_sampler = ClimateSampler::new(self.biome_seed);
+            let mut climate_cache: HashMap<(i32, i32), Climate> = HashMap::new();
+            let mesh = scene.mesh_chunks_with_tint_and_emission(
+                beta_view::MeshLimits::default(),
+                &selected,
+                |id, metadata, block_x, block_z| {
+                    let climate = *climate_cache
+                        .entry((block_x, block_z))
+                        .or_insert_with(|| climate_sampler.sample(block_x, block_z));
+                    match id {
+                        2 => grass_color(&self.color_maps.grass, climate)
+                            .expect("native climate sampler returns a valid palette climate"),
+                        18 => foliage_color(&self.color_maps.foliage, climate, metadata)
+                            .expect("native climate sampler returns a valid palette climate"),
+                        _ => 0x00ff_ffff,
+                    }
+                },
+                beta_core::light::emission_level,
+            )?;
+            if mesh.vertices.is_empty() && mesh.unsupported_blocks == 0 {
+                self.chunk_meshes.remove(&(x, z));
+            } else {
+                self.chunk_meshes.insert((x, z), mesh);
+            }
+            let fluid = scene.fluid_mesh_chunks(beta_view::MeshLimits::default(), &selected)?;
+            if fluid.vertices.is_empty() {
+                self.chunk_fluid_meshes.remove(&(x, z));
+            } else {
+                self.chunk_fluid_meshes.insert((x, z), fluid);
+            }
+        }
+        self.mesh = join_mesh_cache(&self.chunk_meshes)?;
+        self.fluid_mesh = join_fluid_cache(&self.chunk_fluid_meshes);
         self.upload_mesh_buffers()?;
         Ok(())
     }
@@ -791,36 +888,51 @@ impl App {
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(());
         };
-        gpu.vertex = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("rebuilt disposable scene mesh"),
-                contents: if packed.is_empty() {
-                    bytemuck::cast_slice(&[[0.0_f32; 8]])
-                } else {
-                    bytemuck::cast_slice(&packed)
-                },
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        gpu.index = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("rebuilt disposable scene indices"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        let packed_contents = if packed.is_empty() {
+            bytemuck::cast_slice(&[[0.0_f32; 8]])
+        } else {
+            bytemuck::cast_slice(&packed)
+        };
+        if packed_contents.len() as u64 <= gpu.vertex.size() {
+            gpu.queue.write_buffer(&gpu.vertex, 0, packed_contents);
+        } else {
+            gpu.vertex = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("grown scene mesh"),
+                    contents: packed_contents,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        }
+        let index_contents = bytemuck::cast_slice(&indices);
+        if index_contents.len() as u64 <= gpu.index.size() {
+            gpu.queue.write_buffer(&gpu.index, 0, index_contents);
+        } else {
+            gpu.index = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("grown scene indices"),
+                    contents: index_contents,
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                });
+        }
         gpu.index_count = self.mesh.indices.len() as u32;
-        gpu.fluid_vertex = gpu
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("rebuilt disposable water vertices"),
-                contents: if fluid_packed.is_empty() {
-                    bytemuck::cast_slice(&[[0.0_f32; 8]])
-                } else {
-                    bytemuck::cast_slice(&fluid_packed)
-                },
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
+        let fluid_contents = if fluid_packed.is_empty() {
+            bytemuck::cast_slice(&[[0.0_f32; 8]])
+        } else {
+            bytemuck::cast_slice(&fluid_packed)
+        };
+        if fluid_contents.len() as u64 <= gpu.fluid_vertex.size() {
+            gpu.queue.write_buffer(&gpu.fluid_vertex, 0, fluid_contents);
+        } else {
+            gpu.fluid_vertex = gpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("grown water vertices"),
+                    contents: fluid_contents,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        }
         gpu.fluid_vertex_count = self.fluid_mesh.vertices.len() as u32;
         Ok(())
     }
@@ -857,10 +969,10 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
-        self.rebuild_scene_mesh()?;
+        self.rebuild_dirty_chunks(&edit.dirty_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(
-            "{} block at ({x},{y},{z}); full scene rebuilt after {} dirty chunks",
+            "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
             if breaking { "broke" } else { "placed" },
             edit.dirty_chunks.len()
         );
@@ -1269,7 +1381,7 @@ impl App {
         let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("static scene mesh"),
             contents: bytemuck::cast_slice(&packed),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let indices = if self.mesh.indices.is_empty() {
             vec![0_u32]
@@ -1279,7 +1391,7 @@ impl App {
         let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("static scene indices"),
             contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
         });
         let fluid_packed: Vec<[f32; 8]> = self
             .fluid_mesh
