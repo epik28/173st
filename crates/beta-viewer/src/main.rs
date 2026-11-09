@@ -3,6 +3,7 @@
 //! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
+mod hotbar_input;
 mod hud;
 
 use beta_core::{
@@ -11,6 +12,7 @@ use beta_core::{
         BlockEdit, BlockHit, BlockScene, BlockSceneBounds, BlockSceneChunk, RayResult, RayShape,
     },
     chunk::{BlockData, split_block_coord},
+    items::Inventory,
     light::{LightDimension, sample_brightness, sky_subtraction},
     motion::MotionState,
 };
@@ -155,6 +157,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         controller: MotionController::new(MotionState::new(safe_spawn)),
         safe_spawn,
         controls: Controls::default(),
+        inventory: Inventory::new(),
+        wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
         last: Instant::now(),
@@ -404,6 +408,8 @@ struct App {
     controller: MotionController,
     safe_spawn: [f64; 3],
     controls: Controls,
+    inventory: Inventory,
+    wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
     mouse_delta: MouseDeltaAccumulator,
     last: Instant,
@@ -1237,10 +1243,11 @@ impl App {
                 bytemuck::cast_slice(&m.to_cols_array()),
             )
         }
-        let (hud_gui, hud_icons) = hud::native_vertices(
+        let (hud_gui, hud_icons) = hud::native_vertices_with_selection(
             g.config.width,
             g.config.height,
             hud::gui_scale(g.config.width, g.config.height),
+            self.inventory.selected_hotbar(),
         );
         g.queue
             .write_buffer(&g.hud_gui_vertex, 0, bytemuck::cast_slice(&hud_gui));
@@ -1340,6 +1347,7 @@ impl ApplicationHandler for App {
                 self.mouse_delta.clear();
                 if !focused {
                     self.controls = Controls::default();
+                    self.wheel_input.clear();
                     self.controller.clear_clock();
                     self.controller
                         .sync_flight_position(self.camera.position.to_array());
@@ -1380,6 +1388,19 @@ impl ApplicationHandler for App {
                     }
                 }
             }
+            WindowEvent::MouseWheel { delta, .. } if self.focused => {
+                let step = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => {
+                        self.wheel_input.line_event(f64::from(y))
+                    }
+                    winit::event::MouseScrollDelta::PixelDelta(position) => {
+                        self.wheel_input.pixel_event(position.y)
+                    }
+                };
+                if let Some(step) = step {
+                    hotbar_input::wheel_step(&mut self.inventory, step);
+                }
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if !self.focused {
                     return;
@@ -1395,6 +1416,27 @@ impl ApplicationHandler for App {
                         return;
                     }
                     let pressed = event.state == ElementState::Pressed;
+                    let number = match code {
+                        KeyCode::Digit1 => Some(1),
+                        KeyCode::Digit2 => Some(2),
+                        KeyCode::Digit3 => Some(3),
+                        KeyCode::Digit4 => Some(4),
+                        KeyCode::Digit5 => Some(5),
+                        KeyCode::Digit6 => Some(6),
+                        KeyCode::Digit7 => Some(7),
+                        KeyCode::Digit8 => Some(8),
+                        KeyCode::Digit9 => Some(9),
+                        _ => None,
+                    };
+                    if let Some(number) = number {
+                        hotbar_input::number_key(
+                            &mut self.inventory,
+                            number,
+                            pressed,
+                            event.repeat,
+                            self.focused,
+                        );
+                    }
                     match code {
                         KeyCode::KeyW => self.controls.forward = pressed,
                         KeyCode::KeyS => self.controls.backward = pressed,
