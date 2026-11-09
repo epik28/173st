@@ -833,3 +833,21 @@ passes cover supported hotbar and inventory stacks, including two-digit values.
 Tests cover omission at one, counts 2 and 16, glyph UV bounds, shadow offset,
 inventory positions and viewport scaling. This is native-evidence-derived
 geometry; no pixel parity or GUI smoke claim is made.
+
+## INVENTORY-INTERACTION-001-A01 — in-memory cursor interactions
+
+Added cursor state to `InventoryScreen` and wired focused mouse clicks while
+the E-screen is open. The existing 36-slot indexing is preserved: 0..8 are the
+hotbar and 9..35 are the upper inventory rows. Native 18x18 hitboxes map the
+physical cursor to slots at the current GUI scale. Left click picks up, places,
+merges or swaps whole supported stacks; right click takes the rounded-up half,
+places one item, or merges one compatible item. Unsupported outside clicks are
+no-ops and selected hotbar state is unchanged.
+
+Closing and focus loss return the cursor stack through the existing native
+insertion order, retaining it if insertion unexpectedly fails. No world drop,
+save persistence, source-world write or unsupported stack synthesis was added.
+Tests cover pickup, split/place/merge, hitbox boundaries, closed-screen gating,
+cursor return and selected-hotbar preservation. `cargo fmt`, focused viewer
+tests, clippy `-D warnings` and `git diff --check` pass; no GUI smoke or pixel
+parity claim is made.

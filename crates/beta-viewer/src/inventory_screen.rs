@@ -254,9 +254,10 @@ pub fn hotbar_vertices(
     (terrain, items)
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InventoryScreen {
     open: bool,
+    cursor: Option<beta_core::items::ItemStack>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -268,8 +269,113 @@ pub enum Transition {
 }
 
 impl InventoryScreen {
-    pub const fn is_open(self) -> bool {
+    pub const fn is_open(&self) -> bool {
         self.open
+    }
+
+    pub fn slot_at(&self, width: u32, height: u32, scale: u32, x: f32, y: f32) -> Option<usize> {
+        if !self.open {
+            return None;
+        }
+        native_layout(width, height, scale)
+            .slots
+            .iter()
+            .position(|slot| {
+                x >= slot.x - scale.max(1) as f32
+                    && x < slot.x + slot.width + scale.max(1) as f32
+                    && y >= slot.y - scale.max(1) as f32
+                    && y < slot.y + slot.height + scale.max(1) as f32
+            })
+    }
+
+    pub fn click(&mut self, inventory: &mut Inventory, slot: usize, right: bool) -> bool {
+        if !self.open || slot >= MAIN_SLOT_COUNT {
+            return false;
+        }
+        let Ok(target) = inventory.stack_at(slot) else {
+            return false;
+        };
+        if right {
+            if self.cursor.is_none() {
+                let Some(stack) = target else {
+                    return false;
+                };
+                let amount = stack.count().div_ceil(2);
+                self.cursor = inventory.split_slot(slot, amount).ok();
+                return self.cursor.is_some();
+            }
+            let mut cursor = self.cursor.take().unwrap();
+            match target {
+                None => {
+                    let placed = cursor.split(1).ok();
+                    let _ = inventory.set_slot(slot, placed);
+                }
+                Some(target)
+                    if target.id() == cursor.id()
+                        && target.damage() == cursor.damage()
+                        && target.count() < target.max_stack() =>
+                {
+                    let _ = cursor.split(1);
+                    let _ = inventory.set_slot(
+                        slot,
+                        beta_core::items::ItemStack::new(
+                            target.id(),
+                            target.count() + 1,
+                            target.damage(),
+                        )
+                        .ok(),
+                    );
+                }
+                Some(_) => {}
+            }
+            if cursor.count() > 0 {
+                self.cursor = Some(cursor);
+            }
+            return true;
+        }
+        let cursor = self.cursor.take();
+        match (cursor, target) {
+            (None, Some(_)) => self.cursor = inventory.set_slot(slot, None).ok().flatten(),
+            (Some(stack), None) => {
+                let _ = inventory.set_slot(slot, Some(stack));
+            }
+            (Some(mut held), Some(target))
+                if held.id() == target.id() && held.damage() == target.damage() =>
+            {
+                let free = target.max_stack().saturating_sub(target.count());
+                let moved = free.min(held.count());
+                if moved > 0 {
+                    let _ = held.split(moved);
+                    let _ = inventory.set_slot(
+                        slot,
+                        beta_core::items::ItemStack::new(
+                            target.id(),
+                            target.count() + moved,
+                            target.damage(),
+                        )
+                        .ok(),
+                    );
+                }
+                if held.count() > 0 {
+                    self.cursor = Some(held);
+                }
+            }
+            (Some(held), Some(target)) if held.count() <= target.max_stack() => {
+                let _ = inventory.set_slot(slot, Some(held));
+                self.cursor = Some(target);
+            }
+            (held, _) => self.cursor = held,
+        }
+        true
+    }
+
+    pub fn return_cursor(&mut self, inventory: &mut Inventory) {
+        if let Some(cursor) = self.cursor.take() {
+            let mut incoming = Some(cursor);
+            if inventory.insert(&mut incoming).is_err() {
+                self.cursor = incoming;
+            }
+        }
     }
 
     /// Apply a physical E/Escape key event. Only focused, non-repeated key
@@ -300,8 +406,10 @@ impl InventoryScreen {
         Transition::Unchanged
     }
 
-    pub fn focus_lost(&mut self) -> bool {
-        std::mem::replace(&mut self.open, false)
+    pub fn focus_lost(&mut self, inventory: &mut Inventory) -> bool {
+        let was_open = std::mem::replace(&mut self.open, false);
+        self.return_cursor(inventory);
+        was_open
     }
 }
 
@@ -364,9 +472,9 @@ mod tests {
             screen.key_event(true, false, true, false, true),
             Transition::Opened
         );
-        assert!(screen.focus_lost());
+        assert!(screen.focus_lost(&mut Inventory::new()));
         assert!(!screen.is_open());
-        assert!(!screen.focus_lost());
+        assert!(!screen.focus_lost(&mut Inventory::new()));
     }
 
     #[test]
@@ -569,5 +677,49 @@ mod tests {
         assert_eq!(counts.foreground.len(), 6);
         assert_eq!(counts.foreground[0][2], 16.0 / 128.0);
         assert_eq!(counts.foreground[0][3], 24.0 / 128.0);
+    }
+
+    #[test]
+    fn cursor_clicks_pickup_split_place_and_return_without_changing_selection() {
+        let mut screen = InventoryScreen::default();
+        let mut inventory = Inventory::new();
+        inventory
+            .set_slot(0, Some(ItemStack::new(1, 5, 0).unwrap()))
+            .unwrap();
+        inventory.select_hotbar(4).unwrap();
+        assert_eq!(
+            screen.key_event(true, false, true, false, true),
+            Transition::Opened
+        );
+        assert!(screen.click(&mut inventory, 0, false));
+        assert_eq!(screen.cursor.unwrap().count(), 5);
+        assert!(screen.click(&mut inventory, 9, false));
+        assert!(screen.click(&mut inventory, 9, true));
+        assert_eq!(screen.cursor.unwrap().count(), 3);
+        assert_eq!(inventory.stack_at(9).unwrap().unwrap().count(), 2);
+        assert!(screen.click(&mut inventory, 9, false));
+        assert_eq!(inventory.stack_at(9).unwrap().unwrap().count(), 5);
+        screen.return_cursor(&mut inventory);
+        assert!(screen.cursor.is_none());
+        assert_eq!(inventory.selected_hotbar(), 4);
+    }
+
+    #[test]
+    fn hitboxes_are_native_eighteen_pixels_and_closed_screen_is_gated() {
+        let mut screen = InventoryScreen::default();
+        assert_eq!(screen.slot_at(1280, 720, 3, 640.0, 500.0), None);
+        let mut inventory = Inventory::new();
+        screen.key_event(true, false, true, false, true);
+        let layout = native_layout(1280, 720, 3);
+        assert_eq!(
+            screen.slot_at(1280, 720, 3, layout.slots[0].x - 4.0, layout.slots[0].y),
+            None
+        );
+        assert_eq!(
+            screen.slot_at(1280, 720, 3, layout.slots[0].x - 3.0, layout.slots[0].y),
+            Some(0)
+        );
+        assert!(!screen.click(&mut inventory, 36, false));
+        assert!(screen.click(&mut inventory, 0, false));
     }
 }

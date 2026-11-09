@@ -178,6 +178,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         focused: true,
         inventory_screen: inventory_screen::InventoryScreen::default(),
         inventory_resume_capture: false,
+        cursor_position: None,
     };
     event.run_app(&mut app)?;
     Ok(())
@@ -609,6 +610,7 @@ struct App {
     focused: bool,
     inventory_screen: inventory_screen::InventoryScreen,
     inventory_resume_capture: bool,
+    cursor_position: Option<(f32, f32)>,
 }
 struct Gpu {
     instance: wgpu::Instance,
@@ -1835,7 +1837,7 @@ impl ApplicationHandler for App {
                 self.last = Instant::now();
                 self.mouse_delta.clear();
                 if !focused {
-                    self.inventory_screen.focus_lost();
+                    self.inventory_screen.focus_lost(&mut self.inventory);
                     self.controls = Controls::default();
                     self.wheel_input.clear();
                     self.controller.clear_clock();
@@ -1860,6 +1862,38 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => self.frame(),
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_position = Some((position.x as f32, position.y as f32));
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button,
+                ..
+            } if self.focused && self.inventory_screen.is_open() => {
+                let Some((x, y)) = self.cursor_position else {
+                    return;
+                };
+                let Some(g) = self.gpu.as_ref() else {
+                    return;
+                };
+                let Some(slot) = self.inventory_screen.slot_at(
+                    g.config.width,
+                    g.config.height,
+                    hud::gui_scale(g.config.width, g.config.height),
+                    x,
+                    y,
+                ) else {
+                    return;
+                };
+                let right = match button {
+                    MouseButton::Left => false,
+                    MouseButton::Right => true,
+                    _ => return,
+                };
+                let _ = self
+                    .inventory_screen
+                    .click(&mut self.inventory, slot, right);
+            }
             WindowEvent::MouseInput { state, button, .. }
                 if state == ElementState::Pressed
                     && self.focused
@@ -1921,6 +1955,7 @@ impl ApplicationHandler for App {
                         return;
                     }
                     if matches!(transition, inventory_screen::Transition::Closed) {
+                        self.inventory_screen.return_cursor(&mut self.inventory);
                         self.controls = Controls::default();
                         self.mouse_delta.clear();
                         if self.inventory_resume_capture
