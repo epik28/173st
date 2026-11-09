@@ -746,3 +746,26 @@ fixture is available. Codex supplied the audited native layout/UV facts; no
 other agent was used. HUD-001 C02 should perform integration review and may
 update the shared contract to record that the locked `flate2` backend extracts
 the two resources directly into memory.
+
+## HOTBAR-INPUT-001-A01 — native hotbar selection controls
+
+Implementation and status are in the following commit. Added physical
+`Digit1`–`Digit9` selection through `beta_core::items::Inventory`, ignoring
+release, repeat and unfocused input. Each rendered frame now places the native
+selection frame at the selected index. Wheel events use `ix.b(I)V` semantics
+confirmed by C01: positive is previous, negative is next, every nonzero native
+event is one step regardless of magnitude, and indices wrap over 0..8. Winit
+line and pixel event fractions accumulate independently; the viewer applies a
+deterministic threshold of one line or 120 pixels and clears remainders on
+focus loss. C01 did not verify conversion from pixel deltas to native events,
+so the 120-pixel threshold is a viewer policy, not a native-parity claim.
+Selection is transient and never saved.
+
+Checks: `cargo test --locked --offline -p beta-viewer --all-targets` passed (15
+library, 21 binary, and 4 example tests); viewer clippy `-D warnings`, fmt
+check, and `git diff --check` passed. A guarded Xvfb startup validated the two
+HUD resources from the pinned JAR then stopped at
+`pinned world source hash mismatch: level.dat`; no save was opened or modified
+and no visual smoke was possible. Codex's C01 audit supplied wheel sign,
+magnitude clamp, and wrap behavior. C02 should review wheel unit conversion and
+the selection-frame geometry against the native evidence.

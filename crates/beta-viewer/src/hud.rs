@@ -304,7 +304,13 @@ pub fn gui_scale(width: u32, height: u32) -> u32 {
 
 /// Compute pixel-aligned positions in physical pixels while retaining square
 /// atlas pixels. `native_gui_scale` is the integer GUI scale selected by client.
-pub fn layout(width: u32, height: u32, native_gui_scale: u32) -> HudLayout {
+/// Compute the HUD layout with the native selection frame at `selected_slot`.
+pub fn layout_with_selection(
+    width: u32,
+    height: u32,
+    native_gui_scale: u32,
+    selected_slot: u8,
+) -> HudLayout {
     let scale = native_gui_scale.max(1);
     let s = scale as f32;
     // qq computes ceil(display / scale), then GuiIngame uses integer halves
@@ -320,7 +326,7 @@ pub fn layout(width: u32, height: u32, native_gui_scale: u32) -> HudLayout {
     let hotbar_width = 182.0 * s;
     let hotbar_height = 22.0 * s;
     let selected = Rect {
-        x: (center_x as i32 - 92) as f32 * s,
+        x: (center_x as i32 - 92 + i32::from(selected_slot.min(8)) * 20) as f32 * s,
         y: (logical_height as i32 - 23) as f32 * s,
         width: 24.0 * s,
         height: 22.0 * s,
@@ -374,8 +380,13 @@ pub fn quad_vertices(rect: Rect, uv: Rect, viewport: (u32, u32)) -> [[f32; 4]; 6
 
 /// Return GUI-atlas quads (frame, selected slot) and icons-atlas quads
 /// (background/full heart pairs followed by crosshair), in native draw order.
-pub fn native_vertices(width: u32, height: u32, scale: u32) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
-    let layout = layout(width, height, scale);
+pub fn native_vertices_with_selection(
+    width: u32,
+    height: u32,
+    scale: u32,
+    selected_slot: u8,
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
+    let layout = layout_with_selection(width, height, scale, selected_slot);
     let mut gui = Vec::with_capacity(12);
     gui.extend(quad_vertices(
         layout.hotbar,
@@ -443,7 +454,7 @@ mod tests {
     #[test]
     fn hud_is_centered_and_bottom_anchored_at_multiple_aspects() {
         for (w, h, scale) in [(1280, 720, 3), (1920, 1080, 4), (640, 480, 2)] {
-            let hud = layout(w, h, scale);
+            let hud = layout_with_selection(w, h, scale, 0);
             assert_eq!(
                 hud.hotbar.x,
                 ((w.div_ceil(scale) / 2) as i32 - 91) as f32 * scale as f32
@@ -464,7 +475,7 @@ mod tests {
 
     #[test]
     fn odd_logical_resolution_uses_native_ceil_then_integer_center() {
-        let hud = layout(1280, 720, 3);
+        let hud = layout_with_selection(1280, 720, 3, 0);
         assert_eq!(hud.hotbar.x, 366.0); // ceil(1280 / 3) / 2 - 91, then *3
         assert_eq!(hud.hotbar.y, 654.0);
         assert_eq!(hud.selected_slot.x, 363.0);
@@ -472,6 +483,22 @@ mod tests {
         assert_eq!(hud.hearts[0].y, 624.0);
         assert_eq!(hud.crosshair.x, 618.0);
         assert_eq!(hud.crosshair.y, 339.0);
+    }
+
+    #[test]
+    fn selection_frame_moves_in_twenty_pixel_native_slot_steps() {
+        let zero = layout_with_selection(1280, 720, 3, 0).selected_slot;
+        for selected in 0..9 {
+            let slot = layout_with_selection(1280, 720, 3, selected).selected_slot;
+            assert_eq!(slot.x, zero.x + f32::from(selected) * 20.0 * 3.0);
+            assert_eq!(slot.y, zero.y);
+            assert_eq!(slot.width, zero.width);
+            assert_eq!(slot.height, zero.height);
+        }
+        assert_eq!(
+            layout_with_selection(1280, 720, 3, 255).selected_slot,
+            layout_with_selection(1280, 720, 3, 8).selected_slot
+        );
     }
 
     #[test]
@@ -502,7 +529,7 @@ mod tests {
 
     #[test]
     fn native_sprite_batches_use_pinned_atlas_bounds_and_empty_hotbar() {
-        let (gui, icons) = native_vertices(1280, 720, 2);
+        let (gui, icons) = native_vertices_with_selection(1280, 720, 2, 0);
         assert_eq!(gui.len(), 12);
         assert_eq!(icons.len(), 126);
         assert!(
