@@ -45,6 +45,44 @@ pub struct ChooserState {
     pub cancelled: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChooserGeometry {
+    pub width: f32,
+    pub row_top: f32,
+    pub row_height: f32,
+    pub select_top: f32,
+    pub cancel_top: f32,
+    pub button_height: f32,
+}
+
+impl ChooserGeometry {
+    pub fn new(width: f32) -> Self {
+        Self {
+            width,
+            row_top: 56.0,
+            row_height: 42.0,
+            select_top: 410.0,
+            cancel_top: 410.0,
+            button_height: 36.0,
+        }
+    }
+    pub fn row_at(self, y: f32, count: usize) -> Option<usize> {
+        if y < self.row_top {
+            return None;
+        }
+        let index = ((y - self.row_top) / self.row_height).floor() as usize;
+        (index < count).then_some(index)
+    }
+    pub fn select_at(self, x: f32, y: f32) -> bool {
+        (420.0..570.0).contains(&x)
+            && (self.select_top..self.select_top + self.button_height).contains(&y)
+    }
+    pub fn cancel_at(self, x: f32, y: f32) -> bool {
+        (580.0..self.width - 20.0).contains(&x)
+            && (self.cancel_top..self.cancel_top + self.button_height).contains(&y)
+    }
+}
+
 impl ChooserState {
     pub fn new() -> Self {
         Self {
@@ -391,5 +429,16 @@ mod tests {
         assert_eq!(state.activate(&entries), Some(1));
         state.move_selection(&entries, 1);
         assert_eq!(state.selected, Some(1));
+    }
+
+    #[test]
+    fn chooser_geometry_maps_rows_and_buttons() {
+        let g = ChooserGeometry::new(720.0);
+        assert_eq!(g.row_at(56.0, 3), Some(0));
+        assert_eq!(g.row_at(97.9, 3), Some(0));
+        assert_eq!(g.row_at(98.0, 3), Some(1));
+        assert!(g.select_at(450.0, 420.0));
+        assert!(g.cancel_at(650.0, 420.0));
+        assert_eq!(g.row_at(300.0, 2), None);
     }
 }
