@@ -1772,7 +1772,7 @@ impl App {
             beta_core::block::MAX_RELIGHT_CELLS,
             |id, _metadata| {
                 let emission = beta_core::light::emission_level(id);
-                (if id == 0 { 0 } else { 255 }, emission)
+                (beta_core::light::opacity_level(id), emission)
             },
         )?;
         let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight.dirty_chunks);

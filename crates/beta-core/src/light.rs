@@ -129,6 +129,40 @@ pub fn sky_subtraction(
     Ok((darkness * 11.0_f32) as u8)
 }
 
+/// Returns the original static block registry's raw light-opacity value.
+///
+/// The native arrays also contain zero for unregistered IDs. This value does
+/// not establish that such a block is supported or may be placed by the viewer.
+/// Propagation clamps attenuation separately, preserving transparent columns.
+#[must_use]
+pub fn opacity_level(block_id: u8) -> u8 {
+    match block_id {
+        18 | 30 => 1,
+        8 | 9 | 79 => 3,
+        1..=5
+        | 7
+        | 10..=17
+        | 19
+        | 21..=25
+        | 35
+        | 41..=49
+        | 53
+        | 54
+        | 56..=58
+        | 60..=62
+        | 67
+        | 73
+        | 74
+        | 80
+        | 82
+        | 84
+        | 86..=89
+        | 91
+        | 95 => 255,
+        _ => 0,
+    }
+}
+
 /// Returns the original static block registry's light-emission level.
 #[must_use]
 pub fn emission_level(block_id: u8) -> u8 {
@@ -266,6 +300,22 @@ mod tests {
                 .map_or(0, |(_, level)| *level);
             assert_eq!(emission_level(id), level, "block id {id}");
         }
+    }
+
+    #[test]
+    fn material_properties_match_every_native_registry_entry() {
+        let fixture = include_str!("../../../tests/fixtures/light_material/native.tsv");
+        let mut count = 0;
+        for line in fixture.lines() {
+            let row: Vec<u16> = line.split('\t').map(|word| word.parse().unwrap()).collect();
+            assert_eq!(row.len(), 4);
+            assert_eq!(usize::from(row[0]), count);
+            let id = u8::try_from(row[0]).unwrap();
+            assert_eq!(u16::from(opacity_level(id)), row[2], "opacity for {id}");
+            assert_eq!(u16::from(emission_level(id)), row[3], "emission for {id}");
+            count += 1;
+        }
+        assert_eq!(count, 256);
     }
 
     #[test]

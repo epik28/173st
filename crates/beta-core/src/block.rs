@@ -387,12 +387,17 @@ impl BlockScene {
                         // clamped separately; keeping this distinction is
                         // essential for the direct-sky column check.
                         let attenuation = opacity.max(1);
-                        let direct_sky = (y + 1..128).all(|sy| {
-                            next.block(x, sy, z)
-                                .ok()
-                                .flatten()
-                                .is_some_and(|b| material(b.id, b.metadata).0 == 0)
-                        });
+                        // A nonzero-opacity cell itself lies below the native
+                        // sky-visible height, even when everything above is air.
+                        // Giving a top leaf/water block direct sky would skip
+                        // its attenuation (native water is 12, not 15).
+                        let direct_sky = opacity == 0
+                            && (y + 1..128).all(|sy| {
+                                next.block(x, sy, z)
+                                    .ok()
+                                    .flatten()
+                                    .is_some_and(|b| material(b.id, b.metadata).0 == 0)
+                            });
                         // lm.a() refuses the whole column until fd.b() can
                         // resolve every chunk intersecting x-1..x+1,z-1..z+1.
                         // The diagonal chunks matter at chunk corners too.
