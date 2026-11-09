@@ -712,6 +712,8 @@ do not start C03 from this worktree.
 
 ## HUD-001-A01 — screen-space native HUD rendering
 
+Implementation and status commit: `a84a4c6cfc0ec4b49b94cdf91951566734fec449`.
+
 Implemented the viewer-only overlay using the C01 native GUI facts. The GUI
 atlas batch draws the 182x22 hotbar frame then the 24x22 selection frame at
 index 0; the icons batch draws ten 9x9 background/full-heart pairs and the
