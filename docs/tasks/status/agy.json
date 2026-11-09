@@ -369,9 +369,13 @@
       ]
     },
     "HUD-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен render-only HUD: нативные hotbar frame/selection, десять full-heart пар и crosshair через GUI atlas после opaque/fluid pass. Resource loader извлекает только два точных PNG из SHA-pinned Beta JAR в память; нет item icons, survival health или slot input.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 15 library + 15 binary tests and both viewer example suites; includes native logical-scale anchoring, pixel-space/UV batches, stored/deflated ZIP extraction, missing/malformed/unsupported member, archive/resource hash and dimensions rejection",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "timeout 15s cargo run --locked --offline -p beta-viewer → GUI resources were extracted and hash/dimension validated from the pinned JAR; startup then stopped at the existing guard: `pinned world source hash mismatch: level.dat`. No source save was copied/opened and no visual smoke was possible."
+      ]
     }
   }
 }

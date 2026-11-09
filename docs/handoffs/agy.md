@@ -709,3 +709,38 @@ states match, zero mismatches, on clean probe revision
 oracle, runner, contract, dependency, viewer or save files changed. GUI, crafting,
 armor, general item metadata, and persistence remain out of scope. A02 is complete;
 do not start C03 from this worktree.
+
+## HUD-001-A01 — screen-space native HUD rendering
+
+Implemented the viewer-only overlay using the C01 native GUI facts. The GUI
+atlas batch draws the 182x22 hotbar frame then the 24x22 selection frame at
+index 0; the icons batch draws ten 9x9 background/full-heart pairs and the
+16x16 crosshair. Positions follow the integer scaled viewport dimensions from
+`qq`, including `ceil(display/scale)` and integer center/offset calculations.
+The overlay is screen-space, pixel-aligned, nearest-sampled, alpha-blended, has
+no depth state, and is submitted after opaque and water rendering. The title
+identifies this as an empty hotbar and fixed 20/20 presentation with no
+survival state. There are no item sprites, inventory controls, or health logic.
+
+The viewer reads `paths.client_jar`, verifies the pinned full-client SHA-256,
+extracts only exact `gui/gui.png` and `gui/icons.png` entries in memory using
+the already locked `flate2` backend, then verifies each resource hash and
+256x256 dimensions. No proprietary resource is written to disk. ZIP reading is
+bounded to 1 MiB per atlas and supports only stored/deflate methods.
+
+Checks: `cargo test --locked --offline -p beta-viewer --all-targets` passed
+(15 library tests, 15 viewer tests, and 4 example tests). Added deterministic
+tests for native layout at multiple viewports, odd logical-resolution pixel
+anchoring, UV bounds and sprite counts, stored/deflated ZIP extraction,
+missing/malformed/unsupported members, bad archive/resource hashes, and wrong
+atlas dimensions. `cargo clippy --locked --offline -p beta-viewer --all-targets
+-- -D warnings`, `cargo fmt --all -- --check`, and `git diff --check` passed.
+
+`timeout 15s cargo run --locked --offline -p beta-viewer` validated both GUI
+resources from the actual pinned JAR, then stopped at the pre-existing guard
+with `pinned world source hash mismatch: level.dat`. No saved source was copied
+or opened; visual GPU smoke therefore remains blocked until a valid pinned
+fixture is available. Codex supplied the audited native layout/UV facts; no
+other agent was used. HUD-001 C02 should perform integration review and may
+update the shared contract to record that the locked `flate2` backend extracts
+the two resources directly into memory.
