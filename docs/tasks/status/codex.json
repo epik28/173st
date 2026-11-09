@@ -826,9 +826,15 @@
       ]
     },
     "HEALTH-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Расширен pinned HUD audit: Player.Health в ls.Y сохраняется как signed short, native missing default равен 10, viewer contract закрепляет default 20 и clamp 0..20; native heart loop теперь проверяет background/full/half UV включая (61,0). Добавлены ls.class provenance и fixture mutation guards.",
+      "checks": [
+        "python3 tools/oracle/hud_audit.py --jar ../.local/minecraft/client-b1.7.3.jar → PASS: pinned JAR/resources, uq HUD bytecode, ls Player.Health class hash and read/write/default evidence",
+        "python3 -m unittest tests.python.test_hud_audit -v → 5 PASS: valid audit plus wrong JAR, health type/range, half-heart UV, missing health evidence, missing resource and malformed fixture mutations",
+        "git diff --check → PASS; no Rust, world, shared contract or queue files changed",
+        "Native evidence: ls.Y:I writes Health via nu.a(String,S), reads nu.d(String):S, missing field defaults native Y to 10; uq draws background (16,0), full (52,0), half (61,0), each 9x9 in 10 ordered cells",
+        "Pinned hashes: client af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c; uq b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12; ls b70fbb1499cd1b37ef27dd5dec7637c7338439ef03fe13012dca93fb2326d078"
+      ]
     },
     "HEALTH-001-C02": {
       "state": "pending",

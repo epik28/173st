@@ -17,6 +17,8 @@ class HudNativeAuditTests(unittest.TestCase):
         jar = ROOT.parent / ".local/minecraft/client-b1.7.3.jar"
         result = hud_audit.verify(jar)
         self.assertEqual(result["layout"]["health_full_20"]["hearts"], 10)
+        self.assertEqual(result["health"]["serialized_type"], "signed short")
+        self.assertEqual(result["layout"]["health_full_20"]["half_heart_uv_size"], [61, 0, 9, 9])
 
     def test_rejects_wrong_jar(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -44,6 +46,10 @@ class HudNativeAuditTests(unittest.TestCase):
                 ("class provenance", lambda item: item["reference"].__setitem__("class_sha256", "0" * 64), "class provenance"),
                 ("method provenance", lambda item: item["reference"]["render_method"].__setitem__("descriptor", "()V"), "method provenance"),
                 ("bytecode", lambda item: item["bytecode_evidence"].__setitem__("crosshair", "changed"), "bytecode evidence"),
+                ("health type", lambda item: item["health"].__setitem__("serialized_type", "int"), "Player.Health type"),
+                ("health range", lambda item: item["health"].__setitem__("viewer_accepted_range", [0, 21]), "Player.Health type"),
+                ("health UV", lambda item: item["layout"]["health_full_20"].__setitem__("half_heart_uv_size", [60, 0, 9, 9]), "layout evidence"),
+                ("health method", lambda item: item["health_bytecode_evidence"].pop("read_short"), "Player.Health bytecode evidence"),
             )
             for name, mutate, message in mutations:
                 with self.subTest(name=name):

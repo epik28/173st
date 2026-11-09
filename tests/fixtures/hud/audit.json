@@ -6,6 +6,8 @@
     "jar_source": "PrismLauncher local cache; verified against local Prism metadata",
     "class": "uq",
     "class_sha256": "b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12",
+    "player_class": "ls",
+    "player_class_sha256": "b70fbb1499cd1b37ef27dd5dec7637c7338439ef03fe13012dca93fb2326d078",
     "class_super": "ub",
     "class_source_file_attribute": "SourceFile",
     "class_identification": "uq contains both /gui/gui.png and /gui/icons.png references and its public a(FZII)V method performs the scaled HUD draws",
@@ -50,8 +52,19 @@
       "screen_first": ["width/2-91", "height-32"],
       "horizontal_pitch": 8,
       "background_uv_size": [16, 0, 9, 9],
-      "full_heart_uv_size": [52, 0, 9, 9]
+      "full_heart_uv_size": [52, 0, 9, 9],
+      "half_heart_uv_size": [61, 0, 9, 9],
+      "empty_heart_uv_size": [16, 0, 9, 9]
     }
+  },
+  "health": {
+    "field": "ls.Y:I (mapped Player.health)",
+    "serialized_name": "Health",
+    "serialized_type": "signed short",
+    "native_missing_default": 10,
+    "native_range": "signed short -32768..32767; no native clamp",
+    "viewer_missing_default": 20,
+    "viewer_accepted_range": [0, 20]
   },
   "bytecode_evidence": {
     "method_descriptor": "descriptor: (FZII)V",
@@ -68,6 +81,19 @@
     "health_y": "485: iload         7\n     487: bipush        32\n     489: isub\n     490: istore        17",
     "health_x": "609: iconst_2\n     610: idiv\n     611: bipush        91\n     613: isub\n     614: iload         16\n     616: bipush        8\n     618: imul",
     "health_background": "646: bipush        16\n     648: iload         18\n     650: bipush        9\n     652: imul",
-    "health_full_uv": "735: bipush        52\n     737: iconst_0\n     738: bipush        9\n     740: bipush        9"
+    "health_full_uv": "735: bipush        52\n     737: iconst_0\n     738: bipush        9\n     740: bipush        9",
+    "health_half_uv": "761: bipush        61\n     763: iconst_0\n     764: bipush        9\n     766: bipush        9",
+    "health_empty_uv": "585: bipush        16\n     587: bipush        9\n     589: bipush        9",
+    "health_background_draw": "641: aload_0\n     642: iload         19\n     644: iload         17\n     646: bipush        16",
+    "health_full_branch": "526: aload_0\n     527: iload         18\n     529: iload         17\n     531: bipush        34",
+    "health_half_branch": "553: aload_0\n     554: iload         18\n     556: iload         17\n     558: bipush        25"
+  },
+  "health_bytecode_evidence": {
+    "field": "public int Y;",
+    "write_name": "1: ldc           #40                 // String Health",
+    "write_short": "7: i2s\n       8: invokevirtual #283                // Method nu.a:(Ljava/lang/String;S)V",
+    "read_short": "4: invokevirtual #285                // Method nu.d:(Ljava/lang/String;)S",
+    "missing_default": "19: aload_0\n      20: bipush        10\n      22: putfield      #140                // Field Y:I",
+    "missing_guard": "13: invokevirtual #284                // Method nu.b:(Ljava/lang/String;)Z"
   }
 }

@@ -1,5 +1,21 @@
 # Отчёт Codex
 
+## HEALTH-001-C01 — native Player.Health and heart audit
+
+- Расширены `tools/oracle/hud_audit.py` и `tests/fixtures/hud/audit.json`: закреплены
+  `ls.Y:I` (Player health), signed-short NBT read/write, native missing default 10,
+  viewer fallback 20/clamp 0..20, а также exact ordered heart UV branches:
+  background `(16,0)`, full `(52,0)`, half `(61,0)`, all `9x9`.
+- Добавлена provenance/hash-проверка `ls.class` (`b70fbb1499cd1b37ef27dd5dec7637c7338439ef03fe13012dca93fb2326d078`)
+  и bytecode evidence для Health field, `nu.d(String):S`, `nu.a(String,S)` и
+  missing-field default. Fixture tests проверяют wrong JAR, altered health type/range,
+  UVs, missing evidence/methods and malformed data.
+- Проверки: `python3 tools/oracle/hud_audit.py --jar ../.local/minecraft/client-b1.7.3.jar`
+  PASS; `python3 -m unittest tests.python.test_hud_audit -v` 5 PASS; `git diff --check`
+  PASS. Rust/world/contract/queue не изменялись. Native pixel parity не заявляется.
+- Commit SHA записывается после коммита C01; следующий шаг — HEALTH-001-A01 на agy,
+  затем HEALTH-001-C02 acceptance.
+
 ## HOTBAR-ITEMS-001-C02 — принята отрисовка предметов
 
 - C01 native audit `076de31fb40a59bafafae559787b8a041c1ff4f0` и agy renderer

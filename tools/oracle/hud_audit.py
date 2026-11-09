@@ -19,6 +19,8 @@ PINNED = {
     "jar_size": 1465375,
     "class": "uq",
     "class_sha256": "b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12",
+    "player_class": "ls",
+    "player_class_sha256": "b70fbb1499cd1b37ef27dd5dec7637c7338439ef03fe13012dca93fb2326d078",
     "resources": {
         "gui/gui.png": ("e223bea0b5004a3b5497607c6d529daf840396526a46eff75c299364cf9dc795", 14210, 256, 256),
         "gui/icons.png": ("8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae616554124d6dac43", 2423, 256, 256),
@@ -42,7 +44,19 @@ EXPECTED_LAYOUT = {
         "horizontal_pitch": 8,
         "background_uv_size": [16, 0, 9, 9],
         "full_heart_uv_size": [52, 0, 9, 9],
+        "half_heart_uv_size": [61, 0, 9, 9],
+        "empty_heart_uv_size": [16, 0, 9, 9],
     },
+}
+
+EXPECTED_HEALTH = {
+    "field": "ls.Y:I (mapped Player.health)",
+    "serialized_name": "Health",
+    "serialized_type": "signed short",
+    "native_missing_default": 10,
+    "native_range": "signed short -32768..32767; no native clamp",
+    "viewer_missing_default": 20,
+    "viewer_accepted_range": [0, 20],
 }
 
 
@@ -81,6 +95,11 @@ def load_fixture(path):
         raise ValueError("fixture resource evidence differs from pinned hashes/dimensions")
     if value.get("layout") != EXPECTED_LAYOUT:
         raise ValueError("fixture layout evidence differs from the reviewed native layout")
+    if value.get("health") != EXPECTED_HEALTH:
+        raise ValueError("fixture Player.Health type/default/range evidence differs")
+    player = reference.get("player_class")
+    if player != PINNED["player_class"] or reference.get("player_class_sha256") != PINNED["player_class_sha256"]:
+        raise ValueError("fixture Player.Health class provenance differs from the pinned audit")
     if reference.get("render_method") != {
         "name": "a",
         "descriptor": "(FZII)V",
@@ -90,6 +109,8 @@ def load_fixture(path):
         raise ValueError("fixture render method provenance is malformed or changed")
     if value.get("bytecode_evidence") != EXPECTED_EVIDENCE:
         raise ValueError("fixture bytecode evidence was altered")
+    if value.get("health_bytecode_evidence") != EXPECTED_HEALTH_EVIDENCE:
+        raise ValueError("Player.Health bytecode evidence was altered")
     return value
 
 
@@ -109,6 +130,20 @@ EXPECTED_EVIDENCE = {
     "health_x": "609: iconst_2\n     610: idiv\n     611: bipush        91\n     613: isub\n     614: iload         16\n     616: bipush        8\n     618: imul",
     "health_background": "646: bipush        16\n     648: iload         18\n     650: bipush        9\n     652: imul",
     "health_full_uv": "735: bipush        52\n     737: iconst_0\n     738: bipush        9\n     740: bipush        9",
+    "health_half_uv": "761: bipush        61\n     763: iconst_0\n     764: bipush        9\n     766: bipush        9",
+    "health_empty_uv": "585: bipush        16\n     587: bipush        9\n     589: bipush        9",
+    "health_background_draw": "641: aload_0\n     642: iload         19\n     644: iload         17\n     646: bipush        16",
+    "health_full_branch": "526: aload_0\n     527: iload         18\n     529: iload         17\n     531: bipush        34",
+    "health_half_branch": "553: aload_0\n     554: iload         18\n     556: iload         17\n     558: bipush        25",
+}
+
+EXPECTED_HEALTH_EVIDENCE = {
+    "field": "public int Y;",
+    "write_name": "1: ldc           #40                 // String Health",
+    "write_short": "7: i2s\n       8: invokevirtual #283                // Method nu.a:(Ljava/lang/String;S)V",
+    "read_short": "4: invokevirtual #285                // Method nu.d:(Ljava/lang/String;)S",
+    "missing_default": "19: aload_0\n      20: bipush        10\n      22: putfield      #140                // Field Y:I",
+    "missing_guard": "13: invokevirtual #284                // Method nu.b:(Ljava/lang/String;)Z",
 }
 
 
@@ -145,10 +180,13 @@ def verify_archive_contents(archive):
                 raise ValueError(f"{name} bytes/hash/dimensions differ: {actual}")
         class_name = PINNED["class"] + ".class"
         class_bytes = archive.read(class_name)
+        player_bytes = archive.read(PINNED["player_class"] + ".class")
     except KeyError as error:
         raise ValueError(f"pinned client JAR is missing {error}") from error
     if sha256(class_bytes) != PINNED["class_sha256"]:
         raise ValueError("uq.class hash differs from the native class provenance")
+    if sha256(player_bytes) != PINNED["player_class_sha256"]:
+        raise ValueError("ls.class hash differs from the Player.Health provenance")
 
 
 def verify(jar_path, fixture_path=FIXTURE):
@@ -192,6 +230,15 @@ def verify(jar_path, fixture_path=FIXTURE):
     ):
         if required not in disassembly:
             raise ValueError(f"native class/method provenance missing: {required}")
+    player = subprocess.run(
+        [javap, "-classpath", str(jar_path), "-p", "-s", "-c", PINNED["player_class"]],
+        check=False, capture_output=True, text=True, timeout=20,
+    )
+    if player.returncode != 0:
+        raise ValueError(f"javap rejected Player.Health class: {player.stderr.strip()}")
+    for label, snippet in fixture["health_bytecode_evidence"].items():
+        if snippet not in player.stdout:
+            raise ValueError(f"Player.Health bytecode evidence not found for {label}")
     # Sanity guard that both textures are sampled from their native 256x256 atlases.
     if fixture["layout"]["atlas_size"] != [256, 256]:
         raise ValueError("unsupported native atlas size")
