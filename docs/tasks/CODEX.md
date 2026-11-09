@@ -425,3 +425,13 @@ test rejection of a wrong JAR or altered evidence. Commit C01. After A01 is read
 C02 reviews the exact agy commit, runs the audit and full checks, and attempts a
 viewer smoke only if the source-world guard permits it. Record the limited
 render-only claims, update progress/estimate, and accept in main.
+
+## HOTBAR-INPUT-001-C01/C02 — native controls and acceptance
+
+Follow [HOTBAR-INPUT-001](HOTBAR-INPUT-001.md). C01 audits pinned default
+number-key bindings, wheel direction/step/wrap and records exact class/method
+hashes plus bytecode evidence in a mutation-tested fixture/verifier. Do not edit
+viewer Rust. After A01 is ready, C02 reviews the exact snapshot, compares direct
+key/scroll handling with C01, runs the full checks, and attempts viewer smoke
+only if the source-world guard permits it. Record limitations and estimate only
+the accepted visible behavior.

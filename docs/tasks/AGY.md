@@ -300,3 +300,15 @@ role status/handoff. Test UV bounds, nearest/pixel-aligned viewport layout,
 multiple aspect ratios, and that HUD is rendered after world geometry. Run fmt,
 viewer tests and clippy; report if visual startup is blocked by the changed local
 world. Commit A01.
+
+## HOTBAR-INPUT-001-A01 — connect controls to selected hotbar
+
+Follow [HOTBAR-INPUT-001](HOTBAR-INPUT-001.md) and its C01 evidence. Use
+`beta_core::items::Inventory` for slot selection and make the HUD selector track
+the model. Implement direct physical keys 1–9 and native wheel direction/steps,
+accumulating fractional scroll deterministically. Preserve existing viewer input
+and ignore selection events while unfocused. Change only viewer source/tests plus
+your own status/handoff. Test repeats/focus, exact key mapping, wheel fractions,
+multi-step input, wrap and selected-frame geometry. No item rendering, inventory
+screen, save write, world guard change or core modification. Run fmt/tests/clippy
+and commit A01.

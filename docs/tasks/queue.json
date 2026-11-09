@@ -883,6 +883,30 @@
         "HUD-001-C01",
         "HUD-001-A01"
       ]
+    },
+    {
+      "id": "HOTBAR-INPUT-001-C01",
+      "owner": "codex",
+      "title": "Native hotbar key and wheel audit",
+      "card": "docs/tasks/HOTBAR-INPUT-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HOTBAR-INPUT-001-A01",
+      "owner": "agy",
+      "title": "Connect viewer controls to selected hotbar",
+      "card": "docs/tasks/HOTBAR-INPUT-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HOTBAR-INPUT-001-C02",
+      "owner": "codex",
+      "title": "Accept interactive hotbar selection",
+      "card": "docs/tasks/HOTBAR-INPUT-001.md",
+      "depends_on": [
+        "HOTBAR-INPUT-001-C01",
+        "HOTBAR-INPUT-001-A01"
+      ]
     }
   ]
 }

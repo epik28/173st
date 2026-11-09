@@ -688,6 +688,16 @@
         "Scope is render-only: no item sprites, inventory controls, actual health state, damage, gameplay parity or screenshot pixel parity; no source world/resource was modified",
         "git diff --check → PASS"
       ]
+    },
+    "HOTBAR-INPUT-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "HOTBAR-INPUT-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

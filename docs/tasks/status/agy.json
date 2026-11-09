@@ -376,6 +376,11 @@
         "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
         "timeout 15s cargo run --locked --offline -p beta-viewer → GUI resources were extracted and hash/dimension validated from the pinned JAR; startup then stopped at the existing guard: `pinned world source hash mismatch: level.dat`. No source save was copied/opened and no visual smoke was possible."
       ]
+    },
+    "HOTBAR-INPUT-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
