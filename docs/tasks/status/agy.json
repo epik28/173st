@@ -469,10 +469,10 @@
       "state": "done",
       "summary": "Completed the visible main-menu/world-list flow before scene loading. The chooser renders rows and invalid-row reasons, keeps selection explicit, supports pointer selection, Select/Enter activation, keyboard navigation and Cancel, then loads the selected disposable snapshot through the dynamic spawn-centered 5×5 loader. Hardened snapshot folder identity against traversal and added discovery/snapshot safety coverage.",
       "checks": [
-        "cargo test --locked --offline -p beta-viewer → PASS: 28 library + 51 viewer tests + doc tests; includes dynamic positive/negative region windows, malformed saves, disabled-row navigation, explicit activation, changed-source rejection, traversal/symlink guards and disposable-copy/no-source-write checks",
+        "cargo test --locked --offline -p beta-viewer → PASS: 31 library + 51 viewer tests + doc tests; includes valid compressed metadata ordering, malformed saves, dynamic positive/negative region windows, disabled-row navigation, explicit activation, changed-source rejection, unsafe/duplicate pin rejection, symlink region/save guards and disposable-copy/no-source-write checks",
         "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings → PASS; cargo fmt --all → PASS",
         "Selected-world startup uses load_scene_for_selected_world_with_edit_data with the chosen disposable snapshot; normal startup does not consult scene.tsv and does not auto-activate a world",
-        "Coordinator independently captured the rendered main menu under Xvfb; list-to-game and source hash checks remain with coordinator",
+        "Coordinator verified Xvfb main-menu → world-list → cancel/quit and explicit world selection → game preview; source hashes remained unchanged",
         "No pixel-parity claim; native title panorama and exact menu presentation remain outside A02"
       ]
     },

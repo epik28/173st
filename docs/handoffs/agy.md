@@ -1021,9 +1021,15 @@ changed-source rejection before copying, symlink and traversal snapshot
 rejection, successful disposable output, and unchanged source bytes/entries.
 
 Checks: `cargo fmt --all` → PASS; `cargo test --locked --offline -p beta-viewer`
-→ PASS (28 library + 51 viewer tests + doc tests); `cargo clippy --locked
+→ PASS (31 library + 51 viewer tests + doc tests); `cargo clippy --locked
 --offline -p beta-viewer --all-targets -- -D warnings` → PASS. Coordinator
-provided isolated Xvfb guidance and independently confirmed the main-menu
-capture; coordinator will verify list-to-game and source hashes. No native
-pixel-parity claim is made. Exact title panorama/menu presentation remains
-outside A02.
+provided isolated Xvfb guidance and verified main-menu → world-list → cancel/
+quit plus explicit world selection → game preview; source hashes remained
+unchanged. Follow-up safety review hardened public snapshot pin validation:
+only `level.dat` and canonical `r.<i32>.<i32>.mcr` names are accepted, duplicate
+pins are rejected before output creation, discovery refuses a symlinked region
+root, and metadata/region bytes are checked against their pins before use.
+Read failures disable the save. Regressions cover unsafe/duplicate pins,
+symlinked region roots, and valid compressed metadata ordering by LastPlayed.
+No native pixel-parity claim is made. Exact title panorama/menu presentation
+remains outside A02.

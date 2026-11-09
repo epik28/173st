@@ -195,6 +195,42 @@ fn required_chunks(spawn: [i32; 3]) -> Vec<(i32, i32)> {
         .collect()
 }
 
+fn valid_pin_name(name: &str) -> bool {
+    if name == "level.dat" {
+        return true;
+    }
+    let Some(coords) = name
+        .strip_prefix("r.")
+        .and_then(|name| name.strip_suffix(".mcr"))
+    else {
+        return false;
+    };
+    let Some((x, z)) = coords.split_once('.') else {
+        return false;
+    };
+    let (Ok(x), Ok(z)) = (x.parse::<i32>(), z.parse::<i32>()) else {
+        return false;
+    };
+    name == format!("r.{x}.{z}.mcr")
+}
+
+fn invalid_entry(
+    folder: String,
+    display_name: &str,
+    reason: String,
+    pins: Vec<SourcePin>,
+) -> WorldEntry {
+    WorldEntry {
+        folder,
+        display_name: display_name.into(),
+        last_played: 0,
+        spawn: [0; 3],
+        regions: vec![],
+        launch_reason: Some(reason),
+        pins,
+    }
+}
+
 pub fn discover(root: &Path) -> Result<Vec<WorldEntry>, SelectError> {
     let initial = fs::symlink_metadata(root)?;
     if initial.file_type().is_symlink() || !initial.is_dir() {
@@ -233,7 +269,27 @@ pub fn discover(root: &Path) -> Result<Vec<WorldEntry>, SelectError> {
                 continue;
             }
         };
-        let bytes = fs::read(&level)?;
+        let bytes = match fs::read(&level) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                out.push(invalid_entry(
+                    folder,
+                    "Unreadable world",
+                    error.to_string(),
+                    vec![],
+                ));
+                continue;
+            }
+        };
+        if format!("{:x}", Sha256::digest(&bytes)) != level_pin.sha256 {
+            out.push(invalid_entry(
+                folder,
+                "Changed world",
+                "level.dat changed during discovery".into(),
+                vec![level_pin],
+            ));
+            continue;
+        }
         let metadata = match load_level_gzip(&bytes, WorldLimits::default()) {
             Ok(m) => m,
             Err(e) => {
@@ -256,38 +312,55 @@ pub fn discover(root: &Path) -> Result<Vec<WorldEntry>, SelectError> {
         regions.sort();
         regions.dedup();
         let mut pins = vec![level_pin];
-        let mut reason = None;
-        for name in &regions {
-            let p = dir.join("region").join(name);
-            match pin(&p, name.clone()) {
-                Ok(v) => {
-                    if let Ok(data) = fs::read(&p) {
-                        if let Ok(r) = RegionFile::open(&data, RegionLimits::default()) {
-                            for (x, z) in required_chunks(metadata.spawn) {
-                                if format!("r.{}.{}.mcr", region_coord(x), region_coord(z)) == *name
-                                    && r.read_local(local_coord(x), local_coord(z))
-                                        .ok()
-                                        .flatten()
-                                        .and_then(|c| {
-                                            load_chunk_nbt(
-                                                c.nbt,
-                                                (x, z),
-                                                beta_core::nbt::Limits::default(),
-                                            )
-                                            .ok()
-                                        })
-                                        .is_none()
-                                {
-                                    reason = Some(format!("missing or invalid chunk ({x},{z})"));
+        let region_root = dir.join("region");
+        let mut reason = match fs::symlink_metadata(&region_root) {
+            Ok(meta) if meta.file_type().is_symlink() || !meta.is_dir() => {
+                Some("region directory is unsafe".to_owned())
+            }
+            Ok(_) => None,
+            Err(error) => Some(format!("region directory: {error}")),
+        };
+        if reason.is_none() {
+            for name in &regions {
+                let p = region_root.join(name);
+                match pin(&p, name.clone()) {
+                    Ok(v) => match fs::read(&p) {
+                        Ok(data) if format!("{:x}", Sha256::digest(&data)) == v.sha256 => {
+                            match RegionFile::open(&data, RegionLimits::default()) {
+                                Ok(r) => {
+                                    for (x, z) in required_chunks(metadata.spawn) {
+                                        if format!("r.{}.{}.mcr", region_coord(x), region_coord(z))
+                                            == *name
+                                            && r.read_local(local_coord(x), local_coord(z))
+                                                .ok()
+                                                .flatten()
+                                                .and_then(|c| {
+                                                    load_chunk_nbt(
+                                                        c.nbt,
+                                                        (x, z),
+                                                        beta_core::nbt::Limits::default(),
+                                                    )
+                                                    .ok()
+                                                })
+                                                .is_none()
+                                        {
+                                            reason =
+                                                Some(format!("missing or invalid chunk ({x},{z})"));
+                                        }
+                                    }
                                 }
+                                Err(_) => reason = Some(format!("invalid region {name}")),
                             }
-                        } else {
-                            reason = Some(format!("invalid region {name}"));
+                            pins.push(v);
                         }
-                    }
-                    pins.push(v);
+                        Ok(_) => reason = Some(format!("region {name} changed during discovery")),
+                        Err(error) => reason = Some(format!("region {name}: {error}")),
+                    },
+                    Err(e) => reason = Some(e.to_string()),
                 }
-                Err(e) => reason = Some(e.to_string()),
+                if reason.is_some() {
+                    break;
+                }
             }
         }
         out.push(WorldEntry {
@@ -343,6 +416,26 @@ pub fn snapshot(
     if !source.starts_with(&root) {
         return Err(SelectError::Invalid("save escapes saves root".into()));
     }
+    let mut names = std::collections::HashSet::new();
+    for pin in &entry.pins {
+        if !valid_pin_name(&pin.name) {
+            return Err(SelectError::Invalid(format!(
+                "unsafe snapshot pin name: {}",
+                pin.name
+            )));
+        }
+        if !names.insert(pin.name.as_str()) {
+            return Err(SelectError::Invalid(format!(
+                "duplicate snapshot pin: {}",
+                pin.name
+            )));
+        }
+    }
+    if !names.contains("level.dat") {
+        return Err(SelectError::Invalid(
+            "snapshot pins must include level.dat".into(),
+        ));
+    }
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| SelectError::Invalid("clock error".into()))?
@@ -397,6 +490,9 @@ pub fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use beta_core::nbt::{Limits as NbtLimits, NamedTag, Tag, write_named};
+    use flate2::{Compression, write::GzEncoder};
+    use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     fn temp_dir(label: &str) -> PathBuf {
@@ -417,6 +513,29 @@ mod tests {
             size: bytes.len() as u64,
             sha256: format!("{:x}", Sha256::digest(bytes)),
         }
+    }
+
+    fn write_level(path: &Path, name: &str, last_played: i64) {
+        let raw = write_named(
+            &NamedTag {
+                name: String::new(),
+                value: Tag::Compound(vec![(
+                    "Data".into(),
+                    Tag::Compound(vec![
+                        ("LevelName".into(), Tag::String(name.into())),
+                        ("LastPlayed".into(), Tag::Long(last_played)),
+                        ("SpawnX".into(), Tag::Int(0)),
+                        ("SpawnY".into(), Tag::Int(64)),
+                        ("SpawnZ".into(), Tag::Int(0)),
+                    ]),
+                )]),
+            },
+            NbtLimits::default(),
+        )
+        .unwrap();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&raw).unwrap();
+        fs::write(path, encoder.finish().unwrap()).unwrap();
     }
     #[test]
     fn negative_chunk_window_uses_floor_division() {
@@ -501,6 +620,59 @@ mod tests {
         );
         assert!(entries.iter().all(|entry| entry.launch_reason.is_some()));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn discovery_sorts_valid_compressed_metadata_by_last_played() {
+        let root = temp_dir("metadata-sort");
+        for (folder, played) in [("old", 10), ("newer", 30), ("middle", 20)] {
+            let save = root.join(folder);
+            fs::create_dir(&save).unwrap();
+            write_level(&save.join("level.dat"), folder, played);
+        }
+
+        let entries = discover(&root).unwrap();
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.folder.as_str())
+                .collect::<Vec<_>>(),
+            ["newer", "middle", "old"]
+        );
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.last_played)
+                .collect::<Vec<_>>(),
+            [30, 20, 10]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discovery_rejects_symlinked_region_root_without_reading_through_it() {
+        use std::os::unix::fs::symlink;
+        let base = temp_dir("region-symlink");
+        let root = base.join("saves");
+        let outside = base.join("outside");
+        let world = root.join("World");
+        fs::create_dir_all(&world).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        write_level(&world.join("level.dat"), "World", 1);
+        fs::write(outside.join("r.-1.-1.mcr"), b"outside region data").unwrap();
+        symlink(&outside, world.join("region")).unwrap();
+
+        let entries = discover(&root).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(
+            entries[0]
+                .launch_reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("region directory is unsafe"))
+        );
+        assert_eq!(entries[0].pins.len(), 1);
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]
@@ -605,6 +777,52 @@ mod tests {
                     .contains("save directory is unsafe")
             );
         }
+        assert!(fs::read_dir(&destination).unwrap().next().is_none());
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn snapshot_rejects_unsafe_or_duplicate_pin_names_before_creating_output() {
+        let base = temp_dir("pin-names");
+        let saves = base.join("saves");
+        let destination = base.join("artifacts");
+        let world = saves.join("World");
+        fs::create_dir_all(world.join("region")).unwrap();
+        fs::create_dir_all(&destination).unwrap();
+        let level = b"level";
+        fs::write(world.join("level.dat"), level).unwrap();
+        for unsafe_name in ["../escape", "/tmp/escape", "r.01.2.mcr", "r.1.2.mca"] {
+            let entry = WorldEntry {
+                folder: "World".into(),
+                display_name: "World".into(),
+                last_played: 0,
+                spawn: [0; 3],
+                regions: vec![],
+                launch_reason: None,
+                pins: vec![test_pin("level.dat", level), test_pin(unsafe_name, b"x")],
+            };
+            assert!(
+                snapshot(&entry, &saves, &destination)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("unsafe snapshot pin name")
+            );
+        }
+        let duplicate = WorldEntry {
+            folder: "World".into(),
+            display_name: "World".into(),
+            last_played: 0,
+            spawn: [0; 3],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![test_pin("level.dat", level), test_pin("level.dat", level)],
+        };
+        assert!(
+            snapshot(&duplicate, &saves, &destination)
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate snapshot pin")
+        );
         assert!(fs::read_dir(&destination).unwrap().next().is_none());
         fs::remove_dir_all(base).unwrap();
     }
