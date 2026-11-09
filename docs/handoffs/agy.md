@@ -1006,18 +1006,24 @@ ready for Codex C02 integration review.
 
 ### WORLD-SELECT-001-A02 — visible chooser and selected-world startup
 
-Implemented the end-to-end chooser phase in `beta-viewer`: discovery now opens
-a visible native window before terrain meshes or scene loading, highlights the
-first valid row without activating it, skips disabled rows with their launch
-reason, supports ArrowUp/ArrowDown, Enter, S, left-click activation, and Escape
-cancel. Normal startup loads the selected disposable snapshot through
-`load_scene_for_selected_world_with_edit_data`, so the dynamic spawn-centered
-5x5 region window drives the rendered scene and the historical `scene.tsv` is
-not consulted. Added state tests for disabled-row navigation and explicit
-activation. Source save and snapshot guards remain in the A01 API.
+Completed the visible main-menu and rendered world-list flow before scene or
+terrain mesh loading. Invalid rows remain visible with their launch reason and
+cannot activate. Users navigate with arrows, select by pointer, activate with
+Select/Enter/S, and cancel with Escape or the visible Cancel button. Normal
+startup loads only the explicitly selected disposable snapshot through
+`load_scene_for_selected_world_with_edit_data`; dynamic positive/negative
+McRegion mapping is used and the historical `scene.tsv` is not read. There is
+no automatic world launch or fixed-world fallback.
 
-Checks: `cargo test --locked --offline -p beta-viewer --lib` → 23 PASS;
-`cargo clippy -p beta-viewer --all-targets --locked --offline -- -D warnings` →
-PASS; `cargo fmt --all` and `git diff --check` → PASS. The session helper could
-not start because unrelated untracked mining files already existed in this
-worktree; they were preserved and excluded from the A02 commit.
+Hardened `snapshot` against caller-supplied traversal folder names. Added tests
+for deterministic tie sorting with malformed saves, symlinked save exclusion,
+changed-source rejection before copying, symlink and traversal snapshot
+rejection, successful disposable output, and unchanged source bytes/entries.
+
+Checks: `cargo fmt --all` → PASS; `cargo test --locked --offline -p beta-viewer`
+→ PASS (28 library + 51 viewer tests + doc tests); `cargo clippy --locked
+--offline -p beta-viewer --all-targets -- -D warnings` → PASS. Coordinator
+provided isolated Xvfb guidance and independently confirmed the main-menu
+capture; coordinator will verify list-to-game and source hashes. No native
+pixel-parity claim is made. Exact title panorama/menu presentation remains
+outside A02.

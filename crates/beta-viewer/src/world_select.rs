@@ -321,6 +321,15 @@ pub fn snapshot(
         return Err(SelectError::Invalid("saves root is unsafe".into()));
     }
     let root = fs::canonicalize(saves_root)?;
+    let folder_path = Path::new(&entry.folder);
+    if folder_path.components().count() != 1
+        || !matches!(
+            folder_path.components().next(),
+            Some(std::path::Component::Normal(_))
+        )
+    {
+        return Err(SelectError::Invalid("save folder name is unsafe".into()));
+    }
     let source_raw = root.join(&entry.folder);
     let source_meta = fs::symlink_metadata(&source_raw)?;
     if source_meta.file_type().is_symlink() || !source_meta.is_dir() {
@@ -388,6 +397,27 @@ pub fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn temp_dir(label: &str) -> PathBuf {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "world-select-{label}-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn test_pin(name: &str, bytes: &[u8]) -> SourcePin {
+        SourcePin {
+            name: name.into(),
+            size: bytes.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(bytes)),
+        }
+    }
     #[test]
     fn negative_chunk_window_uses_floor_division() {
         assert_eq!(required_chunks([-1, 64, -17])[0], (-3, -4));
@@ -440,5 +470,142 @@ mod tests {
         assert!(g.select_at(450.0, 420.0));
         assert!(g.cancel_at(650.0, 420.0));
         assert_eq!(g.row_at(300.0, 2), None);
+    }
+
+    #[test]
+    fn discovery_retains_invalid_saves_and_sorts_ties_by_folder() {
+        let root = temp_dir("sort");
+        for folder in ["zeta", "alpha", "middle"] {
+            let save = root.join(folder);
+            fs::create_dir(&save).unwrap();
+            fs::write(save.join("level.dat"), b"not gzip").unwrap();
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            symlink(root.join("alpha"), root.join("linked-save")).unwrap();
+            symlink(
+                root.join("missing-level.dat"),
+                root.join("middle/level.dat.link"),
+            )
+            .unwrap();
+        }
+
+        let entries = discover(&root).unwrap();
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.folder.as_str())
+                .collect::<Vec<_>>(),
+            ["alpha", "middle", "zeta"]
+        );
+        assert!(entries.iter().all(|entry| entry.launch_reason.is_some()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn snapshot_rejects_changed_sources_and_never_writes_them() {
+        let base = temp_dir("changed");
+        let saves = base.join("saves");
+        let destination = base.join("artifacts");
+        let world = saves.join("World");
+        fs::create_dir_all(world.join("region")).unwrap();
+        fs::create_dir_all(&destination).unwrap();
+        let original = b"original level bytes";
+        fs::write(world.join("level.dat"), original).unwrap();
+        let entry = WorldEntry {
+            folder: "World".into(),
+            display_name: "World".into(),
+            last_played: 0,
+            spawn: [0; 3],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![test_pin("level.dat", original)],
+        };
+        fs::write(world.join("level.dat"), b"changed level bytes").unwrap();
+        let changed = fs::read(world.join("level.dat")).unwrap();
+
+        let error = snapshot(&entry, &saves, &destination).unwrap_err();
+        assert!(error.to_string().contains("source changed before copy"));
+        assert_eq!(fs::read(world.join("level.dat")).unwrap(), changed);
+        assert_eq!(fs::read_dir(&destination).unwrap().count(), 1);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn snapshot_copies_to_disposable_output_without_changing_source() {
+        let base = temp_dir("copy");
+        let saves = base.join("saves");
+        let destination = base.join("artifacts");
+        let world = saves.join("World");
+        fs::create_dir_all(world.join("region")).unwrap();
+        fs::create_dir_all(&destination).unwrap();
+        let original = b"pinned level bytes";
+        fs::write(world.join("level.dat"), original).unwrap();
+        let entry = WorldEntry {
+            folder: "World".into(),
+            display_name: "World".into(),
+            last_played: 0,
+            spawn: [0; 3],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![test_pin("level.dat", original)],
+        };
+
+        let snapshot = snapshot(&entry, &saves, &destination).unwrap();
+        assert_eq!(fs::read(snapshot.join("level.dat")).unwrap(), original);
+        assert!(snapshot.join(".preview-source-hashes.tsv").is_file());
+        assert_eq!(fs::read(world.join("level.dat")).unwrap(), original);
+        assert_eq!(fs::read_dir(&world).unwrap().count(), 2);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn snapshot_rejects_traversal_and_symlinked_world_directories() {
+        let base = temp_dir("unsafe");
+        let saves = base.join("saves");
+        let destination = base.join("artifacts");
+        fs::create_dir_all(&saves).unwrap();
+        fs::create_dir_all(&destination).unwrap();
+        let traversal = WorldEntry {
+            folder: "../outside".into(),
+            display_name: "outside".into(),
+            last_played: 0,
+            spawn: [0; 3],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![],
+        };
+        assert!(
+            snapshot(&traversal, &saves, &destination)
+                .unwrap_err()
+                .to_string()
+                .contains("folder name is unsafe")
+        );
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let outside = base.join("outside");
+            fs::create_dir(&outside).unwrap();
+            symlink(&outside, saves.join("Link")).unwrap();
+            let linked = WorldEntry {
+                folder: "Link".into(),
+                display_name: "Link".into(),
+                last_played: 0,
+                spawn: [0; 3],
+                regions: vec![],
+                launch_reason: None,
+                pins: vec![],
+            };
+            assert!(
+                snapshot(&linked, &saves, &destination)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("save directory is unsafe")
+            );
+        }
+        assert!(fs::read_dir(&destination).unwrap().next().is_none());
+        fs::remove_dir_all(base).unwrap();
     }
 }

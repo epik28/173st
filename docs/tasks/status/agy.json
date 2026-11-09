@@ -466,13 +466,14 @@
       ]
     },
     "WORLD-SELECT-001-A02": {
-      "state": "in_progress",
-      "summary": "The startup has a chooser window and dynamic selected-world loading, but the world list is only encoded in the window title; rows are not graphically rendered and mouse clicks do not select a clicked row. A02 remains in progress pending a usable rendered list/input.",
+      "state": "done",
+      "summary": "Completed the visible main-menu/world-list flow before scene loading. The chooser renders rows and invalid-row reasons, keeps selection explicit, supports pointer selection, Select/Enter activation, keyboard navigation and Cancel, then loads the selected disposable snapshot through the dynamic spawn-centered 5×5 loader. Hardened snapshot folder identity against traversal and added discovery/snapshot safety coverage.",
       "checks": [
-        "cargo test --locked --offline -p beta-viewer --lib → PASS: 23 tests for chooser navigation/activation and loader modules",
-        "cargo clippy --locked --offline -p beta-viewer --all-targets --locked --offline -- -D warnings → PASS; cargo fmt --all; git diff --check → PASS",
-        "Startup calls the dynamic selected-world loader without scene.tsv; first-world auto-start is removed",
-        "C02 review: titlebar-only rows and click-without-row-hit-testing are not accepted as the visible chooser; rendered world rows and pointer selection remain required"
+        "cargo test --locked --offline -p beta-viewer → PASS: 28 library + 51 viewer tests + doc tests; includes dynamic positive/negative region windows, malformed saves, disabled-row navigation, explicit activation, changed-source rejection, traversal/symlink guards and disposable-copy/no-source-write checks",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings → PASS; cargo fmt --all → PASS",
+        "Selected-world startup uses load_scene_for_selected_world_with_edit_data with the chosen disposable snapshot; normal startup does not consult scene.tsv and does not auto-activate a world",
+        "Coordinator independently captured the rendered main menu under Xvfb; list-to-game and source hash checks remain with coordinator",
+        "No pixel-parity claim; native title panorama and exact menu presentation remain outside A02"
       ]
     },
     "LIGHT-UPDATE-002-A01": {
