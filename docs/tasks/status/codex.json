@@ -883,6 +883,20 @@
         "Read-only source-world verification: level.dat and all four pinned region files match artifacts/user-world-postplay.sha256; no world file, native fixture or oracle was modified",
         "Native LIFO/coalescing region queue and general height-map propagation are not fully modeled; claims are restricted to bounded C01 probes. No GUI screenshot, latency benchmark, emissions, fluid lighting or persistence claim."
       ]
+    },
+    "WORLD-SELECT-001-C01": {
+      "state": "done",
+      "summary": "Pinned native Beta 1.7.3 Singleplayer/world-select behavior for fu/rq/mg/vb/tq, including 36 px rows, sorting, unset selection, activation, cancel-to-parent and loading guard. Audit is read-only and excludes save mutations.",
+      "checks": [
+        "python3 tools/oracle/world_select_audit.py → PASS; pinned JAR and five class hashes, native bytecode facts, mutation boundary",
+        "python3 -m unittest tests.python.test_world_select_audit -v → PASS: 1 test",
+        "git diff --check; queue/status JSON validation → PASS"
+      ]
+    },
+    "WORLD-SELECT-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
