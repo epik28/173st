@@ -321,7 +321,6 @@ impl BlockScene {
             return Err(RelightError::InvalidCoordinate);
         }
         let mut next = self.clone();
-        let mut updates = Vec::new();
         let mut unloaded = Vec::new();
         let mut visited = std::collections::BTreeSet::new();
         // Block identity does not change during relighting. Cache the highest
@@ -359,8 +358,6 @@ impl BlockScene {
                 .ok_or(RelightError::InvalidCoordinate)?,
         );
         let mut regions = std::collections::VecDeque::from([initial]);
-        let mut queued = std::collections::BTreeSet::new();
-        queued.insert(initial);
         while let Some((x0, y0, z0, x1, y1, z1)) = regions.pop_front() {
             let xa = x0.max(i32::MIN + 1);
             let xb = x1.min(i32::MAX - 1);
@@ -424,7 +421,6 @@ impl BlockScene {
                             })
                         });
                         let mut sky = if direct_sky && opacity < 15 { 15 } else { 0 };
-                        let mut block_light = emission;
                         for (nx, ny, nz) in [
                             (x - 1, y, z),
                             (x + 1, y, z),
@@ -434,10 +430,8 @@ impl BlockScene {
                             (x, y, z + 1),
                         ] {
                             if let Some(n) = next.block(nx, ny, nz)? {
-                                if boundary_complete && !direct_sky && opacity < 15 {
+                                if boundary_complete && opacity < 15 && !direct_sky {
                                     sky = sky.max(n.sky_light.saturating_sub(attenuation));
-                                    block_light =
-                                        block_light.max(n.block_light.saturating_sub(attenuation));
                                 }
                             } else if (0..128).contains(&ny)
                                 && (x - changed.0).abs() <= 1
@@ -450,26 +444,149 @@ impl BlockScene {
                                 unloaded.push((nx, ny, nz));
                             }
                         }
-                        if block_light == old.block_light && sky == old.sky_light {
+                        if sky == old.sky_light {
                             continue;
                         }
                         let (cx, lx) = split_block_coord(x);
                         let (cz, lz) = split_block_coord(z);
                         let mut value = old;
-                        value.block_light = block_light;
                         value.sky_light = sky;
                         next.chunks
                             .get_mut(&(cx, cz))
                             .unwrap()
                             .set(lx, y as u8, lz, value)
                             .map_err(|e| RelightError::Scene(e.into()))?;
-                        updates.push(((x, y, z), block_light, sky));
                         // st.a(fd) scans the submitted inclusive region in order;
                         // fd.j() submits follow-up regions separately.  The edit API
                         // supplies the complete native point region, so keep this
                         // primitive bounded to that region.
                     }
                 }
+            }
+        }
+        // Recompute block light independently from direct sky. Native light
+        // updates propagate emission through open-sky air and enqueue follow-up
+        // regions until the source's bounded range settles. Rebuilding this
+        // radius from emissions and incoming boundary light also removes stale
+        // values after source removal without reusing the old interior field.
+        let bounds = (
+            changed.0.saturating_sub(15).max(i32::MIN + 1),
+            changed.1.saturating_sub(15).max(0),
+            changed.2.saturating_sub(15).max(i32::MIN + 1),
+            changed.0.saturating_add(15).min(i32::MAX - 1),
+            changed.1.saturating_add(15).min(127),
+            changed.2.saturating_add(15).min(i32::MAX - 1),
+        );
+        let (bx0, by0, bz0, bx1, by1, bz1) = bounds;
+        let mut block_queue = std::collections::VecDeque::new();
+        for x in bx0..=bx1 {
+            for z in bz0..=bz1 {
+                for y in by0..=by1 {
+                    let Some(old) = next.block(x, y, z)? else {
+                        continue;
+                    };
+                    if visited.insert((x, y, z)) && visited.len() > max_visited_cells {
+                        return Err(RelightError::QueueLimitExceeded {
+                            limit: max_visited_cells,
+                        });
+                    }
+                    let (opacity, emission) = material(old.id, old.metadata);
+                    if emission > 15 {
+                        return Err(RelightError::InvalidMaterial);
+                    }
+                    let attenuation = opacity.max(1);
+                    let mut level = emission;
+                    for (nx, ny, nz) in [
+                        (x - 1, y, z),
+                        (x + 1, y, z),
+                        (x, y - 1, z),
+                        (x, y + 1, z),
+                        (x, y, z - 1),
+                        (x, y, z + 1),
+                    ] {
+                        if (bx0..=bx1).contains(&nx)
+                            && (by0..=by1).contains(&ny)
+                            && (bz0..=bz1).contains(&nz)
+                        {
+                            continue;
+                        }
+                        if let Some(neighbor) = next.block(nx, ny, nz)? {
+                            level = level.max(neighbor.block_light.saturating_sub(attenuation));
+                        }
+                    }
+                    if level > 0 {
+                        block_queue.push_back((x, y, z));
+                    }
+                    if level != old.block_light {
+                        let (cx, lx) = split_block_coord(x);
+                        let (cz, lz) = split_block_coord(z);
+                        let mut value = old;
+                        value.block_light = level;
+                        next.chunks
+                            .get_mut(&(cx, cz))
+                            .unwrap()
+                            .set(lx, y as u8, lz, value)
+                            .map_err(|e| RelightError::Scene(e.into()))?;
+                    }
+                }
+            }
+        }
+        while let Some((x, y, z)) = block_queue.pop_front() {
+            let source = next
+                .block(x, y, z)?
+                .ok_or(RelightError::InvalidCoordinate)?;
+            let (sx, sy, sz) = (x, y, z);
+            for (nx, ny, nz) in [
+                (sx - 1, sy, sz),
+                (sx + 1, sy, sz),
+                (sx, sy - 1, sz),
+                (sx, sy + 1, sz),
+                (sx, sy, sz - 1),
+                (sx, sy, sz + 1),
+            ] {
+                if !(bx0..=bx1).contains(&nx)
+                    || !(by0..=by1).contains(&ny)
+                    || !(bz0..=bz1).contains(&nz)
+                {
+                    continue;
+                }
+                let Some(target) = next.block(nx, ny, nz)? else {
+                    continue;
+                };
+                let (opacity, emission) = material(target.id, target.metadata);
+                if emission > 15 {
+                    return Err(RelightError::InvalidMaterial);
+                }
+                let candidate = source.block_light.saturating_sub(opacity.max(1));
+                if candidate <= target.block_light {
+                    continue;
+                }
+                if visited.insert((nx, ny, nz)) && visited.len() > max_visited_cells {
+                    return Err(RelightError::QueueLimitExceeded {
+                        limit: max_visited_cells,
+                    });
+                }
+                let (cx, lx) = split_block_coord(nx);
+                let (cz, lz) = split_block_coord(nz);
+                let mut value = target;
+                value.block_light = candidate;
+                next.chunks
+                    .get_mut(&(cx, cz))
+                    .unwrap()
+                    .set(lx, ny as u8, lz, value)
+                    .map_err(|e| RelightError::Scene(e.into()))?;
+                block_queue.push_back((nx, ny, nz));
+            }
+        }
+
+        let mut updates = Vec::new();
+        for &(x, y, z) in &visited {
+            let before = self.block(x, y, z)?;
+            let after = next.block(x, y, z)?;
+            if let (Some(before), Some(after)) = (before, after)
+                && (before.block_light, before.sky_light) != (after.block_light, after.sky_light)
+            {
+                updates.push(((x, y, z), after.block_light, after.sky_light));
             }
         }
         unloaded.sort_unstable();

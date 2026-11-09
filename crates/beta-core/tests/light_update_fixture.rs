@@ -540,3 +540,136 @@ fn native_light_scan_skips_column_when_diagonal_radius_chunk_is_missing() {
             .all(|(p, _, _)| *p != (15, 63, 15))
     );
 }
+
+const SETTLED_MATERIAL_FIXTURE: &str =
+    include_str!("../../../tests/fixtures/light_material/native_edits_settled_v1.tsv");
+
+fn settled_native_state(case: &str, phase: &str) -> HashMap<(i32, i32, i32), BlockData> {
+    let mut state = HashMap::new();
+    for line in SETTLED_MATERIAL_FIXTURE.lines() {
+        let fields: Vec<_> = line.split('\t').collect();
+        if fields.len() == 10 && fields[0] == "state" && fields[1] == case && fields[2] == phase {
+            let position = (
+                fields[3].parse().unwrap(),
+                fields[4].parse().unwrap(),
+                fields[5].parse().unwrap(),
+            );
+            state.insert(
+                position,
+                BlockData {
+                    id: fields[6].parse().unwrap(),
+                    metadata: fields[7].parse().unwrap(),
+                    block_light: fields[8].parse().unwrap(),
+                    sky_light: fields[9].parse().unwrap(),
+                },
+            );
+        }
+    }
+    state
+}
+
+fn settled_native_edit(case: &str, phase: &str) -> ((i32, i32, i32), u8, u8) {
+    for line in SETTLED_MATERIAL_FIXTURE.lines() {
+        let fields: Vec<_> = line.split('\t').collect();
+        if fields.len() == 9 && fields[0] == "edit" && fields[1] == case && fields[2] == phase {
+            return (
+                (
+                    fields[4].parse().unwrap(),
+                    fields[5].parse().unwrap(),
+                    fields[6].parse().unwrap(),
+                ),
+                fields[7].parse().unwrap(),
+                fields[8].parse().unwrap(),
+            );
+        }
+    }
+    panic!("missing settled native edit {case}/{phase}");
+}
+
+fn settled_scene(case: &str, phase: &str, edit: Option<((i32, i32, i32), u8, u8)>) -> BlockScene {
+    let native = settled_native_state(case, phase);
+    let mut chunks = Vec::new();
+    for cz in -1..=1 {
+        for cx in -1..=1 {
+            let mut data = ChunkData::new();
+            for lx in 0..16u8 {
+                for lz in 0..16u8 {
+                    for y in 0..128u8 {
+                        let position = (
+                            cx * 16 + i32::from(lx),
+                            i32::from(y),
+                            cz * 16 + i32::from(lz),
+                        );
+                        let mut value = native.get(&position).copied().unwrap_or(BlockData {
+                            sky_light: 15,
+                            ..BlockData::default()
+                        });
+                        if let Some((target, id, metadata)) = edit
+                            && position == target
+                        {
+                            value.id = id;
+                            value.metadata = metadata;
+                        }
+                        data.set(lx, y, lz, value).unwrap();
+                    }
+                }
+            }
+            chunks.push(BlockSceneChunk { x: cx, z: cz, data });
+        }
+    }
+    BlockScene::new(BlockSceneBounds::new(-1, -1, 3, 3).unwrap(), chunks).unwrap()
+}
+
+#[test]
+fn settled_native_glowstone_edge_place_and_remove_match_every_light_cell() {
+    use beta_core::light::{emission_level, opacity_level};
+
+    let case = "glowstone-loaded-chunk-edge";
+    for (phase, previous) in [("after-place", "before"), ("after-remove", "after-place")] {
+        let (position, id, metadata) = settled_native_edit(case, phase);
+        let mut scene = settled_scene(case, previous, Some((position, id, metadata)));
+        let result = scene
+            .relight(position, MAX_RELIGHT_CELLS, |block_id, _block_meta| {
+                (opacity_level(block_id), emission_level(block_id))
+            })
+            .unwrap();
+
+        let native = settled_native_state(case, phase);
+        let mut mismatches = Vec::new();
+        for x in -16..32 {
+            for z in -16..32 {
+                for y in 0..128 {
+                    let expected = native.get(&(x, y, z)).copied().unwrap_or(BlockData {
+                        sky_light: 15,
+                        ..BlockData::default()
+                    });
+                    let actual = scene.block(x, y, z).unwrap().unwrap();
+                    if (actual.block_light, actual.sky_light)
+                        != (expected.block_light, expected.sky_light)
+                    {
+                        mismatches.push(((x, y, z), expected, actual));
+                    }
+                }
+            }
+        }
+        assert!(
+            mismatches.is_empty(),
+            "{case}/{phase}: {} light mismatches; first {:?}",
+            mismatches.len(),
+            mismatches.first()
+        );
+        assert_eq!(
+            scene
+                .block(position.0, position.1, position.2)
+                .unwrap()
+                .unwrap()
+                .id,
+            id
+        );
+        assert!(
+            result
+                .dirty_chunks
+                .contains(&(position.0 >> 4, position.2 >> 4))
+        );
+    }
+}
