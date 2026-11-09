@@ -85,7 +85,7 @@ EXPECTED_LAYOUT = {
             {"key": "gui.cancel", "id": 0, "x": "width/2+4", "y": "height-28", "size": [150, 20]},
         ],
         "selected_world_actions_enabled": ["selectWorld.select", "selectWorld.rename", "selectWorld.delete"],
-        "input": {"list_double_click": "same row within 250ms calls select/load by world index", "play_button": "id 1 calls select/load only for selected row", "enter_key": "rq has no key override; Enter does not select/load a world", "escape": "inherited da Escape closes screen and restores mouse capture", "cancel": "id 0 restores parent screen"},
+        "input": {"list_double_click": "same row within 250ms calls select/load by world index", "play_button": "id 1 calls select/load only for selected row", "enter_key": "rq has no key override; Enter does not select/load a world", "escape": "inherited da Escape calls Minecraft.a(null), which selects fu main menu when world is null, then invokes Minecraft.g() mouse handling", "cancel": "id 0 restores parent screen"},
     },
     "button": {
         "atlas": "/gui/gui.png (256x256)",
@@ -171,7 +171,7 @@ EVIDENCE = {
     "rq": ["selectWorld.title", "selectWorld.select", "selectWorld.rename", "selectWorld.delete", "selectWorld.deleteQuestion", "selectWorld.create", "gui.cancel", "sipush        154", "sipush        150", "bipush        20", "iconst_m1", "Field ke.g:Z", "Field i:Ljava/lang/String;", "Minecraft.a:(Lda;)V"],
     "mg": ["bipush        32", "bipush        36", "bipush        64", "bipush        12", "ldc           #2                  // int 16777215", "ldc           #1                  // int 8421504", "rq.e:(I)V"],
     "lg": ["bipush        110", "Field j:I", "Method a:()I", "Method c_:(I)Z", "Field m:F", "long 250l", "int 8421504", "glDisable:(I)V", "glEnable:(I)V"],
-    "da": ["/gui/background.png", "iconst_1", "Keyboard.getEventKey:()I", "Mouse.getEventX:()I", "Minecraft.g:()V"],
+    "da": ["/gui/background.png", "iconst_1", "Keyboard.getEventKey:()I", "Mouse.getEventX:()I", "Minecraft.a:(Lda;)V", "Minecraft.g:()V"],
     "ke": ["/gui/gui.png", "bipush        46", "bipush        20", "int -6250336", "int 14737632", "int 16777120"],
     "qq": ["Field kv.I:I", "sipush        1000", "sipush        320", "sipush        240", "java/lang/Math.ceil:(D)D"],
     "kv": ["guiScale", "options.guiScale.auto", "options.guiScale.small", "options.guiScale.normal", "options.guiScale.large", "Field I:I", "Field ht.m:Lht;", "iand"],

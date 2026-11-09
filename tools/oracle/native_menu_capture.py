@@ -9,9 +9,9 @@ opens a playable world.
 import argparse
 import ctypes
 import ctypes.util
+import gzip
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -39,6 +39,8 @@ NATIVE_JARS = [
     PRISM / "libraries/net/java/jinput/jinput-platform/2.0.5/jinput-platform-2.0.5-natives-linux.jar",
 ]
 PINNED_CLIENT_SHA256 = "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c"
+SYNTHETIC_SAVE_FIXTURE = ROOT / "tests/fixtures/menu_parity/synthetic_saves.json"
+SYNTHETIC_SAVE_FIXTURE_SHA256 = "09a415e91dba34a43ab385fc4e9eeead0a7215ef7fbe75728b1d971ef4e21496"
 EXPECTED_NATIVE_NAMES = {
     "liblwjgl.so", "liblwjgl64.so", "libopenal.so", "libopenal64.so",
     "libjinput-linux.so", "libjinput-linux64.so",
@@ -76,7 +78,67 @@ def checked_command(command, timeout=15, allow_stderr=False):
     return output
 
 
-def prepare(runtime, jar_path):
+def tag(tag_type, name, payload):
+    encoded = name.encode("utf-8")
+    return bytes([tag_type]) + struct.pack(">H", len(encoded)) + encoded + payload
+
+
+def nbt_level_dat(metadata):
+    children = bytearray()
+    for name in ("RandomSeed", "LastPlayed", "SizeOnDisk"):
+        children.extend(tag(4, name, struct.pack(">q", metadata[name])))
+    for name in ("SpawnX", "SpawnY", "SpawnZ", "version"):
+        children.extend(tag(3, name, struct.pack(">i", metadata[name])))
+    encoded_name = metadata["LevelName"].encode("utf-8")
+    children.extend(tag(8, "LevelName", struct.pack(">H", len(encoded_name)) + encoded_name))
+    children.append(0)  # End Data compound.
+    raw = b"\x0a\x00\x00" + tag(10, "Data", bytes(children)) + b"\x00"
+    return gzip.compress(raw, mtime=0)
+
+
+def create_synthetic_saves(saves_dir):
+    fixture_bytes = SYNTHETIC_SAVE_FIXTURE.read_bytes()
+    if hashlib.sha256(fixture_bytes).hexdigest() != SYNTHETIC_SAVE_FIXTURE_SHA256:
+        raise ValueError("synthetic save fixture hash differs from the reviewed native contract")
+    fixture = json.loads(fixture_bytes.decode("utf-8"))
+    if fixture.get("schema_version") != 1:
+        raise ValueError("unsupported synthetic save fixture schema")
+    files = {}
+    for case in fixture["cases"]:
+        directory = saves_dir / case["directory"]
+        directory.mkdir(parents=True, exist_ok=True)
+        primary = directory / case["file"]
+        payload = b"corrupt synthetic metadata; not a world" if case.get("corrupt") else nbt_level_dat(case["metadata"])
+        write_disposable_file(primary, payload)
+        files[str(primary)] = hashlib.sha256(payload).hexdigest()
+        backup = case.get("backup")
+        if backup:
+            backup_path = directory / backup["file"]
+            backup_payload = nbt_level_dat(backup["metadata"])
+            write_disposable_file(backup_path, backup_payload)
+            files[str(backup_path)] = hashlib.sha256(backup_payload).hexdigest()
+    expected_dirs = {case["directory"] for case in fixture["cases"]}
+    if {path.name for path in saves_dir.iterdir()} != expected_dirs:
+        raise ValueError("synthetic disposable saves root contains unexpected entries")
+    for case in fixture["cases"]:
+        expected_files = {case["file"]}
+        if case.get("backup"):
+            expected_files.add(case["backup"]["file"])
+        actual_files = {path.name for path in (saves_dir / case["directory"]).iterdir()}
+        if actual_files != expected_files:
+            raise ValueError(f"synthetic disposable world has unexpected contents: {case['directory']}")
+    return fixture, files
+
+
+def write_disposable_file(path, payload):
+    if path.exists():
+        if path.read_bytes() != payload:
+            raise ValueError(f"disposable synthetic save path already contains different bytes: {path}")
+    else:
+        path.write_bytes(payload)
+
+
+def prepare(runtime, jar_path, save_set):
     runtime = inside_artifacts(runtime, "runtime")
     jar_path = Path(jar_path).resolve()
     if digest(jar_path) != PINNED_CLIENT_SHA256:
@@ -123,6 +185,11 @@ def prepare(runtime, jar_path):
     game_cwd = runtime / "cwd"
     (minecraft_home / "saves").mkdir(parents=True, exist_ok=True)
     game_cwd.mkdir(exist_ok=True)
+    synthetic_fixture, synthetic_files = (None, {})
+    if save_set == "synthetic":
+        synthetic_fixture, synthetic_files = create_synthetic_saves(minecraft_home / "saves")
+    elif any((minecraft_home / "saves").iterdir()):
+        raise ValueError("empty save set requested but disposable saves directory is not empty")
     java_version = checked_command([str(JAVA8), "-version"], timeout=10, allow_stderr=True)
     classpath = os.pathsep.join(map(str, [jar_path] + LIBRARIES))
     return {
@@ -134,6 +201,9 @@ def prepare(runtime, jar_path):
         "game_cwd": game_cwd,
         "classpath": classpath,
         "java_version": java_version,
+        "save_set": save_set,
+        "synthetic_save_fixture": synthetic_fixture,
+        "synthetic_save_files_sha256": synthetic_files,
         "client_sha256": PINNED_CLIENT_SHA256,
         "library_sha256": {str(path): digest(path) for path in LIBRARIES + NATIVE_JARS},
         "native_sha256": native_hashes,
@@ -182,6 +252,11 @@ def actual_window(window):
     return int(width.group(1)), int(height.group(1))
 
 
+def gui_to_physical(profile, gui_x, gui_y):
+    return (round(gui_x * profile["width"] / profile["scaled_width"]),
+            round(gui_y * profile["height"] / profile["scaled_height"]))
+
+
 def set_window_size(window, width, height):
     window_id = int(window["id"], 16)
     with XSession() as x11:
@@ -219,8 +294,13 @@ class XSession:
                                                    ctypes.c_int, ctypes.c_ulong]
         self.xtst.XTestFakeButtonEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int,
                                                    ctypes.c_ulong]
+        self.xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int,
+                                                ctypes.c_ulong]
         self.xtst.XTestFakeMotionEvent.restype = ctypes.c_int
         self.xtst.XTestFakeButtonEvent.restype = ctypes.c_int
+        self.xtst.XTestFakeKeyEvent.restype = ctypes.c_int
+        self.lib.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        self.lib.XKeysymToKeycode.restype = ctypes.c_uint
         return self
 
     def focus_and_click(self, window_id, x, y):
@@ -237,6 +317,22 @@ class XSession:
         self.lib.XFlush(self.display)
         time.sleep(0.15)
         self.xtst.XTestFakeButtonEvent(self.display, 1, 0, 0)
+        self.lib.XFlush(self.display)
+        self.lib.XSync(self.display, 0)
+
+    def focus_and_press_key(self, window_id, keysym):
+        self.lib.XRaiseWindow(self.display, window_id)
+        self.lib.XSetInputFocus(self.display, window_id, 2, 0)
+        self.lib.XSync(self.display, 0)
+        time.sleep(0.25)
+        keycode = self.lib.XKeysymToKeycode(self.display, keysym)
+        if not keycode:
+            raise ValueError(f"X11 has no keycode for keysym 0x{keysym:x}")
+        if not self.xtst.XTestFakeKeyEvent(self.display, keycode, 1, 0):
+            raise ValueError("XTest could not press key")
+        self.lib.XFlush(self.display)
+        time.sleep(0.12)
+        self.xtst.XTestFakeKeyEvent(self.display, keycode, 0, 0)
         self.lib.XFlush(self.display)
         self.lib.XSync(self.display, 0)
 
@@ -301,31 +397,61 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
         profile_result["initial_window"] = initial
         profile_result["actual_viewport_window"] = {"width": actual[0], "height": actual[1], "window_id": initial["id"]}
         main_path = output_dir / f"{profile['name']}-main.png"
-        capture_window(initial["id"], main_path)
-        main_size = png_dimensions(main_path)
-        if main_size != (profile["width"], profile["height"]):
-            raise ValueError(f"main-menu frame is {main_size}, expected {profile['width']}x{profile['height']}")
-        profile_result["main_frame"] = {"path": str(main_path), "sha256": digest(main_path), "bytes": main_path.stat().st_size}
+        profile_result["main_frame"] = capture_record(initial["id"], main_path, profile)
 
         gui_x = profile["scaled_width"] // 2
         gui_y = profile["scaled_height"] // 4 + 48 + 10
-        physical_x = round(gui_x * profile["width"] / profile["scaled_width"])
-        physical_y = round(gui_y * profile["height"] / profile["scaled_height"])
+        physical_x, physical_y = gui_to_physical(profile, gui_x, gui_y)
         with XSession() as x11:
             x11.focus_and_click(int(initial["id"], 16), physical_x, physical_y)
         time.sleep(4.0)
-        empty_path = output_dir / f"{profile['name']}-world-list-empty.png"
-        capture_window(initial["id"], empty_path)
-        if png_dimensions(empty_path) != (profile["width"], profile["height"]):
-            raise ValueError("world-list frame dimensions differ from the requested viewport")
-        frames_differ = digest(empty_path) != digest(main_path)
-        profile_result["world_list_frame_candidate"] = {"path": str(empty_path), "sha256": digest(empty_path), "bytes": empty_path.stat().st_size}
-        profile_result["singleplayer_click"] = {"physical_xy": [physical_x, physical_y], "scaled_gui_xy": [gui_x, gui_y],
-                                                  "focus_raised": True, "focus_set": True,
-                                                  "button_down_ms": 150, "button_up_flushed": True,
-                                                  "frames_differ": frames_differ,
-                                                  "transition_verified": False,
-                                                  "note": "Frame difference is only a heuristic; coordinator must inspect the PNG to verify the world-list screen."}
+        list_suffix = "world-list-empty" if context["save_set"] == "empty" else "world-list-initial"
+        list_path = output_dir / f"{profile['name']}-{list_suffix}.png"
+        profile_result["world_list_initial_frame"] = capture_record(initial["id"], list_path, profile)
+        profile_result["singleplayer_click"] = {
+            "physical_xy": [physical_x, physical_y], "scaled_gui_xy": [gui_x, gui_y],
+            "focus_raised": True, "focus_set": True, "button_down_ms": 150, "button_up_flushed": True,
+            "transition_verified": False,
+            "note": "Native screen transition requires visual review of the captured PNG."}
+
+        if context["save_set"] == "synthetic":
+            list_x = profile["scaled_width"] // 2
+            list_y = 50  # center of the first 36px native list row at y=32
+            select_xy = gui_to_physical(profile, list_x, list_y)
+            with XSession() as x11:
+                x11.focus_and_click(int(initial["id"], 16), *select_xy)
+            time.sleep(1.5)
+            selected_path = output_dir / f"{profile['name']}-world-list-selected-row.png"
+            profile_result["world_list_selected_frame"] = capture_record(initial["id"], selected_path, profile)
+
+            with XSession() as x11:
+                x11.focus_and_press_key(int(initial["id"], 16), 0xff0d)  # XK_Return
+            time.sleep(1.5)
+            enter_path = output_dir / f"{profile['name']}-world-list-enter-key.png"
+            profile_result["world_list_enter_frame"] = capture_record(initial["id"], enter_path, profile)
+            profile_result["enter_key_event"] = {"keysym": "Return", "held_ms": 120,
+                                                  "expected_native_behavior": "rq has no Enter handler; remains on list"}
+
+            cancel_x = profile["scaled_width"] // 2 + 4 + 75
+            cancel_y = profile["scaled_height"] - 28 + 10
+            cancel_xy = gui_to_physical(profile, cancel_x, cancel_y)
+            with XSession() as x11:
+                x11.focus_and_click(int(initial["id"], 16), *cancel_xy)
+            time.sleep(1.5)
+            cancel_path = output_dir / f"{profile['name']}-cancel-to-main.png"
+            profile_result["cancel_frame"] = capture_record(initial["id"], cancel_path, profile)
+
+            with XSession() as x11:
+                x11.focus_and_click(int(initial["id"], 16), physical_x, physical_y)
+            time.sleep(2.0)
+            with XSession() as x11:
+                x11.focus_and_press_key(int(initial["id"], 16), 0xff1b)  # XK_Escape
+            time.sleep(1.5)
+            escape_path = output_dir / f"{profile['name']}-escape-to-main.png"
+            profile_result["escape_frame"] = capture_record(initial["id"], escape_path, profile)
+            profile_result["escape_key_event"] = {"keysym": "Escape", "held_ms": 120,
+                                                   "expected_native_behavior": "inherited da closes screen and returns to parent"}
+            profile_result["play_button_clicked"] = False
         profile_result["elapsed_seconds_before_main_capture"] = round(time.time() - started, 3)
         return profile_result
     finally:
@@ -355,6 +481,16 @@ def capture_window(window_id, destination):
         raise ValueError(f"capture is not a PNG image: {destination}")
 
 
+def capture_record(window_id, destination, profile):
+    capture_window(window_id, destination)
+    dimensions = png_dimensions(destination)
+    expected = (profile["width"], profile["height"])
+    if dimensions != expected:
+        raise ValueError(f"capture dimensions are {dimensions}, expected {expected}")
+    return {"path": str(destination), "sha256": digest(destination), "bytes": destination.stat().st_size,
+            "dimensions": list(dimensions)}
+
+
 def png_dimensions(path):
     with Path(path).open("rb") as stream:
         header = stream.read(24)
@@ -368,6 +504,8 @@ def main():
     parser.add_argument("--runtime", type=Path, default=ARTIFACTS / "menu-parity-capture/runtime")
     parser.add_argument("--output", type=Path, default=ARTIFACTS / "menu-parity-capture/frames")
     parser.add_argument("--jar", type=Path, default=DEFAULT_JAR)
+    parser.add_argument("--save-set", choices=("empty", "synthetic"), default="empty",
+                        help="capture with no saves or deterministic metadata-only test directories")
     parser.add_argument("--prepare-only", action="store_true", help="extract pinned local natives and check prerequisites without launching a window")
     parser.add_argument("--timeout", type=int, default=45, help="maximum seconds to wait for the game window")
     args = parser.parse_args()
@@ -377,7 +515,7 @@ def main():
         runtime = inside_artifacts(args.runtime, "runtime")
         output_dir = inside_artifacts(args.output, "output")
         output_dir.mkdir(parents=True, exist_ok=True)
-        context = prepare(runtime, args.jar)
+        context = prepare(runtime, args.jar, args.save_set)
         manifest = {
             "schema_version": 1,
             "client": {"path": str(context["jar"]), "sha256": context["client_sha256"]},
@@ -388,11 +526,17 @@ def main():
             "runtime_game_dir": str(context["minecraft_home"]),
             "runtime_options_policy": "minimal guiScale-only options file under disposable user.home/.minecraft; no writes to Prism instance or user home",
             "x_display": os.environ.get("DISPLAY"),
-            "xvfb_invocation_expected": "env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py --runtime artifacts/menu-parity-capture/runtime --output artifacts/menu-parity-capture/frames",
+            "xvfb_invocation_expected": ("env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py "
+                                          f"--runtime {args.runtime} --output {args.output} --save-set {args.save_set}"),
             "no_home_environment_override": True,
             "network_policy": "standard JVM HTTP and HTTPS proxies pointed at 127.0.0.1:9; java.net.useSystemProxies=false; no download or installation is performed",
             "audio_policy": "ALSOFT_DRIVERS=null selects OpenAL Soft's null backend to avoid host audio devices",
-            "world_policy": "empty saves directory only; never opens or creates a playable world",
+            "world_policy": ("empty saves directory; never opens or creates a playable world" if args.save_set == "empty"
+                             else "synthetic metadata-only saves; never opens or creates a playable world"),
+            "save_set": context["save_set"],
+            "synthetic_save_fixture": context["synthetic_save_fixture"],
+            "synthetic_save_fixture_sha256": SYNTHETIC_SAVE_FIXTURE_SHA256 if args.save_set == "synthetic" else None,
+            "synthetic_save_files_sha256": context["synthetic_save_files_sha256"],
             "captures": [],
             "capture_complete": False,
         }
@@ -411,9 +555,9 @@ def main():
             manifest["captures"].append(result)
             manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         manifest["capture_complete"] = True
-        manifest["unavailable_save_case"] = "not captured; empty saves only"
+        manifest["unavailable_save_case"] = "not captured; native GUI has no equivalent to Rust's unavailable-save safety policy"
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"CAPTURED: {len(manifest['captures']) * 2} native frames in {output_dir}")
+        print(f"CAPTURED: {sum(1 for row in manifest['captures'] for key, value in row.items() if key.endswith('_frame') and isinstance(value, dict))} native frames in {output_dir}")
         print(f"MANIFEST: {manifest_path}")
         return 0
     except (OSError, ValueError, zipfile.BadZipFile, subprocess.TimeoutExpired, TimeoutError) as error:

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "format": "Beta 1.7.3 level.dat gzip containing root TAG_Compound/Data TAG_Compound",
+  "cases": [
+    {
+      "directory": "MenuCurrent",
+      "file": "level.dat",
+      "metadata": {
+        "LevelName": "Native Current",
+        "LastPlayed": 1700000300000,
+        "SizeOnDisk": 123456,
+        "RandomSeed": 73,
+        "SpawnX": 0,
+        "SpawnY": 64,
+        "SpawnZ": 0,
+        "version": 19132
+      },
+      "expected_native_row": true,
+      "expected_conversion_warning": false
+    },
+    {
+      "directory": "MenuConvert",
+      "file": "level.dat",
+      "metadata": {
+        "LevelName": "Native Conversion",
+        "LastPlayed": 1700000400000,
+        "SizeOnDisk": 234567,
+        "RandomSeed": 74,
+        "SpawnX": 4,
+        "SpawnY": 65,
+        "SpawnZ": -2,
+        "version": 0
+      },
+      "expected_native_row": true,
+      "expected_conversion_warning": true
+    },
+    {
+      "directory": "MenuFallback",
+      "file": "level.dat",
+      "corrupt": true,
+      "backup": {
+        "file": "level.dat_old",
+        "metadata": {
+          "LevelName": "Native Backup",
+          "LastPlayed": 1700000200000,
+          "SizeOnDisk": 345678,
+          "RandomSeed": 75,
+          "SpawnX": 0,
+          "SpawnY": 64,
+          "SpawnZ": 0,
+          "version": 19132
+        }
+      },
+      "expected_native_row": true,
+      "expected_conversion_warning": false
+    },
+    {
+      "directory": "MenuInvalid",
+      "file": "level.dat",
+      "corrupt": true,
+      "expected_native_row": false,
+      "expected_conversion_warning": false
+    }
+  ],
+  "native_contract": {
+    "storage_type": "Scaevolus' McRegion",
+    "metadata_lookup": "level.dat, then level.dat_old if level.dat parse fails",
+    "row_filter": "directory is listed only when one metadata file parses to a Data compound",
+    "conversion_warning": "level version != 19132",
+    "sort": "descending LastPlayed, then directory name ascending",
+    "does_not_create_or_load_world": true
+  },
+  "reference": {
+    "client_jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "classes": {
+      "hi": "f4a89d4268ba827357b151cc73c404be042d76132090224a3834a4ef2b5f43cf",
+      "tq": "339175cb6bdd4f97024f30c9c501b4efe9221f60672a9fb3b017890b5b2272c8",
+      "vb": "ff8c4833109f9bd4439ebc4ddb718ad303fec9074a2f66a744f06de754d169a9",
+      "ei": "5d01d1dda7be346c57fd00846d2425615186c3ef1c65c06aa0bd0f45aa9f7fef",
+      "as": "c840daad77df4a1ad92367abce5b3d2035362bc2b010df1ff7b4faee3bbfb652",
+      "nu": "a1a5701ec2180d01ddc604cc8c2e5aff1176b10faf83bdb64d2f1cc8c806ac4a"
+    }
+  }
+}

@@ -23,7 +23,7 @@ The frozen geometry/API in `audit.json` and `menu_parity_audit.py` is:
 - World select: title anchor `(width/2,20)`, white. List viewport is vertical `32..height-64`; rows are 36 pixels. Name text is white at `row_y+1`, summary text gray `0x808080` at `row_y+12`. A selected enabled row gets a two-pixel gray outer and one-pixel white inner outline across `width/2±110`. Selection starts at -1; Play/Rename/Delete are disabled until a row is selected. Buttons are Select `(width/2-154,height-52,150×20)`, Rename `(width/2-154,height-28,70×20)`, Delete `(width/2-74,height-28,70×20)`, Create `(width/2+4,height-52,150×20)`, and Cancel `(width/2+4,height-28,150×20)`.
 - Buttons use `/gui/gui.png` (256×256). Native button draw uses two horizontal halves, UV x=0 and `200-width/2`, UV y=`46+state*20`. State 0 is disabled, 1 normal, 2 hover. Text colors are signed `-6250336` when disabled, `14737632` normally, and `16777120` on hover; disabled buttons do not hit-test.
 - Text is pinned to `/lang/en_US.lang`; `nh` loads the US English file and US stats file directly. The fixture freezes the exact English labels. `font/default.png` is a 128×128 atlas with 8×8 cells and 8-pixel row height. The 256 width entries in `native.tsv` are derived from the native `sj` constructor's alpha scan (rightmost nonempty column plus 2; space is forced to width 4). The `sj` string-width method itself skips `§` and its following formatting character and contributes zero for unsupported characters. The font renderer constructor also issues OpenGL calls, so the glyph table is explicitly a bytecode-driven bitmap derivation, not a claim of direct `sj` method invocation.
-- Singleplayer opens `rq`. The list supports row selection, same-row double-click within the native 250 ms interval, and the Play button. Native `rq` has no key override for Enter, so Enter does not load the selected world. Escape is handled by inherited `da` and closes the screen/restores mouse capture; Cancel returns to the parent screen. These are pinned bytecode observations, not live input observations.
+- Singleplayer opens `rq`. The list supports row selection, same-row double-click within the native 250 ms interval, and the Play button. Native `rq` has no key override for Enter, so Enter does not load the selected world. Escape goes through inherited `da`, which calls `Minecraft.a(null)` and then `Minecraft.g()`. With no active world, `Minecraft.a(null)` substitutes the `fu` main-menu screen before the mouse-handling call; this is a return-to-main behavior, not evidence that the native chooser displays an unavailable-save screen. Cancel returns to its parent screen. Keyboard behavior is pinned bytecode evidence pending the new live input captures below.
 
 Resource evidence records hashes and dimensions only; original assets and full disassembly are not committed. Native expected output SHA-256 is `b403287e07085e8b7b04e76ccec3706e15c7d198571ad628f745d1e858bb370d`. The native scale constructor is invoked in two independent Java processes and compared byte-for-byte with this fixture on each audit run.
 
@@ -39,7 +39,23 @@ Ran 4 tests ... OK
 
 The four tests cover a clean live-native audit, rejected row-height/layout mutation, rejected translation mutation, and rejection of altered native output even if its local fixture hash is also changed. No workspace-wide checks were run.
 
-Remaining C01 work: capture original windows at two fixed resolutions/scales, including an empty world list and an unavailable/unconvertible save, then preserve paired frames and exact client/runtime launch metadata. No pixel comparison, GPU tolerance, live resize, or live mouse/keyboard behavior was measured here. Treat this commit as geometry/resource/API guidance for A01, not as completion of the full visual C01 card.
+Remaining C01 work: visually review the new synthetic save-list and input frames, document their exact hashes, and provide paired Rust/native comparisons if the card requires them. The accepted screenshots establish native views at two resolutions/scales but do not establish pixel parity or the complete input contract. Treat this evidence as geometry/resource/API guidance, not completion of the full C01 card.
+
+## Synthetic native metadata and save-list contract
+
+`tests/fixtures/menu_parity/synthetic_saves.json` defines metadata-only NBT worlds written only beneath the disposable capture runtime. `MenuCurrent` uses native version 19132, `MenuConvert` uses version 0, `MenuFallback` has corrupt `level.dat` plus a valid `level.dat_old`, and `MenuInvalid` has corrupt metadata with no fallback. These are compressed NBT metadata files only: they have no `region/` directory or chunks, and the capture never presses Play or constructs a world.
+
+`tools/oracle/menu_save_list_audit.py` invokes the pinned native `hi` directory reader and sorts its actual `vb` outputs as `rq` does. It freezes the direct native output in `synthetic_save_list.tsv`: descending LastPlayed order, conversion=true exactly when version is not 19132, valid backup fallback, and omission of a directory whose primary and backup metadata both fail. The two corrupt-primary cases generate native `ZipException` diagnostics; the fallback still contributes a row while the no-backup directory does not. Class hashes for `hi`, `tq`, `vb`, `ei`, `as`, and `nu` bind this evidence to the pinned JAR.
+
+This native filtering has no direct visual equivalent to the Rust chooser's unavailable-save safety state. Rust discovery keeps malformed or incomplete entries visible with a launch reason and blocks activation; the native listing drops malformed metadata folders, while valid metadata-only worlds remain listed without checking required region files. The safe native audit therefore shows those rows as the original client would, including the conversion warning, and records that this UI differs from the Rust unavailable row by design. It does not invent a native disabled row or claim parity for missing chunks.
+
+The reusable synthetic GUI command writes to paths separate from the accepted empty-list frames and manifest:
+
+```sh
+env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py --runtime artifacts/menu-parity-capture/synthetic-runtime --output artifacts/menu-parity-capture/synthetic-frames --save-set synthetic
+```
+
+For each resolution/GUI scale, it captures the initial list, selects the first sorted row, sends Return, clicks Cancel, reopens the chooser, and sends Escape. It records every frame hash and action coordinates in the manifest; it never activates Play. The coordinator must inspect these frames before they count as live behavior evidence.
 
 ## Prepared safe native capture
 

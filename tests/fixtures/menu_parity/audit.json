@@ -254,7 +254,7 @@
         "list_double_click": "same row within 250ms calls select/load by world index",
         "play_button": "id 1 calls select/load only for selected row",
         "enter_key": "rq has no key override; Enter does not select/load a world",
-        "escape": "inherited da Escape closes screen and restores mouse capture",
+        "escape": "inherited da Escape calls Minecraft.a(null), which selects fu main menu when world is null, then invokes Minecraft.g() mouse handling",
         "cancel": "id 0 restores parent screen"
       }
     },
@@ -365,6 +365,7 @@
       "iconst_1",
       "Keyboard.getEventKey:()I",
       "Mouse.getEventX:()I",
+      "Minecraft.a:(Lda;)V",
       "Minecraft.g:()V"
     ],
     "ke": [
