@@ -9,7 +9,7 @@ class LightUpdateFixtureTests(unittest.TestCase):
         self.assertEqual(len(rows), 40)
         self.assertEqual(len({r.split("\t")[0] for r in rows}), len(rows))
         self.assertEqual(rows[0].split("\t")[:4], ["remove", "before", "1", "0"])
-        self.assertIn("edge-qq0", "\n".join(rows))
+        self.assertIn("edge-q0", "\n".join(rows))
         audit = json.loads((FIX / "audit.json").read_text())
         self.assertEqual(audit["emission"].split(":", 1)[0], "excluded")
         self.assertIn("loaded synthetic chunks only", audit["domain"])
