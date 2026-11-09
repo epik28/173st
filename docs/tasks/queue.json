@@ -920,9 +920,7 @@
       "owner": "agy",
       "title": "Implement viewer inventory screen",
       "card": "docs/tasks/INVENTORY-UI-001.md",
-      "depends_on": [
-        "INVENTORY-UI-001-C01"
-      ]
+      "depends_on": []
     },
     {
       "id": "INVENTORY-UI-001-C02",

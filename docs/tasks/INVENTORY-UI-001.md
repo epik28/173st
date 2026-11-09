@@ -39,10 +39,12 @@ verifier and mutation tests. Do not edit viewer Rust.
 
 ### INVENTORY-UI-001-A01 — viewer inventory screen (agy)
 
-Implement the focused E/Escape inventory-screen state, capture/focus handling,
-native panel and 36-slot layout, and item icons for only the supported current
-Inventory stacks. Use the C01 fixture for resource hashes, coordinates, and icon
-mapping; do not guess native facts. Add deterministic tests for toggling, focus,
+Work in parallel with C01. Implement the focused E/Escape inventory-screen state,
+capture/focus handling, native panel and 36-slot layout, and item icons for only
+the supported current Inventory stacks. Use the C01 fixture for resource hashes,
+coordinates, and icon mapping before finalizing rendering; do not guess native
+facts. The event/state scaffold and tests may proceed while C01 is running. Add
+deterministic tests for toggling, focus,
 input suppression, scaled viewport layout, UV bounds, slot mapping, and empty vs
 supported stacks. Restrict edits to viewer source/tests and own status/handoff.
 Do not change core inventory semantics, native fixtures, queue/shared docs, save
