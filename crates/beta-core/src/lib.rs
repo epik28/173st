@@ -7,6 +7,7 @@ pub mod biome;
 pub mod block;
 pub mod chunk;
 pub mod geometry;
+pub mod items;
 pub mod java_compat;
 pub mod java_random;
 pub mod light;

@@ -346,9 +346,15 @@
       ]
     },
     "ITEMS-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен pure beta_core::items с 36 слотами, 9-позиционной hotbar, выбранным индексом и ограниченными ItemStack для native-подтверждённых ID 1, 3, 332 и 267. Реализованы split, remove по ID, replacement, merge/spill и hotbar selection/cycling. Fixture-driven tests сверяют все 21 native state и 36 упорядоченных слотов; неподдержанные ID и ненулевой damage отклоняются явно.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: 83 library tests and all beta-core example tests",
+        "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "python3 tools/check.py → PASS: 182 Python tests, 18 opt-in skips; workspace fmt/check/clippy/all-target/doc tests PASS",
+        "Six items unit tests compare every committed C01 state row and all 36 ordered slots exactly; invalid split/slot/hotbar changes preserve state, and full-inventory insertion rejection preserves both sides",
+        "C01 fixture/audit consumed from committed codex/verification commit e2cdc49; no oracle, fixture, runner, probe, contract, dependency, or other worktree changed"
+      ]
     },
     "ITEMS-001-A02": {
       "state": "pending",

@@ -631,3 +631,32 @@ attempted with `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locke
 --offline -p beta-viewer`, but the viewer exited before rendering because the local
 `level.dat` does not match its pinned source hash. No movement, physics, fixture,
 oracle, queue, or shared contract was changed. No other agents were used.
+
+## ITEMS-001-A01 — pure bounded stack and main inventory
+
+Imported the committed C01 snapshot from `codex/verification` (`e2cdc49`;
+current shared snapshot `e9190e8`) with a fast-forward. Added
+`beta_core::items` with 36 main slots, selected hotbar index 0..8, stack
+identity/count/damage/verified limit, split, remove-one-by-ID, slot replacement,
+compatible merge/spill, insertion, item selection, and native-direction hotbar
+cycling. The supported registry is deliberately limited to native-captured IDs:
+stone/dirt 1/3 (64), snowball 332 (16), and iron sword 267 (1). Nonzero damage
+and other IDs fail explicitly. No GUI, armor, crafting, arbitrary NBT, I/O, or
+save writes were added.
+
+Six fixture-driven tests compare all 21 C01 states, including the ordered
+contents of all 36 slots, limits, selection and native scroll results. They also
+check invalid mutation atomicity. The captured fully occupied insertion failure
+preserves inventory and incoming stack; behavior for unobserved partial-capacity
+failure shapes is not claimed as native parity. The code does not compare item
+display names because they are outside the core state model.
+
+Verification: `cargo test --locked --offline -p beta-core --all-targets` passed
+(83 library tests and all beta-core example tests);
+`cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings`,
+`cargo fmt --all -- --check`, and `git diff --check` passed.
+`python3 tools/check.py` passed all 182 Python tests (18 opt-in skips), workspace
+format/check/clippy/all-target tests and doc tests. The native fixture's 21 state
+rows were compared by the Rust unit tests; no separate ITEMS strict runner exists
+in this card. Only `crates/beta-core/src/`, this handoff, and the agy status were
+changed by A01. Next dependency is ITEMS-001-C02 before A02.
