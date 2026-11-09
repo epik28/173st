@@ -25,3 +25,26 @@ Values are median p50 microseconds across the seven repeat-level p50s on this ma
 | water placement | 1,286 µs | 683 µs | 37,377 → 1,736 |
 
 No simulation parity claim is made beyond the committed material and light-update fixture outputs. The harness is a focused measurement for these edit shapes, not a general workload benchmark.
+
+## Emissive propagation follow-up
+
+Commit `67a762f` added a radius-wide block-light recomputation so emissive block
+placement/removal matches the settled native fixture. The first release
+benchmark exposed a cost on ordinary dark edits: canopy removal, water removal,
+and water placement measured 8,672, 8,501, and 8,504 µs p50, with about 31.5k
+material lookups each. This was the same 60-edit/seven-repeat benchmark above.
+
+Commit `2be09f3` skips that rebuild when the edited cell has zero emission and
+its own plus all six face neighbors have zero stored block light. If a relevant
+neighbor is unloaded, the code takes the conservative rebuild path. This guard
+relies on a settled incoming block-light field; emissive placement and removal
+still use the full rebuild. The settled V3 native fixture continues to match all
+294,912 cells for both glowstone phases, and the old canopy/water fixtures pass.
+
+After the guard, the same release benchmark produced unchanged scene/result
+digests and returned material callback counts to 1,703 / 1,738 / 1,737. Median
+p50s were 635 µs for canopy-log removal, 638 µs for water removal, and 640 µs
+for water placement. This is close to the previous cached-path measurements
+(520 / 533 / 683 µs) and far below the unguarded emissive recomputation. The
+measurement covers only these benchmark scenes; it is not a general frame-time
+or arbitrary-world claim.
