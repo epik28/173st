@@ -931,6 +931,22 @@
         "INVENTORY-UI-001-C01",
         "INVENTORY-UI-001-A01"
       ]
+    },
+    {
+      "id": "VIEW-LOCAL-001-C01",
+      "owner": "codex",
+      "title": "Fresh native comparison for the local post-play scene",
+      "card": "docs/tasks/VIEW-LOCAL-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "VIEW-LOCAL-001-C02",
+      "owner": "codex",
+      "title": "Hash-pinned local preview loader and acceptance",
+      "card": "docs/tasks/VIEW-LOCAL-001.md",
+      "depends_on": [
+        "VIEW-LOCAL-001-C01"
+      ]
     }
   ]
 }

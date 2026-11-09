@@ -734,6 +734,30 @@
         "Agy A01 commit e63d2e3b47595f4fdd29c22935abc0fcfc31972f merged into main; viewer tests cover E/Escape/focus/capture suppression, scales, slot layout, item UVs and empty inventory",
         "Guarded viewer startup validated pinned atlases then stopped at the existing level.dat hash guard; no screenshot or visual smoke claim"
       ]
+    },
+    "VIEW-LOCAL-001-C01": {
+      "state": "done",
+      "summary": "Two independent pinned-JAR ViewOracle captures over the user's current 25-chunk copy were byte-identical. Native audit used 47 mapping cases and 1,513 neighbor pairs with native world/chunk loads at zero. Two newly observed water/dirt face cases were captured and added without changing historic fixtures or publishing save hashes.",
+      "checks": [
+        "Two independent ViewOracle JVM runs on the same verified temporary copy → byte-identical stdout/audit",
+        "Native audit: pinned JAR/terrain/uu/cv hashes; ij=26, ei=1, qj=25, 25 chunks, native world/chunk loads=0, renderer vertex calls=0",
+        "New current-scene facts: 47 ordered state/mapping rows, 1,513 neighboring state/face pairs; Rust current-preview output byte-identical after adding the two newly observed native neighbor facts",
+        "Committed historic VIEW-001 fixture/source hashes remain unchanged; only generic block ID/face results are retained, not user-world hashes or data"
+      ]
+    },
+    "VIEW-LOCAL-001-C02": {
+      "state": "done",
+      "summary": "Added a separate local-manifest preview path for the graphical viewer and current-scene probe. The strict historical view_probe still uses the original fixture pins; the preview verifies exactly five bounded non-symlink inputs and their machine-local hashes before reading a disposable copy.",
+      "checks": [
+        "python3 tools/check.py → PASS: 208 Python tests (18 opt-in skips), fmt, workspace check, clippy -D warnings, all-target and doc tests",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS after adding concurrent unique-preview-copy mutations and the new probe example",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "view_preview_probe against fresh two-JVM local-scene capture → exact byte-for-byte match; 47 state/mapping cases and 1,513 neighbor cases",
+        "Viewer loads 25 copied chunks; 334,760 opaque and 9,762 water vertices. Xvfb lacks a reachable X server (`xdpyinfo` cannot open :99), so window/screenshot smoke is unavailable after scene preparation",
+        "Five source files match the local-only baseline before and after runs; original save was not modified. The local manifest remains ignored and is not part of Git",
+        "python3 tools/parity/run.py view --strict still refuses the post-play world at the historical level.dat size/hash check; this is expected and its old native fixture remains unchanged",
+        "Coordinator made narrow Rust loader/probe changes directly because no implementation agent was active; this direct contribution is recorded in docs/handoffs/codex.md"
+      ]
     }
   }
 }

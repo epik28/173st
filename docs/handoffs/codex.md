@@ -1361,3 +1361,40 @@ The bounded Java oracle initializes only the original static registry (`Class.fo
 Files: `tools/oracle/inventory_ui_audit.py`, `tools/oracle/src/InventoryUiOracle.java`, `tests/fixtures/inventory_ui/audit.json`, `tests/python/test_inventory_ui_audit.py`, this handoff, and own codex task status. No Rust/viewer, shared contract, agy files/status, proprietary asset, or save changed.
 
 Checks: `python3 tools/oracle/inventory_ui_audit.py` → PASS; `python3 -m unittest tests.python.test_inventory_ui_audit -v` → 4 PASS (live native extraction, wrong JAR, altered behavior/provenance/bytecode/slot/icon evidence, malformed fixture); `python3 -m py_compile tools/oracle/inventory_ui_audit.py tests/python/test_inventory_ui_audit.py` → PASS; `git diff --check` → PASS. Full `tools/check.py` was not run for this audit-only card. Next: C02 integration review after A01. Model: gpt-6.1-sol, no delegated agents or borrowed implementation.
+
+## VIEW-LOCAL-001 — refreshed local preview snapshot, 2026-11-09
+
+The previous tracked VIEW/WORLD fixture describes the earlier untouched snapshot;
+the user's later gameplay changed `level.dat` and all four region files. At the
+user's request, the viewer now reads the ignored, machine-local
+`artifacts/user-world-postplay.sha256` baseline. Hash values are deliberately not
+recorded in Git. The viewer copies exactly five regular, non-symlink inputs into
+a unique ignored artifact run, verifies the source manifest and copied hashes,
+then loads only the copy. The strict historical `view_probe` still requires its
+old fixture hashes and remains independent.
+
+For fresh verification, `ViewOracle` ran twice against the copied current scene.
+The outputs/audits were byte-identical. The native audit retained pinned client,
+terrain and `uu`/`cv` class hashes; calls were `ij=26`, `ei=1`, `qj=25`, 25 region
+slots, `native_world_or_chunk_loads=0`, and `native_renderer_vertex_calls=0`.
+It reported 47 mapping cases and 1,513 neighbor pairs. Relative to the historic
+capture, two current pairs were new: dirt face 2 against water ID 9 metadata 6
+is visible; water ID 9 metadata 6 face 3 against dirt is hidden. Both were added
+to the native registry; no save hash, coordinates or world content was committed.
+The separate `view_preview_probe` matched the native output byte-for-byte; output
+SHA-256 is retained only in ignored review artifacts.
+
+The graphical viewer loaded the copied 25-chunk scene and built 334,760 opaque
+and 9,762 water vertices. GUI initialization failed because Xvfb's `:99` server
+was not reachable (`xdpyinfo` failed), so there is no screenshot/pixel claim.
+The five original files matched the ignored local baseline after all runs. Full
+`python3 tools/check.py` passed: 208 Python tests (18 opt-in skips), fmt, workspace
+check, clippy `-D warnings`, all-target and doc tests. `python3 tools/parity/run.py
+view --strict` correctly refuses this user save because it remains pinned to the
+older historical fixture; the new two-JVM preview comparison is the current-save
+evidence.
+
+The coordinator made direct Rust changes in `loader.rs`, the viewer entry point,
+and a separate probe example because implementation agents were unavailable in
+this turn. This contribution is called out rather than attributed to agy. No
+game save, original JAR, atlas, or committed historical native fixture changed.

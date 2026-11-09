@@ -61,11 +61,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let client_jar = client_jar_path()?;
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
-    let input = copy_local_world()?;
+    let (input, source_pins) = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
     let (mut scene, metadata, scene_chunks, mappings) =
-        loader::load_scene_for_viewer_with_edit_data(&input, &terrain_path, &scene_path)?;
+        loader::load_scene_for_preview_with_edit_data(
+            &input,
+            &terrain_path,
+            &scene_path,
+            &source_pins,
+        )?;
     let palette_dir = terrain_path
         .parent()
         .ok_or("terrain atlas path has no parent for color palettes")?;
@@ -244,33 +249,14 @@ fn client_jar_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     Ok(root)
 }
 
-fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    const SOURCES: [(&str, usize, &str); 5] = [
-        (
-            "level.dat",
-            411,
-            "2711d16242afd13909575955d4a34502da01f6f666ee79341fe1c1ba96c8a960",
-        ),
-        (
-            "r.-1.-1.mcr",
-            761856,
-            "b41220e2e389bf303984fa7211192debc7e1db3e49b89c168101a3ed748c435f",
-        ),
-        (
-            "r.-1.0.mcr",
-            843776,
-            "e189d75077763fd00813f5929a14a9de85704b55ef8042afb8fd2fb2f5801004",
-        ),
-        (
-            "r.0.-1.mcr",
-            1019904,
-            "59ce84edc6afcec1f962e0d88f519e359137c7245b688a58ab340414b12eb0ba",
-        ),
-        (
-            "r.0.0.mcr",
-            782336,
-            "67f39f4c77538f178fa7acb155030908f84c079b70f27d44d85f4a20fe965b7a",
-        ),
+fn copy_local_world()
+-> Result<(std::path::PathBuf, Vec<loader::PreviewSourcePin>), Box<dyn std::error::Error>> {
+    const SOURCE_NAMES: [&str; 5] = [
+        "level.dat",
+        "r.-1.-1.mcr",
+        "r.-1.0.mcr",
+        "r.0.-1.mcr",
+        "r.0.0.mcr",
     ];
     let config = fs::read_to_string("config/local.toml")?;
     let mut in_paths = false;
@@ -292,6 +278,77 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
     let prism = prism.ok_or("config requires paths.prism_instance")?;
     let source_world = std::path::PathBuf::from(prism).join("minecraft/saves/New World");
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let manifest_path = root.join("artifacts/user-world-postplay.sha256");
+    let manifest_meta = fs::symlink_metadata(&manifest_path)?;
+    if manifest_meta.file_type().is_symlink() || !manifest_meta.is_file() {
+        return Err("local world pin manifest must be a regular non-symlink file".into());
+    }
+    let manifest = fs::read_to_string(&manifest_path).map_err(|_| {
+        format!(
+            "local world pin manifest is missing: {}",
+            manifest_path.display()
+        )
+    })?;
+    let mut pins_by_name = HashMap::new();
+    for (line_number, line) in manifest.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let fields: Vec<_> = line.split_ascii_whitespace().collect();
+        if fields.len() != 3 {
+            return Err(format!("malformed local world pin at line {}", line_number + 1).into());
+        }
+        let name = if fields[0] == "level.dat" {
+            "level.dat"
+        } else if let Some(region_name) = fields[0].strip_prefix("region/") {
+            region_name
+        } else if fields[0] == "level.dat_old" {
+            continue;
+        } else {
+            return Err(format!("unexpected local world pin {}", fields[0]).into());
+        };
+        let size = fields[1].parse::<usize>()?;
+        let max_size = if name == "level.dat" {
+            16 * 1024 * 1024
+        } else {
+            64 * 1024 * 1024
+        };
+        if size == 0 || size > max_size {
+            return Err(format!("local world pin size is outside limit for {name}").into());
+        }
+        if fields[2].len() != 64
+            || !fields[2]
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        {
+            return Err(format!("invalid SHA-256 in local world pin for {name}").into());
+        }
+        let pin = loader::PreviewSourcePin {
+            name: name.to_owned(),
+            size,
+            sha256: fields[2].to_owned(),
+        };
+        if pins_by_name.insert(name.to_owned(), pin).is_some() {
+            return Err(format!("duplicate local world pin for {name}").into());
+        }
+    }
+    if pins_by_name.len() != SOURCE_NAMES.len()
+        || SOURCE_NAMES
+            .iter()
+            .any(|name| !pins_by_name.contains_key(*name))
+    {
+        return Err("local world pin manifest must contain exactly the five viewer inputs".into());
+    }
+    let source_pins: Vec<_> = SOURCE_NAMES
+        .iter()
+        .map(|name| {
+            pins_by_name
+                .get(*name)
+                .expect("validated pin exists")
+                .clone()
+        })
+        .collect();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_nanos();
@@ -302,7 +359,9 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
     let input = run.join("input");
     fs::create_dir_all(input.join("region"))?;
     use sha2::Digest;
-    for (name, expected_size, expected_hash) in SOURCES {
+    let mut pin_manifest = String::new();
+    for pin in &source_pins {
+        let name = pin.name.as_str();
         let parent = if name == "level.dat" {
             source_world.clone()
         } else {
@@ -312,15 +371,16 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
         let metadata = fs::symlink_metadata(&source)?;
         if metadata.file_type().is_symlink()
             || !metadata.is_file()
-            || metadata.len() as usize != expected_size
+            || metadata.len() as usize != pin.size
         {
             return Err(format!("unsafe or unexpected local world source {name}").into());
         }
         let data = fs::read(&source)?;
         let hash = format!("{:x}", sha2::Sha256::digest(&data));
-        if hash != expected_hash {
+        if hash != pin.sha256 {
             return Err(format!("pinned world source hash mismatch: {name}").into());
         }
+        pin_manifest.push_str(&format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256));
         let destination = if name == "level.dat" {
             input.join(name)
         } else {
@@ -330,7 +390,7 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
     }
     // Loader protocol requires all five top-level basenames. Keep region files at
     // the top level as the checked native input-copy format does.
-    for (name, _, _) in SOURCES.iter().filter(|(name, _, _)| *name != "level.dat") {
+    for name in SOURCE_NAMES.iter().filter(|name| **name != "level.dat") {
         let nested = input.join("region").join(name);
         fs::rename(&nested, input.join(name))?;
     }
@@ -343,7 +403,8 @@ fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> 
         input.join(".region-input-copy"),
         "REGION-001 copied inputs\n",
     )?;
-    Ok(input)
+    fs::write(input.join(".preview-source-hashes.tsv"), pin_manifest)?;
+    Ok((input, source_pins))
 }
 
 /// Builds tile-isolated mip levels so minification does not alias and neighboring

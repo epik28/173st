@@ -50,6 +50,15 @@ const FILES: [(&str, usize, &str); 5] = [
     ),
 ];
 
+/// A local-only source pin supplied by the viewer's ignored post-play manifest.
+/// Strict parity probes continue using the historical constants above.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreviewSourcePin {
+    pub name: String,
+    pub size: usize,
+    pub sha256: String,
+}
+
 #[derive(Debug)]
 pub enum ProbeError {
     InvalidArguments,
@@ -170,6 +179,101 @@ fn validate_copy(dir: &Path) -> Result<BTreeMap<String, Vec<u8>>, ProbeError> {
         {
             return Err(ProbeError::InvalidInput(format!(
                 "unsafe input-copy entry {name}"
+            )));
+        }
+    }
+    Ok(files)
+}
+
+fn validate_preview_copy(
+    dir: &Path,
+    pins: &[PreviewSourcePin],
+) -> Result<BTreeMap<String, Vec<u8>>, ProbeError> {
+    let meta = fs::symlink_metadata(dir)?;
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return Err(ProbeError::InvalidInput(
+            "preview input copy must be a real directory".into(),
+        ));
+    }
+    let expected: BTreeMap<_, _> = FILES.iter().map(|(name, _, _)| (*name, ())).collect();
+    if pins.len() != FILES.len()
+        || pins.iter().any(|pin| {
+            !expected.contains_key(pin.name.as_str())
+                || pin.size == 0
+                || pin.size
+                    > if pin.name == "level.dat" {
+                        16 * 1024 * 1024
+                    } else {
+                        64 * 1024 * 1024
+                    }
+                || pin.sha256.len() != 64
+                || !pin
+                    .sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        })
+    {
+        return Err(ProbeError::InvalidInput(
+            "preview source pin set is invalid".into(),
+        ));
+    }
+    let by_name: BTreeMap<_, _> = pins.iter().map(|pin| (pin.name.as_str(), pin)).collect();
+    if by_name.len() != FILES.len() {
+        return Err(ProbeError::InvalidInput(
+            "preview source pins contain duplicates".into(),
+        ));
+    }
+    let marker_world = read_regular(&dir.join(".world-input-copy"), "world marker")?;
+    let marker_region = read_regular(&dir.join(".region-input-copy"), "region marker")?;
+    let marker_sources = read_regular(
+        &dir.join(".preview-source-hashes.tsv"),
+        "preview source pins",
+    )?;
+    if marker_world != WORLD_MARKER.as_bytes() || marker_region != REGION_MARKER.as_bytes() {
+        return Err(ProbeError::InvalidInput(
+            "preview copy marker content mismatch".into(),
+        ));
+    }
+    let expected_manifest = pins
+        .iter()
+        .map(|pin| format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256))
+        .collect::<String>();
+    if marker_sources != expected_manifest.as_bytes() {
+        return Err(ProbeError::InvalidInput(
+            "preview source manifest differs from requested pins".into(),
+        ));
+    }
+    let mut allowed: BTreeSet<String> = [
+        ".world-input-copy".to_owned(),
+        ".region-input-copy".to_owned(),
+        ".preview-source-hashes.tsv".to_owned(),
+    ]
+    .into_iter()
+    .collect();
+    let mut files = BTreeMap::new();
+    for name in expected.keys() {
+        allowed.insert((*name).to_owned());
+        let pin = by_name
+            .get(name)
+            .ok_or_else(|| ProbeError::InvalidInput(format!("missing preview pin for {name}")))?;
+        let data = read_regular(&dir.join(name), name)?;
+        if data.len() != pin.size || sha256_hex(&data) != pin.sha256 {
+            return Err(ProbeError::InvalidInput(format!(
+                "preview copy {name} size/hash mismatch"
+            )));
+        }
+        files.insert((*name).to_owned(), data);
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| ProbeError::InvalidInput("non-UTF8 preview path".into()))?;
+        let ty = entry.file_type()?;
+        if !allowed.contains(&name) || ty.is_symlink() || !ty.is_file() {
+            return Err(ProbeError::InvalidInput(format!(
+                "unsafe or unexpected preview input entry {name}"
             )));
         }
     }
@@ -305,7 +409,17 @@ fn load_scene(
 }
 
 fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, ProbeError> {
-    let (scene, metadata, scene_data, parsed, _) = load_scene_inputs(input, terrain, scene_file)?;
+    let files = validate_copy(input)?;
+    probe_with_files(files, terrain, scene_file)
+}
+
+fn probe_with_files(
+    files: BTreeMap<String, Vec<u8>>,
+    terrain: &Path,
+    scene_file: &Path,
+) -> Result<String, ProbeError> {
+    let (scene, metadata, scene_data, parsed, _) =
+        load_scene_from_files(files, terrain, scene_file)?;
     let (states, neighbors) = observed_rows(&scene_data, parsed.min_x, parsed.min_z)?;
     // CPU mesh construction validates that the same loaded scene can feed the renderer.
     let mesh = scene
@@ -363,12 +477,34 @@ fn load_scene_inputs(
     scene_file: &Path,
 ) -> Result<LoadedSceneInputs, ProbeError> {
     let files = validate_copy(input)?;
+    load_scene_from_files(files, terrain, scene_file)
+}
+
+fn load_scene_from_files(
+    files: BTreeMap<String, Vec<u8>>,
+    terrain: &Path,
+    scene_file: &Path,
+) -> Result<LoadedSceneInputs, ProbeError> {
     validate_terrain(terrain)?;
     let metadata = load_level_gzip(&files["level.dat"], WorldLimits::default())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     let parsed = parse_scene(scene_file, metadata.spawn)?;
     let (scene, metadata, scene_data, mappings) = load_scene(&files, &parsed, metadata)?;
     Ok((scene, metadata, scene_data, parsed, mappings))
+}
+
+/// Load a viewer-only local snapshot pinned by an ignored machine-local manifest.
+/// This path is deliberately separate from `run_args`, whose historical source
+/// hashes remain fixed for reproducible native parity tests.
+pub fn load_scene_for_preview_with_edit_data(
+    input: &Path,
+    terrain: &Path,
+    scene_file: &Path,
+    pins: &[PreviewSourcePin],
+) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
+    let files = validate_preview_copy(input, pins)?;
+    let (scene, metadata, chunks, _, mappings) = load_scene_from_files(files, terrain, scene_file)?;
+    Ok((scene, metadata, chunks, mappings))
 }
 
 /// Load and validate the fixed scene for a graphical viewer.
@@ -575,6 +711,42 @@ pub fn run_args(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<St
     let terrain = PathBuf::from(&args[1]);
     let scene = PathBuf::from(&args[2]);
     probe(&input, &terrain, &scene)
+}
+
+/// Compare a machine-local pinned preview copy against the native mapping registry.
+/// This diagnostic path does not alter the historical strict `view_probe` inputs.
+pub fn run_preview_args(
+    args: impl IntoIterator<Item = std::ffi::OsString>,
+) -> Result<String, ProbeError> {
+    let args: Vec<_> = args.into_iter().collect();
+    if args.len() != 3 {
+        return Err(ProbeError::InvalidArguments);
+    }
+    let input = PathBuf::from(&args[0]);
+    let terrain = PathBuf::from(&args[1]);
+    let scene = PathBuf::from(&args[2]);
+    let manifest = read_regular(&input.join(".preview-source-hashes.tsv"), "preview pins")?;
+    let text = std::str::from_utf8(&manifest)
+        .map_err(|_| ProbeError::InvalidInput("preview pins are not UTF-8".into()))?;
+    let mut pins = Vec::new();
+    for (line_no, line) in text.lines().enumerate() {
+        let fields: Vec<_> = line.split('\t').collect();
+        if fields.len() != 3 {
+            return Err(ProbeError::InvalidInput(format!(
+                "malformed preview pin at line {}",
+                line_no + 1
+            )));
+        }
+        pins.push(PreviewSourcePin {
+            name: fields[0].to_owned(),
+            size: fields[1]
+                .parse()
+                .map_err(|_| ProbeError::InvalidInput("invalid preview pin size".into()))?,
+            sha256: fields[2].to_owned(),
+        });
+    }
+    let files = validate_preview_copy(&input, &pins)?;
+    probe_with_files(files, &terrain, &scene)
 }
 
 fn sha256_hex(input: &[u8]) -> String {
@@ -2248,11 +2420,44 @@ neighbor	73	0	5	15	0	0
 neighbor	73	0	5	16	0	0
 neighbor	73	0	5	56	0	0
 neighbor	73	0	5	73	0	0
+neighbor	3	0	2	9	6	1
+neighbor	9	6	3	3	0	0
 "#;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn make_preview_copy() -> (PathBuf, Vec<PreviewSourcePin>) {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "view-preview-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join(".world-input-copy"), WORLD_MARKER).unwrap();
+        fs::write(dir.join(".region-input-copy"), REGION_MARKER).unwrap();
+        let pins: Vec<_> = FILES
+            .iter()
+            .map(|(name, _, _)| {
+                let bytes = format!("preview bytes for {name}").into_bytes();
+                fs::write(dir.join(name), &bytes).unwrap();
+                PreviewSourcePin {
+                    name: (*name).to_owned(),
+                    size: bytes.len(),
+                    sha256: sha256_hex(&bytes),
+                }
+            })
+            .collect();
+        let manifest = pins
+            .iter()
+            .map(|pin| format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256))
+            .collect::<String>();
+        fs::write(dir.join(".preview-source-hashes.tsv"), manifest).unwrap();
+        (dir, pins)
+    }
+
     #[test]
     fn sha256_matches_standard_vector() {
         assert_eq!(
@@ -2297,10 +2502,35 @@ mod tests {
     }
 
     #[test]
+    fn preview_copy_accepts_only_exact_machine_local_pins() {
+        let (dir, pins) = make_preview_copy();
+        let files = validate_preview_copy(&dir, &pins).unwrap();
+        assert_eq!(files.len(), FILES.len());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preview_copy_rejects_mutated_hash_manifest_and_unexpected_entries() {
+        let (dir, mut pins) = make_preview_copy();
+        let replacement = if pins[0].sha256.starts_with('0') {
+            "1"
+        } else {
+            "0"
+        };
+        pins[0].sha256.replace_range(..1, replacement);
+        assert!(validate_preview_copy(&dir, &pins).is_err());
+        let _ = fs::remove_file(dir.join(".preview-source-hashes.tsv"));
+        fs::write(dir.join(".preview-source-hashes.tsv"), "bad\n").unwrap();
+        fs::write(dir.join("unexpected"), "x").unwrap();
+        assert!(validate_preview_copy(&dir, &pins).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn native_registry_has_unique_states_and_complete_neighbor_schema() {
         let (states, neighbors) = native_registry();
         assert_eq!(states.len(), 50);
-        assert_eq!(neighbors.len(), 1617);
+        assert_eq!(neighbors.len(), 1619);
         assert_eq!(
             mapping_for_state(State {
                 id: 2,
@@ -2321,6 +2551,28 @@ mod tests {
             })
             .unwrap(),
             1
+        );
+        assert_eq!(
+            visibility(Neighbor {
+                id: 3,
+                meta: 0,
+                face: 2,
+                other: 9,
+                other_meta: 6,
+            })
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            visibility(Neighbor {
+                id: 9,
+                meta: 6,
+                face: 3,
+                other: 3,
+                other_meta: 0,
+            })
+            .unwrap(),
+            0
         );
         assert!(
             visibility(Neighbor {
