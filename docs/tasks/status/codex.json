@@ -837,9 +837,16 @@
       ]
     },
     "HEALTH-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted saved Player.Health display after native field/heart audit. HUD shows empty, half and full hearts using pinned Beta atlas UVs; the saved value is read-only and no survival simulation is claimed.",
+      "checks": [
+        "python3 tools/oracle/hud_audit.py --jar ../.local/minecraft/client-b1.7.3.jar → PASS; pinned JAR/resources, uq heart branches/UVs and ls.Health class/read-write/default evidence",
+        "python3 -m unittest tests.python.test_hud_audit -v → PASS: 5 audit/provenance/mutation tests",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 17 library + 44 viewer tests and examples; includes missing/malformed Health, 0/1/2/3/19/20, clamping, ordered UV vertices and GUI scales",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "python3 tools/check.py → PASS: 214 Python tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc tests",
+        "Viewer reads only the validated copied Player NBT. Native missing tag defaults to 10; viewer explicitly uses 20 as its safe fallback. No world writes, damage/regen simulation or screenshot parity claimed."
+      ]
     }
   }
 }

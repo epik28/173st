@@ -2,6 +2,11 @@
 
 ## Текущее состояние
 
+HEALTH-001 принят: HUD читает `Player.Health` из проверенной копии `level.dat`
+и рисует полные, половинные и пустые сердца по нативным UV. Значение остаётся
+read-only; damage, regen, blinking и смерть не моделируются. Native HUD audit и
+полный `tools/check.py` прошли. Оценка полной игры — около **33%**.
+
 INVENTORY-INTERACTION-001 принят: мышь переносит поддержанные стеки между 36
 слотами, включая split, merge, swap и удерживаемый курсорный значок. 14 native
 click states сравниваются с Rust по всему cursor/slot state. При закрытии viewer
@@ -9,8 +14,8 @@ click states сравниваются с Rust по всему cursor/slot state.
 и не заявлен как реализованный. Native audit, Rust fixture test и полный
 `tools/check.py` прошли. HUD и inventory пока поддерживают четыре item ID;
 crafting, armor, world drop, использование и запись сохранения остаются впереди.
-Оценка полной игры — около **32%**. Следующий крупный контракт — динамическое
-здоровье и проверка обновления block/sky light после edits.
+Оценка полной игры после HOTBAR-ITEMS-001 была около **31%**. Следующий крупный
+контракт — обновление block/sky light после edits.
 
 HOTBAR-ITEMS-001 принят: hotbar показывает поддержанные предметы из сохранённого
 инвентаря, цифры стека рисуются только при count > 1; atlas для block/item IDs

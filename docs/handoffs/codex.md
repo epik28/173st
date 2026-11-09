@@ -1559,3 +1559,18 @@ the safe reinsertion adaptation. `python3 tools/check.py` PASS: 214 Python tests
 No persistence, outside-drop, shift transfer, crafting, armor, item use or
 survival behavior is claimed. The viewer was not opened against the user's
 modified world; no world files were read or changed for this acceptance.
+
+## HEALTH-001-C02 — acceptance
+
+Accepted Agy `0d9fe94395de68f07e7c8d448f737df75e683ed1` after native audit
+`bcabdd6c05a9c7321eae121d93de894f7a51aa88`. Saved `Player.Health` is a signed
+Short; the pinned renderer uses background/full/half UV `(16,0)`, `(52,0)`,
+`(61,0)` for 10 cells. Viewer displays saved values, clamps to 0..20 and uses 20
+as its missing/malformed-data fallback; the native NBT reader uses 10 when the
+tag is absent. This fallback difference is explicit.
+
+Native audit and five HUD audit tests PASS. `cargo test --locked --offline
+-p beta-viewer --all-targets` PASS (17 library + 44 viewer tests and examples);
+viewer clippy `-D warnings` PASS. Full `python3 tools/check.py` PASS: 214 Python
+tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc
+tests. No health simulation, save writes or screenshot/pixel-parity claim.
