@@ -850,7 +850,7 @@
     },
     "LIGHT-UPDATE-001-C01": {
       "state": "done",
-      "summary": "Bounded original-client light-update oracle and fixture for opaque removal, placement, roof boundary, and chunk-edge edits.",
+      "summary": "Follow-up C01: machine-readable input corpus is consumed by the original fd.d path; audit supports --jar and validates pinned provenance.",
       "checks": [
         "Two independent native JVM captures match tests/fixtures/light_update/native.tsv byte-for-byte",
         "Native fd.d update path exercised over synthetic in-memory lm chunks; emission transition explicitly excluded as unreachable through viewer edit API",
