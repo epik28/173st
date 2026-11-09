@@ -1712,3 +1712,17 @@ This is a verification-branch review fix and is not yet integrated into
 `agy/development`; that branch's A02 status remains `in_progress` at `05e8aec`.
 Therefore C02 remains pending, the completion estimate stays at about 35%, and
 no main/GitHub integration is claimed.
+
+## User follow-up 2026-11-09 — shadow report and final native fidelity
+
+Documentation-only request: retained the user's unmodified Rust-viewer PNG at
+`docs/bug-reports/light-update-002-after-break.png` (SHA-256
+`64fff96adb875c64df1198c94b8fe541b9da6084ed4129d93ff6661e183ceaa9`).
+Added planned `LIGHT-UPDATE-002` with a native/Rust reproduction, light-state
+capture and visual regression boundary; cause and fix remain unconfirmed.
+Added planned `MENU-PARITY-001` for the temporary menu's font/resources/layout/
+scaling/input deviations. Updated requirements, known issues, roadmap and
+progress; corrected the obsolete claim that no edit relighting exists.
+Both follow-ups remain backlog entries, with no active queue/status changes.
+Validation: `git diff --check`, new document links and PNG hash checked.
+No engine changes or gameplay tests; estimate remains about 35%.

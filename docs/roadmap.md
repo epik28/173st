@@ -144,6 +144,16 @@ VIEW-001 и MATH-001 приняты. Следом готовим JAVA-001/GAME-O
 
 ## Приоритетные дефекты графики после MOVE-001
 
+- **LIGHT-UPDATE-002 — открыт, высокий приоритет:** пользовательский кадр
+  2026-11-09 показывает лишнее затемнение рядом с блоками после разрушения.
+  [Контракт](tasks/LIGHT-UPDATE-002.md): сначала native/Rust repro и данные
+  света, затем исправление и парные кадры. Пять принятых probes предыдущего
+  relight не закрывают этот дефект.
+- **MENU-PARITY-001 — запланирован:** после функционального WORLD-SELECT-001
+  привести временный chooser к оригинальным ресурсам, шрифту, геометрии,
+  GUI scale и поведению. См. [задачу](tasks/MENU-PARITY-001.md).
+  Эти два follow-up пока в backlog; в активной queue.json их нет.
+
 - UV-001 — принят: user screenshot 2026-11-08, исправлены faces1/3;
   все6 faces проверены по actual native Tessellator buffer.
 - COLOR-001 — принят: exact scalar climate + grass/foliage palettes.
