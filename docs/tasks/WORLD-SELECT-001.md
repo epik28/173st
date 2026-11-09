@@ -72,13 +72,6 @@ source behavior. Run the native audit, Rust tests, and full
 `python3 tools/check.py`. Verify the existing local source-world manifest and
 files remain unchanged. Document the fixed 5×5 window and unsupported worlds.
 
-Review the implementation against C01, test discovery/sorting, selection,
-double-click, cancel, changed-source rejection, malformed/missing worlds,
-dynamic region coordinates (including negative spawn coordinates), and the
-read-only source boundary. Run the relevant native audit, Rust tests, and full
-`python3 tools/check.py`. Verify the existing local source-world manifest and
-files remain unchanged. Document the fixed 5×5 window and unsupported worlds.
-
 ## Acceptance boundary
 
 This adds a usable chooser for existing saves whose spawn-centered 5×5 scene is
