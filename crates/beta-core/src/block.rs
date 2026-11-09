@@ -322,6 +322,10 @@ impl BlockScene {
         let mut updates = Vec::new();
         let mut unloaded = Vec::new();
         let mut visited = std::collections::BTreeSet::new();
+        // Block identity does not change during relighting. Cache the highest
+        // opaque block in each touched column so direct-sky tests do not rescan
+        // every block above every candidate cell.
+        let mut sky_column_top = std::collections::HashMap::<(i32, i32), Option<i32>>::new();
         let initial = (
             changed
                 .0
@@ -391,13 +395,22 @@ impl BlockScene {
                         // sky-visible height, even when everything above is air.
                         // Giving a top leaf/water block direct sky would skip
                         // its attenuation (native water is 12, not 15).
-                        let direct_sky = opacity == 0
-                            && (y + 1..128).all(|sy| {
-                                next.block(x, sy, z)
-                                    .ok()
-                                    .flatten()
-                                    .is_some_and(|b| material(b.id, b.metadata).0 == 0)
-                            });
+                        let top_opaque = *sky_column_top.entry((x, z)).or_insert_with(|| {
+                            // -1 means every cell above y=0 is transparent.
+                            let mut top_opaque = Some(-1);
+                            for sy in (1..128).rev() {
+                                let Some(block) = next.block(x, sy, z).ok().flatten() else {
+                                    top_opaque = None;
+                                    break;
+                                };
+                                if material(block.id, block.metadata).0 != 0 {
+                                    top_opaque = Some(sy);
+                                    break;
+                                }
+                            }
+                            top_opaque
+                        });
+                        let direct_sky = opacity == 0 && top_opaque.is_some_and(|top| y > top);
                         // lm.a() refuses the whole column until fd.b() can
                         // resolve every chunk intersecting x-1..x+1,z-1..z+1.
                         // The diagonal chunks matter at chunk corners too.
