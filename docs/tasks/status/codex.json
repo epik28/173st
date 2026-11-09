@@ -810,6 +810,17 @@
         "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 17 library, 36 viewer and 4 probe tests; clippy/fmt/diff check PASS",
         "GUI smoke stopped before rendering at the existing modified level.dat hash guard; no user world was opened or changed. Pixel parity is not claimed."
       ]
+    },
+    "INVENTORY-INTERACTION-001-C01": {
+      "state": "done",
+      "summary": "Pinned a native Beta 1.7.3 click corpus for supported inventory slots. The original JVM oracle replays left/right pickup, rounded split, compatible merge, incompatible swap and close cursor return across 36 slots, with cursor state after every operation. Cursor icon/count atlas dispatch and layering facts are pinned from native bb.",
+      "checks": [
+        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two original JVM captures are byte-identical",
+        "15 ordered states cover five scenarios; each row contains cursor plus all 36 slots; pinned output SHA is recorded in tests/fixtures/inventory_interaction/audit.json",
+        "Native dw/aa/id/ix/iz/gs/gp and bb class hashes plus click/cursor/render descriptors are verified from the pinned JAR",
+        "Cursor rendering evidence pins bb icon/count calls, 16x16 size, mouse-origin-(8,8) placement, terrain/gui-items atlas dispatch and icon→count→tooltip order",
+        "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v → 7 PASS; no Rust, world or save files changed"
+      ]
     }
   }
 }
