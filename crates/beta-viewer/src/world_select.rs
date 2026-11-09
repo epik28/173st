@@ -114,7 +114,13 @@ impl ChooserState {
             self.selected = None;
             return;
         }
-        let start = self.selected.unwrap_or(0) as i32;
+        if delta == 0 {
+            return;
+        }
+        let start = self.selected.map_or_else(
+            || if delta > 0 { -1 } else { 0 },
+            |selected| selected as i32,
+        );
         let mut index = start;
         for _ in 0..entries.len() {
             index = (index + delta).rem_euclid(entries.len() as i32);
@@ -123,12 +129,6 @@ impl ChooserState {
                 return;
             }
         }
-    }
-
-    pub fn select_first_valid(&mut self, entries: &[WorldEntry]) {
-        self.selected = entries
-            .iter()
-            .position(|entry| entry.launch_reason.is_none());
     }
 
     pub fn activate(&mut self, entries: &[WorldEntry]) -> Option<usize> {
@@ -424,11 +424,11 @@ mod tests {
             },
         ];
         let mut state = ChooserState::default();
-        state.select_first_valid(&entries);
-        assert_eq!(state.selected, Some(1));
-        assert_eq!(state.activate(&entries), Some(1));
+        assert_eq!(state.selected, None);
+        assert_eq!(state.activate(&entries), None);
         state.move_selection(&entries, 1);
         assert_eq!(state.selected, Some(1));
+        assert_eq!(state.activate(&entries), Some(1));
     }
 
     #[test]

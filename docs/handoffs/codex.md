@@ -1688,3 +1688,27 @@ candidate with `MAX_RELIGHT_CELLS`, then publishes block state, duplicate chunk
 data, light, meshes and fluid caches in one transaction. Emission transitions,
 fluid ticks, diagonal propagation shortcuts, chunk loading, persistence and
 general world simulation remain excluded.
+
+## WORLD-SELECT-001-C02 — review implementation notes (pending A02 integration)
+
+Native menu audit and Python audit test pass. Review found that the A02 snapshot
+on `agy/development` still exposed rows only in the titlebar, so this verification
+worktree now carries a direct Codex implementation of the visible two-screen
+flow: main menu with Singleplayer, a rendered list with disabled-row reasons,
+mouse hit-testing aligned with rendered rows/buttons, keyboard navigation,
+cancel-to-parent, and explicit activation without preselecting a world. Dynamic
+selected-world loading remains guarded by the existing disposable snapshot API.
+
+`cargo test --locked --offline -p beta-viewer --all-targets` passes (24 library,
+51 viewer, and example tests); `cargo test --locked --offline -p beta-core --test
+light_update_fixture` passes four tests; `python3 tools/oracle/world_select_audit.py`
+and its unittest pass; full `python3 tools/check.py` passes (222 Python tests,
+18 opt-in skips, workspace fmt/check/clippy/all-target/doc tests). The local
+user-world manifest matches all six source files by size and SHA-256. An Xvfb
+launch could not be visually confirmed because the final wrapper failed to open
+its X server. No world was selected, copied, or modified.
+
+This is a verification-branch review fix and is not yet integrated into
+`agy/development`; that branch's A02 status remains `in_progress` at `05e8aec`.
+Therefore C02 remains pending, the completion estimate stays at about 35%, and
+no main/GitHub integration is claimed.

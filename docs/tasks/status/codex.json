@@ -895,8 +895,17 @@
     },
     "WORLD-SELECT-001-C02": {
       "state": "pending",
-      "summary": "",
-      "checks": []
+      "summary": "Review work on codex/verification repaired the chooser presentation and selection contract, but the card remains pending until the A02 implementation is integrated from agy/development and the visible flow is verified there.",
+      "checks": [
+        "python3 tools/oracle/world_select_audit.py → PASS; native menu/list/select/cancel/loading guard provenance pinned",
+        "python3 -m unittest tests.python.test_world_select_audit -v → PASS: 1 test",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 24 library + 51 viewer tests and examples",
+        "cargo test --locked --offline -p beta-core --test light_update_fixture → PASS: 4 tests; accepted main code synchronized into the verification branch",
+        "python3 tools/check.py → PASS: 222 Python tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc tests",
+        "Read-only user-world manifest verification → PASS: 6 source files match size and SHA-256; viewer smoke did not select or copy a world",
+        "Xvfb launch was inconclusive in the final run: the wrapper failed to open its X server; no screenshot or visual pass is claimed",
+        "A02 remains in_progress on agy/development at 05e8aec; no adjacent worktree or status file was modified"
+      ]
     }
   }
 }
