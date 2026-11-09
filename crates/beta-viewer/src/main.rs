@@ -6,6 +6,7 @@
 mod hotbar_input;
 mod hud;
 mod inventory_screen;
+mod menu;
 mod saved_player;
 
 use beta_core::{
@@ -53,7 +54,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The chooser owns the first window and runs before any scene, mesh, or GPU
     // state is prepared. Its result is the only input used by the loader below.
     let mut event = EventLoop::new()?;
-    let Some((input, source_pins)) = copy_local_world(&mut event)? else {
+    let client_jar = client_jar_path()?;
+    let menu_assets = menu::MenuAssets::load(&client_jar)?;
+    let Some((input, source_pins)) = copy_local_world(&mut event, &menu_assets)? else {
         return Ok(());
     };
     let terrain_path = terrain_path()?;
@@ -71,7 +74,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if image.dimensions() != (256, 256) {
         return Err("terrain.png must be 256x256".into());
     }
-    let client_jar = client_jar_path()?;
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
     let font_atlas = hud::load_font_atlas(&client_jar)?;
@@ -329,8 +331,58 @@ fn build_chunk_mesh_cache(
 
 type LocalWorldPreview = Option<(std::path::PathBuf, Vec<loader::PreviewSourcePin>)>;
 
+fn configured_gui_scale(prism_instance: &str) -> Result<u32, Box<dyn std::error::Error>> {
+    if let Ok(value) = std::env::var("BETA_MENU_GUI_SCALE") {
+        let setting: u32 = value
+            .parse()
+            .map_err(|_| "BETA_MENU_GUI_SCALE must be an integer from 0 through 3")?;
+        if setting > 3 {
+            return Err("BETA_MENU_GUI_SCALE must be an integer from 0 through 3".into());
+        }
+        return Ok(setting);
+    }
+    let options = std::path::Path::new(prism_instance)
+        .join("minecraft")
+        .join("options.txt");
+    let contents = match fs::read_to_string(&options) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error.into()),
+    };
+    let Some(value) = contents
+        .lines()
+        .find_map(|line| line.strip_prefix("guiScale:"))
+    else {
+        return Ok(0);
+    };
+    let setting: u32 = value
+        .parse()
+        .map_err(|_| format!("invalid guiScale in {}", options.display()))?;
+    if setting > 3 {
+        return Err(format!("unsupported guiScale {setting} in {}", options.display()).into());
+    }
+    Ok(setting)
+}
+
+fn chooser_window_size() -> Result<PhysicalSize<u32>, Box<dyn std::error::Error>> {
+    let Some(value) = std::env::var_os("BETA_MENU_WINDOW_SIZE") else {
+        return Ok(PhysicalSize::new(854, 480));
+    };
+    let value = value.to_string_lossy();
+    let (width, height) = value
+        .split_once('x')
+        .ok_or("BETA_MENU_WINDOW_SIZE must be WIDTHxHEIGHT")?;
+    let width: u32 = width.parse().map_err(|_| "invalid menu window width")?;
+    let height: u32 = height.parse().map_err(|_| "invalid menu window height")?;
+    if width == 0 || height == 0 {
+        return Err("menu window dimensions must be nonzero".into());
+    }
+    Ok(PhysicalSize::new(width, height))
+}
+
 fn copy_local_world(
     event_loop: &mut EventLoop<()>,
+    menu_assets: &menu::MenuAssets,
 ) -> Result<LocalWorldPreview, Box<dyn std::error::Error>> {
     let config = fs::read_to_string("config/local.toml")?;
     let mut in_paths = false;
@@ -350,12 +402,21 @@ fn copy_local_world(
         }
     }
     let prism = prism.ok_or("config requires paths.prism_instance")?;
+    let gui_scale_setting = configured_gui_scale(&prism)?;
+    let initial_size = chooser_window_size()?;
     // World selection is intentionally completed before any renderer/window is
     // created. Discovery is deterministic; only a validated disposable copy
     // reaches the existing bounded scene loader.
     let saves_root = std::path::PathBuf::from(&prism).join("minecraft/saves");
     let catalog = beta_viewer::world_select::discover(&saves_root)?;
-    let Some(selected_index) = choose_world(&catalog, event_loop)? else {
+    let Some(selected_index) = choose_world(
+        &catalog,
+        event_loop,
+        menu_assets,
+        gui_scale_setting,
+        initial_size,
+    )?
+    else {
         return Ok(None);
     };
     let selected = catalog
@@ -379,340 +440,6 @@ fn copy_local_world(
     Ok(Some((snapshot, pins)))
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct ChooserVertex {
-    position: [f32; 2],
-    color: [f32; 4],
-}
-
-fn chooser_rect(
-    out: &mut Vec<ChooserVertex>,
-    size: PhysicalSize<u32>,
-    rect: [f32; 4],
-    color: [f32; 4],
-) {
-    let [x, y, width, height] = rect;
-    if width <= 0.0 || height <= 0.0 || size.width == 0 || size.height == 0 {
-        return;
-    }
-    let x0 = 2.0 * x / size.width as f32 - 1.0;
-    let x1 = 2.0 * (x + width) / size.width as f32 - 1.0;
-    let y0 = 1.0 - 2.0 * y / size.height as f32;
-    let y1 = 1.0 - 2.0 * (y + height) / size.height as f32;
-    let a = ChooserVertex {
-        position: [x0, y0],
-        color,
-    };
-    let b = ChooserVertex {
-        position: [x1, y0],
-        color,
-    };
-    let c = ChooserVertex {
-        position: [x1, y1],
-        color,
-    };
-    let d = ChooserVertex {
-        position: [x0, y1],
-        color,
-    };
-    out.extend_from_slice(&[a, b, c, a, c, d]);
-}
-
-fn chooser_glyph(character: u8) -> [u8; 7] {
-    match character.to_ascii_uppercase() {
-        b'A' => [14, 17, 17, 31, 17, 17, 17],
-        b'B' => [30, 17, 17, 30, 17, 17, 30],
-        b'C' => [14, 17, 16, 16, 16, 17, 14],
-        b'D' => [30, 17, 17, 17, 17, 17, 30],
-        b'E' => [31, 16, 16, 30, 16, 16, 31],
-        b'F' => [31, 16, 16, 30, 16, 16, 16],
-        b'G' => [14, 17, 16, 23, 17, 17, 15],
-        b'H' => [17, 17, 17, 31, 17, 17, 17],
-        b'I' => [14, 4, 4, 4, 4, 4, 14],
-        b'J' => [7, 2, 2, 2, 18, 18, 12],
-        b'K' => [17, 18, 20, 24, 20, 18, 17],
-        b'L' => [16, 16, 16, 16, 16, 16, 31],
-        b'M' => [17, 27, 21, 21, 17, 17, 17],
-        b'N' => [17, 25, 21, 19, 17, 17, 17],
-        b'O' => [14, 17, 17, 17, 17, 17, 14],
-        b'P' => [30, 17, 17, 30, 16, 16, 16],
-        b'Q' => [14, 17, 17, 17, 21, 18, 13],
-        b'R' => [30, 17, 17, 30, 20, 18, 17],
-        b'S' => [15, 16, 16, 14, 1, 1, 30],
-        b'T' => [31, 4, 4, 4, 4, 4, 4],
-        b'U' => [17, 17, 17, 17, 17, 17, 14],
-        b'V' => [17, 17, 17, 17, 17, 10, 4],
-        b'W' => [17, 17, 17, 21, 21, 21, 10],
-        b'X' => [17, 17, 10, 4, 10, 17, 17],
-        b'Y' => [17, 17, 10, 4, 4, 4, 4],
-        b'Z' => [31, 1, 2, 4, 8, 16, 31],
-        b'0' => [14, 17, 19, 21, 25, 17, 14],
-        b'1' => [4, 12, 4, 4, 4, 4, 14],
-        b'2' => [14, 17, 1, 2, 4, 8, 31],
-        b'3' => [30, 1, 1, 14, 1, 1, 30],
-        b'4' => [2, 6, 10, 18, 31, 2, 2],
-        b'5' => [31, 16, 16, 30, 1, 1, 30],
-        b'6' => [14, 16, 16, 30, 17, 17, 14],
-        b'7' => [31, 1, 2, 4, 8, 8, 8],
-        b'8' => [14, 17, 17, 14, 17, 17, 14],
-        b'9' => [14, 17, 17, 15, 1, 1, 14],
-        b'-' => [0, 0, 0, 31, 0, 0, 0],
-        b'_' => [0, 0, 0, 0, 0, 0, 31],
-        b'.' => [0, 0, 0, 0, 0, 12, 12],
-        b':' => [0, 12, 12, 0, 12, 12, 0],
-        b'/' => [1, 2, 2, 4, 8, 8, 16],
-        b'(' => [2, 4, 8, 8, 8, 4, 2],
-        b')' => [8, 4, 2, 2, 2, 4, 8],
-        b'[' => [14, 8, 8, 8, 8, 8, 14],
-        b']' => [14, 2, 2, 2, 2, 2, 14],
-        b'?' => [14, 17, 1, 2, 4, 0, 4],
-        _ => [0; 7],
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn chooser_text(
-    out: &mut Vec<ChooserVertex>,
-    size: PhysicalSize<u32>,
-    mut x: f32,
-    y: f32,
-    text: &str,
-    scale: f32,
-    color: [f32; 4],
-    max_chars: usize,
-) {
-    for byte in text.bytes().take(max_chars) {
-        if byte == b' ' {
-            x += 4.0 * scale;
-            continue;
-        }
-        let glyph = if byte.is_ascii() { byte } else { b'?' };
-        for (row, bits) in chooser_glyph(glyph).into_iter().enumerate() {
-            for column in 0..5 {
-                if bits & (1 << (4 - column)) != 0 {
-                    chooser_rect(
-                        out,
-                        size,
-                        [
-                            x + column as f32 * scale,
-                            y + row as f32 * scale,
-                            scale,
-                            scale,
-                        ],
-                        color,
-                    );
-                }
-            }
-        }
-        x += 6.0 * scale;
-    }
-}
-
-fn chooser_vertices(
-    size: PhysicalSize<u32>,
-    entries: &[beta_viewer::world_select::WorldEntry],
-    selected: Option<usize>,
-    first_visible: usize,
-    page: ChooserPage,
-) -> Vec<ChooserVertex> {
-    let mut out = Vec::new();
-    chooser_rect(
-        &mut out,
-        size,
-        [0.0, 0.0, size.width as f32, size.height as f32],
-        [0.34, 0.52, 0.74, 1.0],
-    );
-    chooser_rect(
-        &mut out,
-        size,
-        [0.0, 0.0, size.width as f32, 48.0],
-        [0.06, 0.06, 0.06, 0.96],
-    );
-    match page {
-        ChooserPage::MainMenu => {
-            chooser_text(
-                &mut out,
-                size,
-                186.0,
-                104.0,
-                "MINECRAFT BETA 1.7.3",
-                2.0,
-                [1.0, 1.0, 1.0, 1.0],
-                48,
-            );
-            chooser_rect(
-                &mut out,
-                size,
-                [260.0, 220.0, 200.0, 42.0],
-                [0.15, 0.15, 0.15, 0.94],
-            );
-            chooser_text(
-                &mut out,
-                size,
-                300.0,
-                237.0,
-                "SINGLEPLAYER",
-                1.5,
-                [1.0, 1.0, 1.0, 1.0],
-                32,
-            );
-            chooser_rect(
-                &mut out,
-                size,
-                [260.0, 276.0, 200.0, 42.0],
-                [0.20, 0.20, 0.20, 1.0],
-            );
-            chooser_text(
-                &mut out,
-                size,
-                326.0,
-                293.0,
-                "QUIT",
-                1.5,
-                [1.0, 1.0, 1.0, 1.0],
-                20,
-            );
-            return out;
-        }
-        ChooserPage::WorldList => chooser_text(
-            &mut out,
-            size,
-            22.0,
-            17.0,
-            "SELECT WORLD",
-            2.0,
-            [1.0, 1.0, 1.0, 1.0],
-            40,
-        ),
-    }
-
-    let row_top: f32 = 58.0;
-    let row_height: f32 = 42.0;
-    let button_top: f32 = 410.0;
-    let visible_rows = ((button_top - row_top) / row_height).floor() as usize;
-    for local in 0..visible_rows {
-        let index = first_visible + local;
-        let Some(entry) = entries.get(index) else {
-            break;
-        };
-        let y = row_top + local as f32 * row_height;
-        let is_selected = selected == Some(index);
-        let disabled = entry.launch_reason.is_some();
-        let background = if disabled {
-            [0.14, 0.14, 0.14, 0.88]
-        } else if is_selected {
-            [0.38, 0.25, 0.12, 0.96]
-        } else {
-            [0.08, 0.08, 0.08, 0.78]
-        };
-        chooser_rect(
-            &mut out,
-            size,
-            [16.0, y, size.width as f32 - 32.0, row_height - 3.0],
-            background,
-        );
-        if is_selected {
-            chooser_rect(
-                &mut out,
-                size,
-                [16.0, y, 4.0, row_height - 3.0],
-                [0.95, 0.78, 0.24, 1.0],
-            );
-        }
-        let title_color = if disabled {
-            [0.55, 0.55, 0.55, 1.0]
-        } else {
-            [1.0, 1.0, 1.0, 1.0]
-        };
-        chooser_text(
-            &mut out,
-            size,
-            28.0,
-            y + 5.0,
-            &entry.display_name,
-            1.6,
-            title_color,
-            64,
-        );
-        let detail = if let Some(reason) = &entry.launch_reason {
-            format!("{}  DISABLED: {}", entry.folder, reason)
-        } else {
-            format!("{}  LAST PLAYED {}", entry.folder, entry.last_played)
-        };
-        chooser_text(
-            &mut out,
-            size,
-            28.0,
-            y + 27.0,
-            &detail,
-            1.0,
-            [0.83, 0.83, 0.83, 1.0],
-            108,
-        );
-    }
-    if entries.is_empty() {
-        chooser_text(
-            &mut out,
-            size,
-            28.0,
-            76.0,
-            "NO WORLDS FOUND",
-            1.5,
-            [1.0, 1.0, 1.0, 1.0],
-            40,
-        );
-    }
-    let button_y = 414.0;
-    chooser_rect(
-        &mut out,
-        size,
-        [420.0, button_y, 150.0, 34.0],
-        if selected.is_some_and(|i| entries.get(i).is_some_and(|e| e.launch_reason.is_none())) {
-            [0.34, 0.25, 0.12, 1.0]
-        } else {
-            [0.22, 0.22, 0.22, 1.0]
-        },
-    );
-    chooser_text(
-        &mut out,
-        size,
-        465.0,
-        button_y + 13.0,
-        "SELECT",
-        1.5,
-        [1.0, 1.0, 1.0, 1.0],
-        20,
-    );
-    chooser_rect(
-        &mut out,
-        size,
-        [580.0, button_y, 120.0, 34.0],
-        [0.20, 0.20, 0.20, 1.0],
-    );
-    chooser_text(
-        &mut out,
-        size,
-        610.0,
-        button_y + 13.0,
-        "CANCEL",
-        1.5,
-        [1.0, 1.0, 1.0, 1.0],
-        20,
-    );
-    chooser_text(
-        &mut out,
-        size,
-        18.0,
-        462.0,
-        "ARROWS: SELECT   ENTER: OPEN   ESC: CANCEL",
-        1.0,
-        [1.0, 1.0, 1.0, 1.0],
-        68,
-    );
-    out
-}
-
 struct ChooserGpu {
     _instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
@@ -720,12 +447,14 @@ struct ChooserGpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    menu_bind: wgpu::BindGroup,
 }
 
 impl ChooserGpu {
     fn new(
         window: Arc<Window>,
         event: &ActiveEventLoop,
+        assets: &menu::MenuAssets,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
             Box::new(event.owned_display_handle()),
@@ -759,25 +488,51 @@ impl ChooserGpu {
         })?;
         surface.configure(&device, &config);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("world chooser color shader"),
+            label: Some("native menu texture shader"),
             source: wgpu::ShaderSource::Wgsl(
                 r#"
-struct VertexIn { @location(0) position: vec2<f32>, @location(1) color: vec4<f32> };
-struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: vec4<f32> };
+struct VertexIn { @location(0) position: vec2<f32>, @location(1) uv: vec2<f32>, @location(2) color: vec4<f32> };
+struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) color: vec4<f32> };
+@group(0) @binding(0) var menu_texture: texture_2d<f32>;
+@group(0) @binding(1) var menu_sampler: sampler;
 @vertex fn vs_main(input: VertexIn) -> VertexOut {
     var out: VertexOut;
     out.position = vec4<f32>(input.position, 0.0, 1.0);
+    out.uv = input.uv;
     out.color = input.color;
     return out;
 }
-@fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> { return input.color; }
+@fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> {
+    return textureSample(menu_texture, menu_sampler, input.uv) * input.color;
+}
 "#
                 .into(),
             ),
         });
+        let menu_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("native menu texture layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("world chooser color layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[Some(&menu_bind_layout)],
             immediate_size: 0,
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -788,9 +543,9 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<ChooserVertex>() as u64,
+                    array_stride: std::mem::size_of::<menu::Vertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x4],
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x2,2=>Float32x4],
                 })],
             },
             fragment: Some(wgpu::FragmentState {
@@ -809,6 +564,61 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
             multiview_mask: None,
             cache: None,
         });
+        let atlas_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("verified native menu resource atlas"),
+            size: wgpu::Extent3d {
+                width: assets.atlas.width(),
+                height: assets.atlas.height(),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &atlas_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            assets.atlas.as_raw(),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(assets.atlas.width() * 4),
+                rows_per_image: Some(assets.atlas.height()),
+            },
+            wgpu::Extent3d {
+                width: assets.atlas.width(),
+                height: assets.atlas.height(),
+                depth_or_array_layers: 1,
+            },
+        );
+        let atlas_view = atlas_texture.create_view(&Default::default());
+        let atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("native GUI nearest sampler"),
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+        let menu_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("native menu texture bind group"),
+            layout: &menu_bind_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas_sampler),
+                },
+            ],
+        });
         config.width = window.inner_size().width.max(1);
         config.height = window.inner_size().height.max(1);
         Ok(Self {
@@ -818,6 +628,7 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
             queue,
             config,
             pipeline,
+            menu_bind,
         })
     }
 
@@ -830,6 +641,7 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
         self.surface.configure(&self.device, &self.config);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render(
         &mut self,
         window: &Window,
@@ -837,6 +649,9 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
         selected: Option<usize>,
         first_visible: usize,
         page: ChooserPage,
+        assets: &menu::MenuAssets,
+        layout: ChooserLayout,
+        cursor: (f32, f32),
     ) -> Result<(), wgpu::CurrentSurfaceTexture> {
         let size = window.inner_size();
         if size.width == 0 || size.height == 0 {
@@ -845,11 +660,20 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
         if self.config.width != size.width || self.config.height != size.height {
             self.resize(size.width, size.height);
         }
-        let vertices = chooser_vertices(size, entries, selected, first_visible, page);
+        let vertices = menu::vertices(
+            (size.width, size.height),
+            layout,
+            assets,
+            entries,
+            selected,
+            first_visible,
+            page,
+            layout.point(cursor),
+        );
         let buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("world chooser UI vertices"),
+                label: Some("native menu UI vertices"),
                 contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
@@ -862,22 +686,17 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("world chooser frame"),
+                label: Some("native menu frame"),
             });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("world chooser pass"),
+                label: Some("native menu pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.34,
-                            g: 0.52,
-                            b: 0.74,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -887,6 +706,7 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
                 multiview_mask: None,
             });
             pass.set_pipeline(&self.pipeline);
+            pass.set_bind_group(0, &self.menu_bind, &[]);
             pass.set_vertex_buffer(0, buffer.slice(..));
             pass.draw(0..vertices.len() as u32, 0..1);
         }
@@ -896,68 +716,19 @@ struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: v
     }
 }
 
-/// Small native-informed main menu and world chooser, rendered before the
-/// bounded world scene is loaded. Invalid saves remain visible but disabled.
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct ChooserLayout {
-    row_top: f32,
-    row_height: f32,
-    select_top: f32,
-    cancel_top: f32,
-    button_height: f32,
-}
-
-impl ChooserLayout {
-    fn new() -> Self {
-        Self {
-            row_top: 58.0,
-            row_height: 42.0,
-            select_top: 414.0,
-            cancel_top: 414.0,
-            button_height: 34.0,
-        }
-    }
-    fn row_at(self, x: f32, y: f32, count: usize) -> Option<usize> {
-        if !(16.0..704.0).contains(&x) || y < self.row_top || y >= self.select_top {
-            return None;
-        }
-        let row_offset = y - self.row_top;
-        if row_offset.rem_euclid(self.row_height) >= self.row_height - 3.0 {
-            return None;
-        }
-        let index = (row_offset / self.row_height).floor() as usize;
-        (index < count).then_some(index)
-    }
-    fn is_select(self, x: f32, y: f32) -> bool {
-        (420.0..570.0).contains(&x)
-            && y >= self.select_top
-            && y < self.select_top + self.button_height
-    }
-    fn is_cancel(self, x: f32, y: f32) -> bool {
-        (580.0..700.0).contains(&x)
-            && y >= self.cancel_top
-            && y < self.cancel_top + self.button_height
-    }
-    fn is_singleplayer(self, x: f32, y: f32) -> bool {
-        (260.0..460.0).contains(&x) && (220.0..262.0).contains(&y)
-    }
-    fn is_quit(self, x: f32, y: f32) -> bool {
-        (260.0..460.0).contains(&x) && (276.0..318.0).contains(&y)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ChooserPage {
-    MainMenu,
-    WorldList,
-}
+type ChooserLayout = menu::Layout;
+type ChooserPage = menu::Page;
 
 fn choose_world(
     entries: &[beta_viewer::world_select::WorldEntry],
     event_loop: &mut EventLoop<()>,
+    assets: &menu::MenuAssets,
+    gui_scale_setting: u32,
+    initial_size: PhysicalSize<u32>,
 ) -> Result<Option<usize>, Box<dyn std::error::Error>> {
     struct Chooser {
         entries: Vec<beta_viewer::world_select::WorldEntry>,
+        assets: menu::MenuAssets,
         state: beta_viewer::world_select::ChooserState,
         page: ChooserPage,
         window: Option<Arc<Window>>,
@@ -967,6 +738,9 @@ fn choose_world(
         layout: ChooserLayout,
         first_visible: usize,
         visible_rows: usize,
+        last_row_click: Option<(usize, Instant)>,
+        gui_scale_setting: u32,
+        initial_size: PhysicalSize<u32>,
     }
     impl ApplicationHandler for Chooser {
         fn resumed(&mut self, event: &ActiveEventLoop) {
@@ -975,8 +749,8 @@ fn choose_world(
             }
             let attrs = Window::default_attributes()
                 .with_title("Minecraft Beta 1.7.3")
-                .with_inner_size(PhysicalSize::new(720, 480))
-                .with_resizable(false);
+                .with_inner_size(self.initial_size)
+                .with_resizable(true);
             let window = match event.create_window(attrs) {
                 Ok(window) => Arc::new(window),
                 Err(error) => {
@@ -986,7 +760,11 @@ fn choose_world(
                     return;
                 }
             };
-            match ChooserGpu::new(window.clone(), event) {
+            let size = window.inner_size();
+            self.layout =
+                ChooserLayout::with_gui_scale(size.width, size.height, self.gui_scale_setting);
+            self.visible_rows = self.layout.height.saturating_sub(96) as usize / 36;
+            match ChooserGpu::new(window.clone(), event, &self.assets) {
                 Ok(gpu) => self.gpu = Some(gpu),
                 Err(error) => {
                     self.result = Some(None);
@@ -1008,6 +786,10 @@ fn choose_world(
                 if let Some(gpu) = &mut self.gpu {
                     gpu.resize(size.width, size.height);
                 }
+                self.layout =
+                    ChooserLayout::with_gui_scale(size.width, size.height, self.gui_scale_setting);
+                self.visible_rows = self.layout.height.saturating_sub(96) as usize / 36;
+                self.ensure_visible();
                 self.request_redraw();
                 return;
             }
@@ -1019,6 +801,9 @@ fn choose_world(
                         self.state.selected,
                         self.first_visible,
                         self.page,
+                        &self.assets,
+                        self.layout,
+                        self.cursor,
                     )
                 {
                     match error {
@@ -1043,6 +828,7 @@ fn choose_world(
             }
             if let WindowEvent::CursorMoved { position, .. } = input {
                 self.cursor = (position.x as f32, position.y as f32);
+                self.request_redraw();
                 return;
             }
             if let WindowEvent::MouseInput {
@@ -1053,31 +839,44 @@ fn choose_world(
             {
                 let (x, y) = self.cursor;
                 if self.page == ChooserPage::MainMenu {
-                    if self.layout.is_singleplayer(x, y) {
+                    let (x, y) = self.layout.point((x, y));
+                    if self.layout.singleplayer(x, y) {
                         self.show_world_list();
-                    } else if self.layout.is_quit(x, y) {
+                    } else if self.layout.quit(x, y) {
                         self.result = Some(None);
                         event.exit();
                     }
                     return;
                 }
+                let (x, y) = self.layout.point((x, y));
                 if let Some(local) = self.layout.row_at(x, y, self.visible_rows) {
                     let index = self.first_visible + local;
                     if index >= self.entries.len() {
                         return;
                     }
+                    let now = Instant::now();
+                    let double_click = self.last_row_click.is_some_and(|(last, time)| {
+                        last == index && now.duration_since(time).as_millis() <= 250
+                    });
+                    self.last_row_click = Some((index, now));
                     self.state.apply(
                         beta_viewer::world_select::ChooserAction::Select,
                         Some(index),
                         self.entries.len(),
                     );
+                    if double_click && let Some(index) = self.state.activate(&self.entries) {
+                        self.result = Some(Some(index));
+                        event.exit();
+                        return;
+                    }
                     self.request_redraw();
-                } else if self.layout.is_select(x, y) {
+                } else if self.layout.select_world(x, y) {
                     if let Some(index) = self.state.activate(&self.entries) {
                         self.result = Some(Some(index));
                         event.exit();
                     }
-                } else if self.layout.is_cancel(x, y) {
+                } else if self.layout.cancel(x, y) {
+                    self.last_row_click = None;
                     self.show_main_menu();
                 }
                 return;
@@ -1107,15 +906,10 @@ fn choose_world(
                         self.ensure_visible();
                         self.request_redraw();
                     }
-                    PhysicalKey::Code(KeyCode::Enter)
-                    | PhysicalKey::Code(KeyCode::NumpadEnter)
-                    | PhysicalKey::Code(KeyCode::KeyS) => {
-                        if self.page == ChooserPage::MainMenu {
-                            self.show_world_list();
-                        } else if let Some(index) = self.state.activate(&self.entries) {
-                            self.result = Some(Some(index));
-                            event.exit();
-                        }
+                    PhysicalKey::Code(KeyCode::Enter | KeyCode::NumpadEnter)
+                        if self.page == ChooserPage::MainMenu =>
+                    {
+                        self.show_world_list();
                     }
                     _ => {}
                 }
@@ -1126,6 +920,7 @@ fn choose_world(
         fn show_world_list(&mut self) {
             self.page = ChooserPage::WorldList;
             self.state.selected = None;
+            self.last_row_click = None;
             self.first_visible = 0;
             self.ensure_visible();
             if let Some(window) = &self.window {
@@ -1161,10 +956,12 @@ fn choose_world(
             }
         }
     }
-    let layout = ChooserLayout::new();
-    let visible_rows = ((layout.select_top - layout.row_top) / layout.row_height).floor() as usize;
+    let layout =
+        ChooserLayout::with_gui_scale(initial_size.width, initial_size.height, gui_scale_setting);
+    let visible_rows = layout.height.saturating_sub(96) as usize / 36;
     let mut app = Chooser {
         entries: entries.to_vec(),
+        assets: assets.clone(),
         state: Default::default(),
         page: ChooserPage::MainMenu,
         window: None,
@@ -1174,6 +971,9 @@ fn choose_world(
         layout,
         first_visible: 0,
         visible_rows,
+        last_row_click: None,
+        gui_scale_setting,
+        initial_size,
     };
     event_loop.run_app_on_demand(&mut app)?;
     Ok(app.result.flatten())
@@ -2947,72 +2747,12 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        ChooserLayout, LightDimension, Vertex, build_atlas_mips, chooser_vertices,
-        fluid_frame_upload_bytes, interaction_shape, local_world_manifest_path,
-        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
-        sort_fluid_quad_indices, srgb_to_linear,
+        LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
+        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
+        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
-    use beta_viewer::world_select::WorldEntry;
-    use winit::dpi::PhysicalSize;
-
-    #[test]
-    fn chooser_renders_world_rows_and_hitboxes_match_visible_controls() {
-        let entries = [WorldEntry {
-            folder: "World1".into(),
-            display_name: "Survival".into(),
-            last_played: 123,
-            spawn: [0, 64, 0],
-            regions: vec![],
-            launch_reason: None,
-            pins: vec![],
-        }];
-        let vertices = chooser_vertices(
-            PhysicalSize::new(720, 480),
-            &entries,
-            Some(0),
-            0,
-            super::ChooserPage::WorldList,
-        );
-        assert!(vertices.len() > 150);
-        assert!(vertices.iter().all(|vertex| {
-            vertex
-                .position
-                .into_iter()
-                .all(|value| value.is_finite() && (-1.0..=1.0).contains(&value))
-        }));
-        assert!(
-            vertices
-                .iter()
-                .any(|vertex| vertex.color == [0.95, 0.78, 0.24, 1.0])
-        );
-        assert!(
-            vertices
-                .iter()
-                .any(|vertex| vertex.color == [1.0, 1.0, 1.0, 1.0])
-        );
-
-        let layout = ChooserLayout::new();
-        assert_eq!(layout.row_at(16.0, 58.0, 1), Some(0));
-        assert_eq!(layout.row_at(15.9, 58.0, 1), None);
-        assert_eq!(layout.row_at(704.0, 58.0, 1), None);
-        assert_eq!(layout.row_at(100.0, 97.0, 1), None);
-        assert_eq!(layout.row_at(100.0, 410.0, 1), None);
-        assert!(layout.is_select(500.0, 430.0));
-        assert!(layout.is_cancel(600.0, 430.0));
-        assert!(layout.is_singleplayer(300.0, 240.0));
-        assert!(layout.is_quit(300.0, 300.0));
-
-        let menu_vertices = chooser_vertices(
-            PhysicalSize::new(720, 480),
-            &entries,
-            None,
-            0,
-            super::ChooserPage::MainMenu,
-        );
-        assert!(menu_vertices.len() > 100);
-    }
 
     #[test]
     fn dirty_chunk_union_keeps_edit_corner_and_relight_neighbors() {

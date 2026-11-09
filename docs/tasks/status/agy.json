@@ -483,8 +483,16 @@
     },
     "MENU-PARITY-001-A01": {
       "state": "pending",
-      "summary": "",
-      "checks": []
+      "summary": "Implemented the Beta 1.7.3 menu renderer using in-memory resources from the hash-verified local client JAR, language labels, native button states and scaled/resizable layout; world selection still activates only validated disposable snapshots. Same-profile smoke confirms menu geometry at 854x480 scale 1 and 1280x720 scale 3. A01 remains open because small label glyph spacing differs and title/footer decorations are incomplete.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 31 library + 53 binary + 4 example tests; added native scale/layout, resize, button hitbox/UV, font-atlas geometry and list-layout regressions",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
+        "cargo build --locked --offline -p beta-viewer → PASS",
+        "env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1280x900x24' sh -c 'BETA_MENU_GUI_SCALE=1 BETA_MENU_WINDOW_SIZE=854x480 python3 tools/viewer_smoke.py --output artifacts/menu-parity-final-gui1 && BETA_MENU_GUI_SCALE=3 BETA_MENU_WINDOW_SIZE=1280x720 python3 tools/viewer_smoke.py --output artifacts/menu-parity-final-gui3' → PASS: both matched profiles completed main menu, world list, Escape and quit; geometry inspected",
+        "Menu resources are read from the pinned client JAR in memory and checked against C01 JAR/resource hashes and dimensions; no extracted native files were committed",
+        "World loading remains gated by explicit selection and passes only through the verified disposable snapshot; no source save was written",
+        "No native-vs-Rust pixel comparison or GUI-scale-3 conversion-row parity claim; small label glyph spacing differs and title/footer decorations remain incomplete; Options, Multiplayer, Mods, rename/delete/create actions need follow-up scopes"
+      ]
     },
     "WATER-SIM-001-A01": {
       "state": "pending",

@@ -11,6 +11,12 @@ pub const INVENTORY_SHA256: &str =
     "53dd5bde88588215b1700aee4a7dd70a3049e7e53f914982774ebdc26d6862b0";
 pub const ITEMS_SHA256: &str = "545699e0c5f655c1e1876bb9f2fa5d93c4fd514dae3802d1cea43ae0003343f3";
 pub const FONT_SHA256: &str = "6ded9b9e06a61beaa61bf8542c46b5d690d45fdaf42e6539afcbc02e4c7a6408";
+pub const MENU_BACKGROUND_SHA256: &str =
+    "416becee17bd2b22999e439e1560aff906f5fc876f47ba53e1001c548a320185";
+pub const MENU_LOGO_SHA256: &str =
+    "1ec37872aa65aa3f73b327db488472f6a301269b1a458e0d93108b652a487a82";
+pub const MENU_LANG_SHA256: &str =
+    "15309f7acb72e9d08b81cf8ef0bfda31e127112cd506eea2e268a4348efeb68a";
 pub const CLIENT_JAR_SHA256: &str =
     "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c";
 
@@ -43,6 +49,48 @@ pub fn load_font_atlas(client_jar: &Path) -> Result<image::RgbaImage, Box<dyn Er
     verify_hash(&jar, CLIENT_JAR_SHA256, "pinned client JAR")?;
     let bytes = extract_zip_resource(&jar, "font/default.png")?;
     decode_atlas_sized(&bytes, FONT_SHA256, "font/default.png", (128, 128))
+}
+
+/// Load the original menu resources from the pinned JAR without extracting
+/// copyrighted resource files to disk.
+pub type MenuResourceImages = (
+    image::RgbaImage,
+    image::RgbaImage,
+    image::RgbaImage,
+    image::RgbaImage,
+    String,
+);
+
+pub fn load_menu_resources(client_jar: &Path) -> Result<MenuResourceImages, Box<dyn Error>> {
+    let jar = fs::read(client_jar)?;
+    verify_hash(&jar, CLIENT_JAR_SHA256, "pinned client JAR")?;
+    let background = decode_atlas_sized(
+        &extract_zip_resource(&jar, "gui/background.png")?,
+        MENU_BACKGROUND_SHA256,
+        "gui/background.png",
+        (16, 16),
+    )?;
+    let gui = decode_atlas(
+        &extract_zip_resource(&jar, "gui/gui.png")?,
+        GUI_SHA256,
+        "gui/gui.png",
+    )?;
+    let font = decode_atlas_sized(
+        &extract_zip_resource(&jar, "font/default.png")?,
+        FONT_SHA256,
+        "font/default.png",
+        (128, 128),
+    )?;
+    let logo = decode_atlas_sized(
+        &extract_zip_resource(&jar, "title/mclogo.png")?,
+        MENU_LOGO_SHA256,
+        "title/mclogo.png",
+        (256, 256),
+    )?;
+    let lang = extract_zip_resource(&jar, "lang/en_US.lang")?;
+    verify_hash(&lang, MENU_LANG_SHA256, "native menu language")?;
+    let lang = String::from_utf8(lang)?;
+    Ok((background, gui, font, logo, lang))
 }
 
 fn verify_hash(bytes: &[u8], expected: &str, label: &str) -> Result<(), Box<dyn Error>> {

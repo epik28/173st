@@ -1,0 +1,778 @@
+//! Native Beta 1.7.3 main-menu and world-list presentation primitives.
+
+use std::{collections::HashMap, error::Error, path::Path};
+
+const SHEET_SIZE: u32 = 512;
+const BACKGROUND_ORIGIN: (u32, u32) = (0, 0);
+const GUI_ORIGIN: (u32, u32) = (0, 32);
+const LOGO_ORIGIN: (u32, u32) = (256, 0);
+const FONT_ORIGIN: (u32, u32) = (256, 256);
+const WHITE_PIXEL: (u32, u32) = (511, 511);
+
+#[derive(Clone)]
+pub struct MenuAssets {
+    pub atlas: image::RgbaImage,
+    pub labels: HashMap<String, String>,
+    glyphs: [Glyph; 256],
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct Glyph {
+    start: u8,
+    width: u8,
+}
+
+impl MenuAssets {
+    pub fn load(jar: &Path) -> Result<Self, Box<dyn Error>> {
+        let (background, gui, font, logo, lang) = super::hud::load_menu_resources(jar)?;
+        let mut atlas = image::RgbaImage::new(SHEET_SIZE, SHEET_SIZE);
+        blit(&mut atlas, &background, BACKGROUND_ORIGIN);
+        blit(&mut atlas, &gui, GUI_ORIGIN);
+        blit(&mut atlas, &logo, LOGO_ORIGIN);
+        blit(&mut atlas, &font, FONT_ORIGIN);
+        atlas.put_pixel(WHITE_PIXEL.0, WHITE_PIXEL.1, image::Rgba([255; 4]));
+        let glyphs = std::array::from_fn(|index| glyph(&font, index as u8));
+        let labels = lang
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .map(|(key, value)| (key.to_owned(), value.to_owned()))
+            .collect();
+        Ok(Self {
+            atlas,
+            labels,
+            glyphs,
+        })
+    }
+
+    #[cfg(test)]
+    fn synthetic() -> Self {
+        let mut atlas = image::RgbaImage::new(SHEET_SIZE, SHEET_SIZE);
+        // Give glyphs a deterministic opaque pixel so tests exercise atlas UVs
+        // and font metric-derived advances without requiring a local JAR.
+        for index in 0..256_u32 {
+            atlas.put_pixel(
+                FONT_ORIGIN.0 + (index % 16) * 8,
+                FONT_ORIGIN.1 + (index / 16) * 8,
+                image::Rgba([255; 4]),
+            );
+        }
+        atlas.put_pixel(WHITE_PIXEL.0, WHITE_PIXEL.1, image::Rgba([255; 4]));
+        let mut labels = HashMap::new();
+        for (key, value) in [
+            ("menu.singleplayer", "Singleplayer"),
+            ("menu.multiplayer", "Multiplayer"),
+            ("menu.mods", "Mods and Texture Packs"),
+            ("menu.options", "Options..."),
+            ("menu.quit", "Quit Game"),
+            ("selectWorld.title", "Select World"),
+            ("selectWorld.select", "Play Selected World"),
+            ("selectWorld.rename", "Rename"),
+            ("selectWorld.delete", "Delete"),
+            ("selectWorld.create", "Create New World"),
+            ("gui.cancel", "Cancel"),
+        ] {
+            labels.insert(key.to_owned(), value.to_owned());
+        }
+        Self {
+            atlas,
+            labels,
+            glyphs: [Glyph { start: 0, width: 8 }; 256],
+        }
+    }
+
+    fn label<'a>(&'a self, key: &'a str) -> &'a str {
+        self.labels.get(key).map(String::as_str).unwrap_or(key)
+    }
+}
+
+fn blit(destination: &mut image::RgbaImage, source: &image::RgbaImage, at: (u32, u32)) {
+    for y in 0..source.height() {
+        for x in 0..source.width() {
+            destination.put_pixel(at.0 + x, at.1 + y, *source.get_pixel(x, y));
+        }
+    }
+}
+
+fn glyph(font: &image::RgbaImage, character: u8) -> Glyph {
+    if character == b' ' {
+        return Glyph { start: 0, width: 4 };
+    }
+    let x0 = u32::from(character % 16) * 8;
+    let y0 = u32::from(character / 16) * 8;
+    let right = (0..8)
+        .rev()
+        .find(|x| (0..8).any(|y| font.get_pixel(x0 + x, y0 + y).0[3] != 0));
+    let Some(right) = right else {
+        return Glyph::default();
+    };
+    Glyph {
+        start: 0,
+        width: (right + 2) as u8,
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Vertex {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+    pub color: [f32; 4],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Layout {
+    pub width: u32,
+    pub height: u32,
+    pub scale: u32,
+}
+
+impl Layout {
+    /// `setting` follows the client option: zero selects automatic scale;
+    /// values one through three select that exact GUI scale.
+    pub fn with_gui_scale(width: u32, height: u32, setting: u32) -> Self {
+        let scale = if setting == 0 {
+            super::hud::gui_scale(width, height).max(1)
+        } else {
+            setting.clamp(1, 3)
+        };
+        Self {
+            width: width.div_ceil(scale),
+            height: height.div_ceil(scale),
+            scale,
+        }
+    }
+
+    pub fn point(self, physical: (f32, f32)) -> (f32, f32) {
+        (
+            physical.0 / self.scale as f32,
+            physical.1 / self.scale as f32,
+        )
+    }
+
+    pub fn row_at(self, x: f32, y: f32, count: usize) -> Option<usize> {
+        let top = 32.0;
+        let bottom = self.height as f32 - 64.0;
+        if !(32.0..self.width as f32 - 32.0).contains(&x) || y < top || y >= bottom {
+            return None;
+        }
+        let row = ((y - top) / 36.0).floor() as usize;
+        (row < count).then_some(row)
+    }
+
+    pub fn singleplayer(self, x: f32, y: f32) -> bool {
+        self.button_hit(
+            x,
+            y,
+            self.width as f32 / 2.0 - 100.0,
+            self.height as f32 / 4.0 + 48.0,
+            200.0,
+            20.0,
+        )
+    }
+
+    pub fn quit(self, x: f32, y: f32) -> bool {
+        self.button_hit(
+            x,
+            y,
+            self.width as f32 / 2.0 + 2.0,
+            self.height as f32 / 4.0 + 132.0,
+            98.0,
+            20.0,
+        )
+    }
+
+    pub fn select_world(self, x: f32, y: f32) -> bool {
+        self.button_hit(
+            x,
+            y,
+            self.width as f32 / 2.0 - 154.0,
+            self.height as f32 - 52.0,
+            150.0,
+            20.0,
+        )
+    }
+
+    pub fn cancel(self, x: f32, y: f32) -> bool {
+        self.button_hit(
+            x,
+            y,
+            self.width as f32 / 2.0 + 4.0,
+            self.height as f32 - 28.0,
+            150.0,
+            20.0,
+        )
+    }
+
+    fn button_hit(self, x: f32, y: f32, bx: f32, by: f32, width: f32, height: f32) -> bool {
+        (bx..bx + width).contains(&x) && (by..by + height).contains(&y)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Page {
+    MainMenu,
+    WorldList,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn vertices(
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    entries: &[beta_viewer::world_select::WorldEntry],
+    selected: Option<usize>,
+    first_visible: usize,
+    page: Page,
+    cursor: (f32, f32),
+) -> Vec<Vertex> {
+    let mut out = Vec::new();
+    let scale = layout.scale as f32;
+    // Native menu background is a 32-pixel quad sampled from the 16x16 tile.
+    for y in (0..layout.height).step_by(32) {
+        for x in (0..layout.width).step_by(32) {
+            let tile_width = (layout.width - x).min(32) as f32;
+            let tile_height = (layout.height - y).min(32) as f32;
+            quad(
+                &mut out,
+                size,
+                scale,
+                [x as f32, y as f32, tile_width, tile_height],
+                [
+                    BACKGROUND_ORIGIN.0 as f32,
+                    BACKGROUND_ORIGIN.1 as f32,
+                    tile_width / 2.0,
+                    tile_height / 2.0,
+                ],
+                [1.0; 4],
+            );
+        }
+    }
+    match page {
+        Page::MainMenu => draw_main_menu(&mut out, size, layout, assets, cursor),
+        Page::WorldList => draw_world_list(
+            &mut out,
+            size,
+            layout,
+            assets,
+            entries,
+            selected,
+            first_visible,
+            cursor,
+        ),
+    }
+    out
+}
+
+fn draw_main_menu(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    cursor: (f32, f32),
+) {
+    let w = layout.width as f32;
+    let h = layout.height as f32;
+    let center = w / 2.0;
+    quad(
+        out,
+        size,
+        layout.scale as f32,
+        [center - 137.0, 30.0, 155.0, 44.0],
+        [256.0, 0.0, 155.0, 44.0],
+        [1.0; 4],
+    );
+    quad(
+        out,
+        size,
+        layout.scale as f32,
+        [center + 18.0, 30.0, 155.0, 44.0],
+        [256.0, 45.0, 155.0, 44.0],
+        [1.0; 4],
+    );
+    let y = h / 4.0 + 48.0;
+    for (index, key) in ["menu.singleplayer", "menu.multiplayer", "menu.mods"]
+        .into_iter()
+        .enumerate()
+    {
+        let button_y = y + index as f32 * 24.0;
+        let hover = inside(cursor, center - 100.0, button_y, 200.0, 20.0);
+        draw_button(
+            out,
+            size,
+            layout.scale as f32,
+            [center - 100.0, button_y, 200.0, 20.0],
+            if hover { 2 } else { 1 },
+        );
+        draw_centered_text(
+            out,
+            size,
+            layout,
+            assets,
+            center,
+            button_y + 6.0,
+            assets.label(key),
+            if hover {
+                [1.0, 1.0, 160.0 / 255.0, 1.0]
+            } else {
+                [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0]
+            },
+            true,
+        );
+    }
+    let bottom_y = h / 4.0 + 132.0;
+    let options = [center - 100.0, bottom_y, 98.0, 20.0];
+    let quit = [center + 2.0, bottom_y, 98.0, 20.0];
+    for (rect, key) in [(options, "menu.options"), (quit, "menu.quit")] {
+        let hover = inside(cursor, rect[0], rect[1], rect[2], rect[3]);
+        draw_button(
+            out,
+            size,
+            layout.scale as f32,
+            rect,
+            if hover { 2 } else { 1 },
+        );
+        draw_centered_text(
+            out,
+            size,
+            layout,
+            assets,
+            rect[0] + rect[2] / 2.0,
+            rect[1] + 6.0,
+            assets.label(key),
+            if hover {
+                [1.0, 1.0, 160.0 / 255.0, 1.0]
+            } else {
+                [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0]
+            },
+            true,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_world_list(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    entries: &[beta_viewer::world_select::WorldEntry],
+    selected: Option<usize>,
+    first_visible: usize,
+    cursor: (f32, f32),
+) {
+    let w = layout.width as f32;
+    let h = layout.height as f32;
+    draw_centered_text(
+        out,
+        size,
+        layout,
+        assets,
+        w / 2.0,
+        20.0,
+        assets.label("selectWorld.title"),
+        [1.0; 4],
+        true,
+    );
+    let bottom = h - 64.0;
+    let visible = ((bottom - 32.0) / 36.0).floor().max(0.0) as usize;
+    for local in 0..visible {
+        let Some(entry) = entries.get(first_visible + local) else {
+            break;
+        };
+        let index = first_visible + local;
+        let y = 32.0 + local as f32 * 36.0;
+        if selected == Some(index) {
+            solid_quad(
+                out,
+                size,
+                layout.scale as f32,
+                [w / 2.0 - 110.0, y - 2.0, 220.0, 36.0],
+                [128.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0, 1.0],
+            );
+            solid_quad(
+                out,
+                size,
+                layout.scale as f32,
+                [w / 2.0 - 109.0, y - 1.0, 218.0, 34.0],
+                [1.0; 4],
+            );
+        }
+        let disabled = entry.launch_reason.is_some();
+        let primary = if disabled {
+            [128.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0, 1.0]
+        } else {
+            [1.0; 4]
+        };
+        draw_centered_text(
+            out,
+            size,
+            layout,
+            assets,
+            w / 2.0,
+            y + 1.0,
+            &entry.display_name,
+            primary,
+            true,
+        );
+        let secondary = if let Some(reason) = &entry.launch_reason {
+            format!("{} — {}", entry.folder, reason)
+        } else {
+            entry.folder.clone()
+        };
+        draw_centered_text(
+            out,
+            size,
+            layout,
+            assets,
+            w / 2.0,
+            y + 12.0,
+            &secondary,
+            [128.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0, 1.0],
+            true,
+        );
+    }
+    let select = [w / 2.0 - 154.0, h - 52.0, 150.0, 20.0];
+    let enable_select = selected.is_some_and(|index| {
+        entries
+            .get(index)
+            .is_some_and(|entry| entry.launch_reason.is_none())
+    });
+    let cancel = [w / 2.0 + 4.0, h - 28.0, 150.0, 20.0];
+    for (rect, key, enabled) in [
+        (select, "selectWorld.select", enable_select),
+        (
+            [w / 2.0 - 154.0, h - 28.0, 70.0, 20.0],
+            "selectWorld.rename",
+            false,
+        ),
+        (
+            [w / 2.0 - 74.0, h - 28.0, 70.0, 20.0],
+            "selectWorld.delete",
+            false,
+        ),
+        (
+            [w / 2.0 + 4.0, h - 52.0, 150.0, 20.0],
+            "selectWorld.create",
+            false,
+        ),
+        (cancel, "gui.cancel", true),
+    ] {
+        let hover = enabled && inside(cursor, rect[0], rect[1], rect[2], rect[3]);
+        draw_button(
+            out,
+            size,
+            layout.scale as f32,
+            rect,
+            if hover {
+                2
+            } else if enabled {
+                1
+            } else {
+                0
+            },
+        );
+        draw_centered_text(
+            out,
+            size,
+            layout,
+            assets,
+            rect[0] + rect[2] / 2.0,
+            rect[1] + 6.0,
+            assets.label(key),
+            if !enabled {
+                [160.0 / 255.0, 160.0 / 255.0, 160.0 / 255.0, 1.0]
+            } else if hover {
+                [1.0, 1.0, 160.0 / 255.0, 1.0]
+            } else {
+                [224.0 / 255.0, 224.0 / 255.0, 224.0 / 255.0, 1.0]
+            },
+            true,
+        );
+    }
+}
+
+fn inside(point: (f32, f32), x: f32, y: f32, width: f32, height: f32) -> bool {
+    (x..x + width).contains(&point.0) && (y..y + height).contains(&point.1)
+}
+
+fn solid_quad(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    scale: f32,
+    rect: [f32; 4],
+    color: [f32; 4],
+) {
+    quad(
+        out,
+        size,
+        scale,
+        rect,
+        [WHITE_PIXEL.0 as f32, WHITE_PIXEL.1 as f32, 1.0, 1.0],
+        color,
+    );
+}
+
+fn draw_button(out: &mut Vec<Vertex>, size: (u32, u32), scale: f32, rect: [f32; 4], state: u32) {
+    let half = rect[2] / 2.0;
+    let v = 46.0 + state as f32 * 20.0;
+    quad(
+        out,
+        size,
+        scale,
+        [rect[0], rect[1], half, rect[3]],
+        [GUI_ORIGIN.0 as f32, GUI_ORIGIN.1 as f32 + v, 100.0, 20.0],
+        [1.0; 4],
+    );
+    quad(
+        out,
+        size,
+        scale,
+        [rect[0] + half, rect[1], half, rect[3]],
+        [
+            GUI_ORIGIN.0 as f32 + 100.0,
+            GUI_ORIGIN.1 as f32 + v,
+            100.0,
+            20.0,
+        ],
+        [1.0; 4],
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_centered_text(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    center_x: f32,
+    y: f32,
+    text: &str,
+    color: [f32; 4],
+    shadow: bool,
+) {
+    let width = text_width(assets, text) as f32;
+    let x = (center_x - width / 2.0).floor();
+    if shadow {
+        draw_text(
+            out,
+            size,
+            layout,
+            assets,
+            x + 1.0,
+            y + 1.0,
+            text,
+            [0.25, 0.25, 0.25, color[3]],
+        );
+    }
+    draw_text(out, size, layout, assets, x, y, text, color);
+}
+
+fn text_width(assets: &MenuAssets, text: &str) -> u32 {
+    let mut width = 0_u32;
+    let mut skip = false;
+    for character in text.chars() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if character == '\u{a7}' {
+            skip = true;
+            continue;
+        }
+        let Some(byte) = char_to_font_byte(character) else {
+            continue;
+        };
+        width += u32::from(assets.glyphs[byte as usize].width);
+    }
+    width
+}
+
+fn char_to_font_byte(character: char) -> Option<u8> {
+    let value = u32::from(character);
+    (value < 256).then_some(value as u8)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_text(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    mut x: f32,
+    y: f32,
+    text: &str,
+    color: [f32; 4],
+) {
+    let mut skip = false;
+    for character in text.chars() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if character == '\u{a7}' {
+            skip = true;
+            continue;
+        }
+        let Some(byte) = char_to_font_byte(character) else {
+            continue;
+        };
+        let glyph = assets.glyphs[byte as usize];
+        let width = f32::from(glyph.width);
+        if width > 0.0 {
+            let uv_x = FONT_ORIGIN.0 as f32 + f32::from(byte % 16) * 8.0 + f32::from(glyph.start);
+            let uv_y = FONT_ORIGIN.1 as f32 + f32::from(byte / 16) * 8.0;
+            quad(
+                out,
+                size,
+                layout.scale as f32,
+                [x, y, width, 8.0],
+                [uv_x, uv_y, 8.0, 8.0],
+                color,
+            );
+        }
+        x += width;
+    }
+}
+
+fn quad(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    scale: f32,
+    rect: [f32; 4],
+    uv: [f32; 4],
+    color: [f32; 4],
+) {
+    let [x, y, width, height] = rect;
+    if width <= 0.0 || height <= 0.0 || size.0 == 0 || size.1 == 0 {
+        return;
+    }
+    let x0 = (2.0 * x * scale / size.0 as f32 - 1.0).clamp(-1.0, 1.0);
+    let x1 = (2.0 * (x + width) * scale / size.0 as f32 - 1.0).clamp(-1.0, 1.0);
+    let y0 = (1.0 - 2.0 * y * scale / size.1 as f32).clamp(-1.0, 1.0);
+    let y1 = (1.0 - 2.0 * (y + height) * scale / size.1 as f32).clamp(-1.0, 1.0);
+    let [u, v, uw, vh] = uv;
+    let uv0 = [u / SHEET_SIZE as f32, v / SHEET_SIZE as f32];
+    let uv1 = [(u + uw) / SHEET_SIZE as f32, (v + vh) / SHEET_SIZE as f32];
+    let a = Vertex {
+        position: [x0, y0],
+        uv: uv0,
+        color,
+    };
+    let b = Vertex {
+        position: [x1, y0],
+        uv: [uv1[0], uv0[1]],
+        color,
+    };
+    let c = Vertex {
+        position: [x1, y1],
+        uv: uv1,
+        color,
+    };
+    let d = Vertex {
+        position: [x0, y1],
+        uv: [uv0[0], uv1[1]],
+        color,
+    };
+    out.extend_from_slice(&[a, b, c, a, c, d]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_scaled_resolution_matches_pinned_native_profiles_and_resize() {
+        for (width, height, scale, logical) in [
+            (854, 480, 2, (427, 240)),
+            (1280, 720, 3, (427, 240)),
+            (1280, 800, 3, (427, 267)),
+        ] {
+            let layout = Layout::with_gui_scale(width, height, 0);
+            assert_eq!(layout.scale, scale);
+            assert_eq!((layout.width, layout.height), logical);
+        }
+        assert_eq!(
+            Layout::with_gui_scale(1280, 720, 0).point((640.0, 360.0)),
+            (640.0 / 3.0, 120.0)
+        );
+        for (width, height, setting, scale) in [(854, 480, 1, 1), (1280, 720, 3, 3)] {
+            assert_eq!(Layout::with_gui_scale(width, height, setting).scale, scale);
+        }
+    }
+
+    #[test]
+    fn native_menu_buttons_use_scaled_geometry_and_hover_state() {
+        let assets = MenuAssets::synthetic();
+        let layout = Layout::with_gui_scale(1280, 720, 0);
+        assert!(layout.singleplayer(640.0 / 3.0, 120.0));
+        assert!(!layout.singleplayer(10.0, 10.0));
+        assert!(layout.quit(
+            layout.width as f32 / 2.0 + 50.0,
+            layout.height as f32 / 4.0 + 140.0
+        ));
+        let vertices = vertices(
+            (1280, 720),
+            layout,
+            &assets,
+            &[],
+            None,
+            0,
+            Page::MainMenu,
+            (layout.width as f32 / 2.0, 110.0),
+        );
+        assert!(vertices.len() > 1000);
+        assert!(vertices.iter().all(|v| {
+            v.position
+                .iter()
+                .all(|p| p.is_finite() && (-1.0..=1.0).contains(p))
+        }));
+        // The native GUI button texture is sampled in its atlas region.
+        assert!(
+            vertices
+                .iter()
+                .any(|v| v.uv[0] >= GUI_ORIGIN.0 as f32 / 512.0
+                    && v.uv[1] >= (GUI_ORIGIN.1 + 46) as f32 / 512.0)
+        );
+    }
+
+    #[test]
+    fn world_list_rows_and_native_button_grid_fit_resized_scaled_viewport() {
+        let assets = MenuAssets::synthetic();
+        let layout = Layout::with_gui_scale(854, 480, 0);
+        let entry = beta_viewer::world_select::WorldEntry {
+            folder: "world-a".into(),
+            display_name: "World A".into(),
+            last_played: 4,
+            spawn: [0, 64, 0],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![],
+        };
+        assert_eq!(layout.row_at(40.0, 36.0, 1), Some(0));
+        assert_eq!(layout.row_at(31.0, 36.0, 1), None);
+        assert!(layout.select_world(
+            layout.width as f32 / 2.0 - 100.0,
+            layout.height as f32 - 48.0
+        ));
+        assert!(layout.cancel(
+            layout.width as f32 / 2.0 + 20.0,
+            layout.height as f32 - 20.0
+        ));
+        let vertices = vertices(
+            (854, 480),
+            layout,
+            &assets,
+            &[entry],
+            Some(0),
+            0,
+            Page::WorldList,
+            (0.0, 0.0),
+        );
+        assert!(vertices.len() > 200);
+        assert!(vertices.iter().all(|v| {
+            v.position
+                .iter()
+                .all(|p| p.is_finite() && (-1.0..=1.0).contains(p))
+        }));
+    }
+}
