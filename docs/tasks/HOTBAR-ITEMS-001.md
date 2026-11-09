@@ -9,8 +9,10 @@ but no items even when the saved player has supported hotbar stacks.
 ## Contract
 
 - Reuse `beta_core::items::Inventory` and the existing hash-verified native
-  `gui/items.png` atlas. Do not change saved-player parsing, item identity,
-  world/save handling, or hotbar input semantics.
+  `terrain.png`/`gui/items.png` atlases. Native `bb` binds `terrain.png` for
+  block IDs below 256 and `gui/items.png` for item IDs 256 and above. Do not
+  change saved-player parsing, item identity, world/save handling, or hotbar
+  input semantics.
 - Draw only item stacks already supported by `inventory_screen::item_icon_uv`;
   empty slots remain empty and unsupported ID/damage values stay absent. Never
   synthesize stacks or map unsupported items to a similar sprite.
@@ -23,6 +25,10 @@ but no items even when the saved player has supported hotbar stacks.
   layout can be audited and implemented without a new dependency or guessed
   glyph map. Otherwise this package is icon-only and records counts as a later
   task; do not use hand-drawn digits.
+- Correct the existing inventory-screen atlas binding for supported block IDs
+  1 and 3 in this same renderer slice: their icon coordinates are on
+  `terrain.png`; item IDs 332 and 267 remain on `gui/items.png`. Retain exact
+  icon UVs and do not broaden the supported ID/damage list.
 - Keep the local world integrity guard. All world reads remain bounded,
   read-only, and sourced from the verified disposable copy.
 
@@ -54,8 +60,9 @@ handoff/status and commit the result.
 Review the exact C01/A01 snapshots. Run native audit tests, focused viewer tests,
 full workspace checks and applicable strict parity suites. Run a GUI smoke only
 if the existing local-world pin permits it. Confirm items appear only where
-the validated inventory has supported stacks, and state whether count labels
-were included. Update progress, roadmap and completion estimate without
+the validated inventory has supported stacks, verify block/item atlas selection
+in both inventory and hotbar, and state whether count labels were included.
+Update progress, roadmap and completion estimate without
 claiming health or survival behavior.
 
 ## Acceptance boundaries
