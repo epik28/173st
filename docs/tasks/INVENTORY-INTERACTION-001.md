@@ -15,14 +15,18 @@ in memory; the source world and saved `level.dat` stay read-only.
   a slot uses the exact 18×18 native hitbox around the existing slot position.
   Left click picks up or places the whole stack; right click takes the rounded-up
   half from a slot or places one item. Empty clicks with an empty cursor do
-  nothing.
+  nothing. While carrying a stack, render its native icon next to the mouse
+  cursor with the native atlas and count treatment; C01 pins the exact geometry
+  and layering before A01 implements it.
 - Compatible means equal item ID and damage. Merge up to the item stack limit;
   incompatible stacks swap only when the cursor stack fits the target slot.
   Supported item IDs/damage and stack limits remain exactly those already
   represented by `ItemStack`; do not synthesize unsupported stacks.
 - Closing the screen returns the cursor stack to the in-memory inventory using
-  the native insertion order. The cursor must never be silently lost. Focus loss
-  follows the same close rule.
+  the native insertion order. If no supported slot can accept it, preserve the
+  cursor and keep/reopen the inventory UI so the stack remains reachable; do not
+  silently discard it or spawn an unsupported world drop. Focus loss follows
+  the same preservation rule.
 - Clicks outside the 36 supported slots are no-ops. Native outside-drop requires
   world entities and is explicitly deferred. Shift-click, crafting slots,
   crafting output, armor slots, item pickup/drop/use, and save persistence are
@@ -36,7 +40,7 @@ in memory; the source world and saved `level.dat` stay read-only.
 
 Use the pinned Beta 1.7.3 client to construct a repeatable native oracle over
 supported main slots. Capture ordered operations and resulting 36 slot states,
-cursor stack, and selected hotbar. Cover left/right pickup/place, odd/even split,
+cursor stack, selected hotbar, and held-icon draw layout. Cover left/right pickup/place, odd/even split,
 compatible merge at/near limit, incompatible swap, full/unacceptable target,
 empty click, screen hitbox edges, close/focus-loss cursor return, and stable
 replay. Pin JAR/classes, source evidence and fixture hashes. Keep outside-drop,
@@ -45,7 +49,8 @@ shift-click and unsupported container slots explicitly out of the oracle.
 ### INVENTORY-INTERACTION-001-A01 — in-memory viewer interaction (agy)
 
 Implement the cursor and click state transitions in Rust using the committed
-contract and native fixture. Wire physical left/right clicks to the open
+contract and native fixture. Draw the held item next to the mouse with the
+audited atlas UVs, count placement, and pass order. Wire physical left/right clicks to the open
 inventory screen and map the 36 existing screen slots to `Inventory` indexes
 without changing the on-disk slot representation. Add deterministic unit tests
 for fixture rows, hitboxes at multiple scales, ignored gameplay/closed-screen
