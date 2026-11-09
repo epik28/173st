@@ -363,6 +363,7 @@ impl BlockScene {
                                 15
                             } else {
                                 let mut best = 0u8;
+                                let mut missing = false;
                                 for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                                     if let Some(n) = self
                                         .block(x + dx, i32::from(y), z + dz)
@@ -371,9 +372,10 @@ impl BlockScene {
                                         best = best.max(n.sky_light.saturating_sub(1));
                                     } else {
                                         unloaded.push((x + dx, i32::from(y), z + dz));
+                                        missing = true;
                                     }
                                 }
-                                best
+                                if missing { 0 } else { best }
                             }
                         };
                         if new_sky != block.sky_light {
