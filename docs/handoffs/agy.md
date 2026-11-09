@@ -1003,3 +1003,21 @@ beta-viewer --lib` → 19 PASS; `cargo clippy --locked --offline -p beta-viewer
 PASS. Limitations: the current graphical event loop remains on the historical
 preview startup path; chooser APIs and snapshot boundary are implemented and
 ready for Codex C02 integration review.
+
+### WORLD-SELECT-001-A02 — visible chooser and selected-world startup
+
+Implemented the end-to-end chooser phase in `beta-viewer`: discovery now opens
+a visible native window before terrain meshes or scene loading, highlights the
+first valid row without activating it, skips disabled rows with their launch
+reason, supports ArrowUp/ArrowDown, Enter, S, left-click activation, and Escape
+cancel. Normal startup loads the selected disposable snapshot through
+`load_scene_for_selected_world_with_edit_data`, so the dynamic spawn-centered
+5x5 region window drives the rendered scene and the historical `scene.tsv` is
+not consulted. Added state tests for disabled-row navigation and explicit
+activation. Source save and snapshot guards remain in the A01 API.
+
+Checks: `cargo test --locked --offline -p beta-viewer --lib` → 23 PASS;
+`cargo clippy -p beta-viewer --all-targets --locked --offline -- -D warnings` →
+PASS; `cargo fmt --all` and `git diff --check` → PASS. The session helper could
+not start because unrelated untracked mining files already existed in this
+worktree; they were preserved and excluded from the A02 commit.

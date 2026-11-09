@@ -70,6 +70,33 @@ impl ChooserState {
             None
         }
     }
+
+    pub fn move_selection(&mut self, entries: &[WorldEntry], delta: i32) {
+        if entries.is_empty() {
+            self.selected = None;
+            return;
+        }
+        let start = self.selected.unwrap_or(0) as i32;
+        let mut index = start;
+        for _ in 0..entries.len() {
+            index = (index + delta).rem_euclid(entries.len() as i32);
+            if entries[index as usize].launch_reason.is_none() {
+                self.selected = Some(index as usize);
+                return;
+            }
+        }
+    }
+
+    pub fn select_first_valid(&mut self, entries: &[WorldEntry]) {
+        self.selected = entries
+            .iter()
+            .position(|entry| entry.launch_reason.is_none());
+    }
+
+    pub fn activate(&mut self, entries: &[WorldEntry]) -> Option<usize> {
+        let index = self.selected?;
+        (index < entries.len() && entries[index].launch_reason.is_none()).then_some(index)
+    }
 }
 
 impl Default for ChooserState {
@@ -334,5 +361,35 @@ mod tests {
         assert_eq!(s.apply(ChooserAction::Activate, Some(1), 2), Some(1));
         assert_eq!(s.apply(ChooserAction::Cancel, None, 2), None);
         assert!(s.cancelled);
+    }
+
+    #[test]
+    fn chooser_skips_disabled_rows_and_requires_explicit_activation() {
+        let entries = vec![
+            WorldEntry {
+                folder: "bad".into(),
+                display_name: "Bad".into(),
+                last_played: 0,
+                spawn: [0; 3],
+                regions: vec![],
+                launch_reason: Some("missing chunk".into()),
+                pins: vec![],
+            },
+            WorldEntry {
+                folder: "good".into(),
+                display_name: "Good".into(),
+                last_played: 0,
+                spawn: [0; 3],
+                regions: vec![],
+                launch_reason: None,
+                pins: vec![],
+            },
+        ];
+        let mut state = ChooserState::default();
+        state.select_first_valid(&entries);
+        assert_eq!(state.selected, Some(1));
+        assert_eq!(state.activate(&entries), Some(1));
+        state.move_selection(&entries, 1);
+        assert_eq!(state.selected, Some(1));
     }
 }

@@ -49,6 +49,9 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    // The chooser owns the first window and runs before any scene, mesh, or GPU
+    // state is prepared. Its result is the only input used by the loader below.
+    let (input, source_pins) = copy_local_world()?;
     let terrain_path = terrain_path()?;
     let bytes = fs::read(&terrain_path)?;
     use sha2::Digest;
@@ -68,16 +71,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
     let font_atlas = hud::load_font_atlas(&client_jar)?;
-    let (input, source_pins) = copy_local_world()?;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
-    let scene_path = root.join("tests/fixtures/view/scene.tsv");
     let (mut scene, metadata, scene_chunks, mappings) =
-        loader::load_scene_for_preview_with_edit_data(
-            &input,
-            &terrain_path,
-            &scene_path,
-            &source_pins,
-        )?;
+        loader::load_scene_for_selected_world_with_edit_data(&input, &terrain_path, &source_pins)?;
     let palette_dir = terrain_path
         .parent()
         .ok_or("terrain atlas path has no parent for color palettes")?;
@@ -362,10 +357,10 @@ fn copy_local_world()
     // reaches the existing bounded scene loader.
     let saves_root = std::path::PathBuf::from(&prism).join("minecraft/saves");
     let catalog = beta_viewer::world_select::discover(&saves_root)?;
+    let selected_index = choose_world(&catalog)?.ok_or("world chooser cancelled")?;
     let selected = catalog
-        .iter()
-        .find(|world| world.launch_reason.is_none())
-        .ok_or("world chooser: no launchable existing saves")?;
+        .get(selected_index)
+        .ok_or("world chooser selected an invalid row")?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let snapshot = beta_viewer::world_select::snapshot(
         selected,
@@ -514,6 +509,110 @@ fn copy_local_world()
     )?;
     fs::write(input.join(".preview-source-hashes.tsv"), pin_manifest)?;
     Ok((input, source_pins))
+}
+
+/// Small native-style chooser. The window title carries the same row metadata
+/// used by the eventual renderer, which keeps this phase independent of the
+/// world GPU pipeline and makes invalid rows visibly disabled with a reason.
+fn choose_world(
+    entries: &[beta_viewer::world_select::WorldEntry],
+) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+    struct Chooser {
+        entries: Vec<beta_viewer::world_select::WorldEntry>,
+        state: beta_viewer::world_select::ChooserState,
+        window: Option<Window>,
+        result: Option<Option<usize>>,
+    }
+    impl ApplicationHandler for Chooser {
+        fn resumed(&mut self, event: &ActiveEventLoop) {
+            if self.window.is_some() {
+                return;
+            }
+            let attrs = Window::default_attributes()
+                .with_title("Beta 1.7.3 — Select World")
+                .with_inner_size(PhysicalSize::new(720, 480));
+            let window = event.create_window(attrs).expect("chooser window");
+            self.window = Some(window);
+            self.state.select_first_valid(&self.entries);
+            self.refresh_title();
+        }
+        fn window_event(&mut self, event: &ActiveEventLoop, _: WindowId, input: WindowEvent) {
+            if let WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } = input
+            {
+                if let Some(index) = self.state.activate(&self.entries) {
+                    self.result = Some(Some(index));
+                    event.exit();
+                }
+                return;
+            }
+            if let WindowEvent::KeyboardInput { event: key, .. } = input {
+                if key.state != ElementState::Pressed {
+                    return;
+                }
+                match key.physical_key {
+                    PhysicalKey::Code(KeyCode::Escape) => {
+                        self.result = Some(None);
+                        event.exit();
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowDown) => {
+                        self.state.move_selection(&self.entries, 1);
+                        self.refresh_title();
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowUp) => {
+                        self.state.move_selection(&self.entries, -1);
+                        self.refresh_title();
+                    }
+                    PhysicalKey::Code(KeyCode::Enter)
+                    | PhysicalKey::Code(KeyCode::NumpadEnter)
+                    | PhysicalKey::Code(KeyCode::KeyS) => {
+                        if let Some(index) = self.state.activate(&self.entries) {
+                            self.result = Some(Some(index));
+                            event.exit();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    impl Chooser {
+        fn refresh_title(&self) {
+            let selected = self.state.selected;
+            let rows = self
+                .entries
+                .iter()
+                .enumerate()
+                .map(|(i, world)| {
+                    let marker = if Some(i) == selected { ">" } else { " " };
+                    match &world.launch_reason {
+                        Some(reason) => {
+                            format!("{marker} {} [disabled: {reason}]", world.display_name)
+                        }
+                        None => format!("{marker} {}", world.display_name),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" | ");
+            if let Some(window) = &self.window {
+                window.set_title(&format!(
+                    "Singleplayer — {rows} — Enter: Select, Esc: Cancel"
+                ));
+            }
+        }
+    }
+    let event_loop = EventLoop::new()?;
+    let mut app = Chooser {
+        entries: entries.to_vec(),
+        state: Default::default(),
+        window: None,
+        result: None,
+    };
+    event_loop.run_app(&mut app)?;
+    Ok(app.result.flatten())
 }
 
 /// Keep the user-owned world pin outside individual Git worktrees so `main`,

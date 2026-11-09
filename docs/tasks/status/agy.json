@@ -466,9 +466,15 @@
       ]
     },
     "WORLD-SELECT-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Integrated an explicit visible world chooser before scene and GPU preparation. Arrow keys skip disabled rows, Enter/S selects, left click activates, Escape cancels, and the selected disposable snapshot loads through the dynamic spawn-centered loader without scene.tsv.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --lib → PASS: 23 tests, including disabled-row navigation and explicit activation",
+        "cargo clippy -p beta-viewer --all-targets --locked --offline -- -D warnings → PASS",
+        "cargo fmt --all; git diff --check → PASS",
+        "Startup now calls load_scene_for_selected_world_with_edit_data; no first-save auto-selection or historical fixed scene fallback remains",
+        "Unrelated pre-existing untracked mining files were preserved and excluded from the commit"
+      ]
     }
   }
 }
