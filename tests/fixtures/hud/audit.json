@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "jar_size": 1465375,
+    "jar_source": "PrismLauncher local cache; verified against local Prism metadata",
+    "class": "uq",
+    "class_sha256": "b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12",
+    "class_super": "ub",
+    "class_source_file_attribute": "SourceFile",
+    "class_identification": "uq contains both /gui/gui.png and /gui/icons.png references and its public a(FZII)V method performs the scaled HUD draws",
+    "render_method": {
+      "name": "a",
+      "descriptor": "(FZII)V",
+      "mapped_name": "GuiIngame.renderGameOverlay(float, boolean, int, int)",
+      "mapping_basis": "Beta 1.7.3 MCP name; obfuscated descriptor and class are authoritative"
+    },
+    "resources": {
+      "gui/gui.png": {
+        "sha256": "e223bea0b5004a3b5497607c6d529daf840396526a46eff75c299364cf9dc795",
+        "bytes": 14210,
+        "width": 256,
+        "height": 256
+      },
+      "gui/icons.png": {
+        "sha256": "8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae616554124d6dac43",
+        "bytes": 2423,
+        "width": 256,
+        "height": 256
+      }
+    }
+  },
+  "layout": {
+    "atlas_size": [256, 256],
+    "hotbar": {
+      "frame_screen": ["width/2-91", "height-22"],
+      "frame_uv_size": [0, 0, 182, 22],
+      "selection_screen": ["width/2-92+selected_slot*20", "height-23"],
+      "selection_uv_size": [0, 22, 24, 22],
+      "slots": 9,
+      "slot_pitch": 20
+    },
+    "crosshair": {
+      "screen": ["width/2-7", "height/2-7"],
+      "uv_size": [0, 0, 16, 16]
+    },
+    "health_full_20": {
+      "hearts": 10,
+      "blink_state": "inactive",
+      "screen_first": ["width/2-91", "height-32"],
+      "horizontal_pitch": 8,
+      "background_uv_size": [16, 0, 9, 9],
+      "full_heart_uv_size": [52, 0, 9, 9]
+    }
+  },
+  "bytecode_evidence": {
+    "method_descriptor": "descriptor: (FZII)V",
+    "scaled_resolution_constructor": "invokespecial #190                // Method qq.\"<init>\":(Lkv;II)V",
+    "gui_resource": "ldc           #28                 // String /gui/gui.png",
+    "icons_resource": "ldc           #29                 // String /gui/icons.png",
+    "hotbar_frame": "261: sipush        182\n     264: bipush        22\n     266: invokevirtual #206                // Method b:(IIIIII)V",
+    "hotbar_frame_position": "249: iconst_2\n     250: idiv\n     251: bipush        91\n     253: isub\n     254: iload         7\n     256: bipush        22\n     258: isub",
+    "selection_frame": "296: bipush        22\n     298: bipush        24\n     300: bipush        22\n     302: invokevirtual #206                // Method b:(IIIIII)V",
+    "selection_frame_position": "272: iconst_2\n     273: idiv\n     274: bipush        91\n     276: isub\n     277: iconst_1\n     278: isub\n     279: aload         11\n     281: getfield      #104                // Field ix.c:I\n     284: bipush        20\n     286: imul\n     287: iadd",
+    "crosshair": "bipush        16\n     357: bipush        16\n     359: invokevirtual #206                // Method b:(IIIIII)V",
+    "crosshair_position": "343: bipush        7\n     345: isub\n     346: iload         7\n     348: iconst_2\n     349: idiv\n     350: bipush        7\n     352: isub",
+    "health_loop": "iload         16\n     480: bipush        10\n     482: if_icmpge     777",
+    "health_y": "485: iload         7\n     487: bipush        32\n     489: isub\n     490: istore        17",
+    "health_x": "609: iconst_2\n     610: idiv\n     611: bipush        91\n     613: isub\n     614: iload         16\n     616: bipush        8\n     618: imul",
+    "health_background": "646: bipush        16\n     648: iload         18\n     650: bipush        9\n     652: imul",
+    "health_full_uv": "735: bipush        52\n     737: iconst_0\n     738: bipush        9\n     740: bipush        9"
+  }
+}

@@ -666,9 +666,16 @@
       ]
     },
     "HUD-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned native GUI asset hashes/dimensions and the obfuscated GuiIngame bytecode provenance/layout for hotbar, selection, crosshair, and full-health heart row. Source Java is absent from the JAR; the MCP name is documented as a mapping, with uq and a(FZII)V as the pinned native identifiers.",
+      "checks": [
+        "python3 tools/oracle/hud_audit.py → PASS: exact pinned JAR, both PNG payload hashes and 256x256 dimensions, uq class hash, method descriptor, and bytecode excerpts",
+        "python3 -m unittest tests.python.test_hud_audit -v → 5 PASS: valid audit, wrong JAR, missing GUI resource, altered layout evidence, malformed fixture",
+        "python3 tools/check.py → PASS: complete Python suite and locked offline Rust fmt/check/clippy/all-target/doc checks",
+        "Native layout evidence: frame (center-91,height-22; UV 0,0,182x22), selection (center-92+slot*20,height-23; UV 0,22,24x22), crosshair (center-7,height/2-7; 0,0,16x16), 10 full hearts at health 20 (center-91+8i,height-32; full UV 52,0,9x9) with damage blink inactive",
+        "Pinned source SHA-256 af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c; uq.class SHA-256 b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12; resources/gui SHA-256 e223bea0b5004a3b5497607c6d529daf840396526a46eff75c299364cf9dc795 and icons SHA-256 8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae616554124d6dac43",
+        "git diff --check → PASS; native JAR/assets and decompiled source are not committed"
+      ]
     },
     "HUD-001-C02": {
       "state": "pending",

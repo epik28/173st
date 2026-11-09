@@ -18,3 +18,12 @@ CHUNK-001: `src/ChunkOracle.java` reflection-вызов оригинальног
 `python3 tools/oracle/chunk_corpus.py` проверяет корпус и настоящий JAR из
 `paths.client_jar`; `--write` воспроизводит входы. Имена и хеши опубликованы в
 `tests/fixtures/chunk/provenance.md`; JAR и disassembly остаются вне Git.
+
+HUD-001: `python3 tools/oracle/hud_audit.py` verifies the pinned Beta 1.7.3
+client JAR, exact hashes and PNG dimensions for `gui/gui.png` and
+`gui/icons.png`, then checks the `uq.a(FZII)V` native HUD method and stored
+bytecode excerpts against `tests/fixtures/hud/audit.json`. The fixture records
+JAR/class provenance and hotbar, selected slot, crosshair, and full-health heart
+layout. Original assets and disassembly are not copied into Git. `GuiIngame` is
+the MCP name; the pinned JAR itself contains obfuscated class `uq` and no usable
+Java source file.

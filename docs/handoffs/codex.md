@@ -1275,3 +1275,41 @@ Xvfb viewer остановил pinned-world guard, поэтому новый в�
 Процент готовности: около24% (ITEMS-001 добавил примерно1 пункт предметного data
 слоя; flight interpolation сама по себе оценку не увеличивает). Push в GitHub
 отложен до30%, как указал пользователь.
+
+## HUD-001-C01 — native HUD resource/layout audit
+
+- Исходная ревизия: `49b90ab0ffe2495353b2f1d4deea2cae3231a970`.
+  Реализация выполнена только в `codex/verification`, без Rust/viewer изменений.
+- Модель исполнителя: gpt-6-luna, low. Координатор независимо указал obfuscated
+  class `uq`; далее проверены pinned bytecode, resources и native draw calls.
+- `tests/fixtures/hud/audit.json` фиксирует client JAR SHA-256
+  `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`, size
+  1,465,375; `uq.class` SHA-256
+  `b4b61c370315e1ed95b42a24a01112afd7c2d44e387e48adc5e801edd4578f12`.
+  Класс obfuscated (`uq extends ub`), его native render method — `a(FZII)V`;
+  `javap -p -s -c` подтверждает scaled-resolution construction, draw helper,
+  оба asset path и сохранённые offsets/UV operands. В архиве нет usable Java
+  source; `GuiIngame.renderGameOverlay` — MCP name, а не декомпилированное имя.
+- `gui/gui.png`: 14,210 bytes, SHA-256
+  `e223bea0b5004a3b5497607c6d529daf840396526a46eff75c299364cf9dc795`, 256×256.
+  `gui/icons.png`: 2,423 bytes, SHA-256
+  `8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae616554124d6dac43`, 256×256.
+- Поддержанные layout values из native `uq.a(FZII)V`: hotbar frame
+  `(w/2−91,h−22)`, gui UV `(0,0,182,22)`; selection
+  `(w/2−92+20s,h−23)`, UV `(0,22,24,22)`; crosshair
+  `(w/2−7,h/2−7)`, icons UV `(0,0,16,16)`. При health 20 рисуется 10
+  полных сердец: first `(w/2−91,h−32)`, pitch 8, background UV `(16,0,9,9)`,
+  full-heart UV `(52,0,9,9)` при неактивном damage blink. Это layout audit, не
+  pixel parity и не симуляция здоровья.
+- Файлы: `tools/oracle/hud_audit.py`, `tools/oracle/README.md`,
+  `tests/fixtures/hud/audit.json`, `tests/python/test_hud_audit.py`, свой status
+  и handoff. Assets, JAR и disassembly остались локальными/в памяти.
+- `python3 tools/oracle/hud_audit.py` → PASS; точный JAR/resource/class hash,
+  PNG dimensions, method descriptor и bytecode excerpts проверены. Пять тестов
+  включают валидный pinned audit, wrong JAR, missing resource, changed layout
+  evidence и malformed fixture. `python3 tools/check.py` → PASS: full Python
+  suite и locked offline Rust fmt/check/clippy/all-target/doc checks.
+  `git diff --check` → PASS.
+- Следующий шаг: A01 может реализовать только render-only HUD по исходному
+  контракту; C02 проверит код, порядок рисования и возможный visual smoke после
+  получения Agy snapshot. Новые Rust изменения этой карточкой не принимались.
