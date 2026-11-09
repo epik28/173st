@@ -1337,3 +1337,13 @@ Xvfb viewer остановил pinned-world guard, поэтому новый в�
   pixel-parity claim is made.
 - HUD adds roughly one point to graphics/UI: total estimate ≈25%. Push remains
   deferred until the user-requested 30% threshold.
+
+## HOTBAR-INPUT-001-C01 — native input audit, 2026-11-09
+
+Pinned client JAR SHA-256 remains `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c` (1,465,375 bytes). The audit pins class hashes for `net.minecraft.client.Minecraft` (`db99df969e5f30d01ad4424a4d63d3b1f4a11832055dd291e65d476cfa4c38b3`), `ix` (`03eb35aef64c71087942c5dc8b2849e9b47e9482c97be825895cfc2149b8e009`), `kv` (`fd62ebcc36e2f2a1428cb41b2f1f8ebd86fee9855ec1b7f7055ba307d6577102`), and `qb` (`4c1524aeb93b82f91517c5ed5a3dcce02c1b110a9d65b3db7089cfc8a37cd7aa`). MCP mappings are descriptive only; native identifiers/descriptors are authoritative: `Minecraft.k()V` event loop, `ix.b(I)V` inventory scroll, `kv.<init>(Minecraft,File)` default key setup.
+
+`Minecraft.k()V` routes each key-down event through a loop that compares LWJGL event keycodes 2..10 and assigns `ix.c` to 0..8. This selection is hardcoded, independent of configurable GameSettings bindings. The wheel path reads `Mouse.getEventDWheel()`, ignores zero, and invokes `ix.b(delta)` once per nonzero mouse event. `ix.b(I)V` clamps the delta to its sign, subtracts it from the selected index, and wraps to 0..8: positive means previous slot, negative means next. Thus a single +240 event is still one previous-slot step; two separate nonzero events make two steps. Native input is integer event based and provides no line/pixel/fractional wheel semantics; those conversions remain a viewer adapter policy.
+
+Also recorded bytecode defaults from `kv`: W/A/S/D, Space, E, Q, T, F, Left Shift. The JAR and class hashes, native method descriptors, behavior examples, and disassembly excerpts are in `tests/fixtures/hotbar/audit.json`. Repeatable verifier: `tools/oracle/hotbar_audit.py`; mutation tests: `tests/python/test_hotbar_audit.py`. No viewer Rust, native JAR, decompiled sources, or user save changed.
+
+Checks: `python3 tools/oracle/hotbar_audit.py` → PASS; `python3 -m unittest tests.python.test_hotbar_audit -v` → 4 PASS (wrong JAR, mutated behavior/provenance, malformed fixture). Next is HOTBAR-INPUT-001-A01; no C02 work started. Model: gpt-6-luna, low; no delegated subagents or direct Rust implementation.

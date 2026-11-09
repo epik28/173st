@@ -690,9 +690,15 @@
       ]
     },
     "HOTBAR-INPUT-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned native hotbar input audit: key-down codes 2..10 directly select slots 0..8; each nonzero integer wheel event produces one sign-directed ix.b(I)V step with modulo-9 wrapping. Default movement/gameplay bindings are bytecode-pinned.",
+      "checks": [
+        "python3 tools/oracle/hotbar_audit.py → PASS: pinned Beta 1.7.3 JAR and four class hashes, native method descriptors and bytecode evidence verified",
+        "python3 -m unittest tests.python.test_hotbar_audit -v → PASS: 4 tests, including wrong JAR, altered behavior/class/method/bytecode/default-binding evidence, and malformed fixture",
+        "Wheel: positive delta selects previous slot; negative selects next; zero is ignored; one event is one slot regardless of delta magnitude; wrap is within 0..8",
+        "Number selection is hardcoded in Minecraft.k()V, not a configurable GameSettings binding; relevant defaults are recorded from kv constructor",
+        "Native accepts integer LWJGL wheel events only; line/pixel/fractional conversion in winit remains adapter policy, not directly proven native parity"
+      ]
     },
     "HOTBAR-INPUT-001-C02": {
       "state": "pending",
