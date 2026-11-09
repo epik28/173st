@@ -846,6 +846,32 @@
       ]
     },
     {
+      "id": "BLOCK-PLACEMENT-002-C01",
+      "owner": "codex",
+      "title": "Capture native placement-face and lighting cases",
+      "card": "docs/tasks/BLOCK-PLACEMENT-002.md",
+      "depends_on": []
+    },
+    {
+      "id": "BLOCK-PLACEMENT-002-A01",
+      "owner": "agy",
+      "title": "Implement verified native placement behavior",
+      "card": "docs/tasks/BLOCK-PLACEMENT-002.md",
+      "depends_on": [
+        "BLOCK-PLACEMENT-002-C01"
+      ]
+    },
+    {
+      "id": "BLOCK-PLACEMENT-002-C02",
+      "owner": "codex",
+      "title": "Accept native placement and lighting cases",
+      "card": "docs/tasks/BLOCK-PLACEMENT-002.md",
+      "depends_on": [
+        "BLOCK-PLACEMENT-002-C01",
+        "BLOCK-PLACEMENT-002-A01"
+      ]
+    },
+    {
       "id": "FLIGHT-SMOOTH-001-A01",
       "owner": "agy",
       "title": "Interpolate debug-flight camera between fixed ticks",

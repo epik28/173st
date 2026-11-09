@@ -345,6 +345,11 @@
         "Viewer edits are in-memory only. C01 has no break/place oracle, so action behavior is unit-tested and no native action parity is claimed. Strict fixture inputs and runner enforce the pinned 17-row order; the probe itself parses bounded input and computes output from row values, not case IDs."
       ]
     },
+    "BLOCK-PLACEMENT-002-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "FLIGHT-SMOOTH-001-A01": {
       "state": "done",
       "summary": "Debug-flight сохраняет fixed 20 Hz позицию симуляции и сглаживает только отрисываемое перемещение по accumulator alpha. Вход/выход, reset и focus loss синхронизируют оба render samples; mouse yaw/pitch остаются немедленными.",

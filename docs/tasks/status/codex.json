@@ -644,6 +644,16 @@
         "Read-only integration fast-forwarded agy/development snapshot 170033d into main; estimate updated from about 21% to about 23%; push deferred until 30%."
       ]
     },
+    "BLOCK-PLACEMENT-002-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "BLOCK-PLACEMENT-002-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "FLIGHT-SMOOTH-001-C03": {
       "state": "done",
       "summary": "Принят Agy commit 7ee4df1: debug-flight сохраняет fixed 20 Hz движение, но камера рендерится с interpolation alpha; управление/мышь не изменены. Нативный flight parity не заявляется.",
