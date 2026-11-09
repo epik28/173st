@@ -183,9 +183,13 @@ def actual_window(window):
 
 
 def set_window_size(window, width, height):
+    window_id = int(window["id"], 16)
     with XSession() as x11:
-        x11.lib.XMoveResizeWindow(x11.display, int(window["id"], 16), 0, 0, width, height)
+        x11.lib.XMoveResizeWindow(x11.display, window_id, 0, 0, width, height)
+        x11.lib.XRaiseWindow(x11.display, window_id)
+        x11.lib.XSetInputFocus(x11.display, window_id, 2, 0)
         x11.lib.XFlush(x11.display)
+        x11.lib.XSync(x11.display, 0)
         time.sleep(2.0)
         actual = actual_window(window)
         if actual != (width, height):
@@ -207,7 +211,10 @@ class XSession:
             raise ValueError("cannot connect to DISPLAY")
         self.lib.XMoveResizeWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int,
                                                ctypes.c_int, ctypes.c_uint, ctypes.c_uint]
+        self.lib.XRaiseWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        self.lib.XSetInputFocus.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
         self.lib.XFlush.argtypes = [ctypes.c_void_p]
+        self.lib.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
         self.xtst.XTestFakeMotionEvent.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
                                                    ctypes.c_int, ctypes.c_ulong]
         self.xtst.XTestFakeButtonEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int,
@@ -216,13 +223,22 @@ class XSession:
         self.xtst.XTestFakeButtonEvent.restype = ctypes.c_int
         return self
 
-    def click(self, x, y):
+    def focus_and_click(self, window_id, x, y):
+        self.lib.XRaiseWindow(self.display, window_id)
+        self.lib.XSetInputFocus(self.display, window_id, 2, 0)
+        self.lib.XSync(self.display, 0)
+        time.sleep(0.5)
         if not self.xtst.XTestFakeMotionEvent(self.display, -1, x, y, 0):
             raise ValueError("XTest could not move pointer")
+        self.lib.XFlush(self.display)
+        time.sleep(0.15)
         if not self.xtst.XTestFakeButtonEvent(self.display, 1, 1, 0):
             raise ValueError("XTest could not press mouse button")
+        self.lib.XFlush(self.display)
+        time.sleep(0.15)
         self.xtst.XTestFakeButtonEvent(self.display, 1, 0, 0)
         self.lib.XFlush(self.display)
+        self.lib.XSync(self.display, 0)
 
     def __exit__(self, *_exc):
         if self.display:
@@ -279,10 +295,9 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
         # Give the display and first screen frame time to initialize. This is
         # not a claim of a fixed simulation timestamp; Splash text is random.
         time.sleep(6.0)
-        if profile["width"] != initial["width"] or profile["height"] != initial["height"]:
-            actual = set_window_size(initial, profile["width"], profile["height"])
-        else:
-            actual = actual_window(initial)
+        # Place the client at the root origin for both profiles so XTest root
+        # coordinates map directly to framebuffer coordinates.
+        actual = set_window_size(initial, profile["width"], profile["height"])
         profile_result["initial_window"] = initial
         profile_result["actual_viewport_window"] = {"width": actual[0], "height": actual[1], "window_id": initial["id"]}
         main_path = output_dir / f"{profile['name']}-main.png"
@@ -297,7 +312,7 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
         physical_x = round(gui_x * profile["width"] / profile["scaled_width"])
         physical_y = round(gui_y * profile["height"] / profile["scaled_height"])
         with XSession() as x11:
-            x11.click(physical_x, physical_y)
+            x11.focus_and_click(int(initial["id"], 16), physical_x, physical_y)
         time.sleep(4.0)
         empty_path = output_dir / f"{profile['name']}-world-list-empty.png"
         capture_window(initial["id"], empty_path)
@@ -306,6 +321,8 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
         frames_differ = digest(empty_path) != digest(main_path)
         profile_result["world_list_frame_candidate"] = {"path": str(empty_path), "sha256": digest(empty_path), "bytes": empty_path.stat().st_size}
         profile_result["singleplayer_click"] = {"physical_xy": [physical_x, physical_y], "scaled_gui_xy": [gui_x, gui_y],
+                                                  "focus_raised": True, "focus_set": True,
+                                                  "button_down_ms": 150, "button_up_flushed": True,
                                                   "frames_differ": frames_differ,
                                                   "transition_verified": False,
                                                   "note": "Frame difference is only a heuristic; coordinator must inspect the PNG to verify the world-list screen."}
