@@ -441,7 +441,7 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
             profile_result["world_row_click"] = {"row_index": 0, "row_count": row_count,
                                                   "native_first_row_top_scaled": list_row_top,
                                                   "scaled_gui_xy": [list_x, list_y],
-                                                  "physical_xy": list_xy,
+                                                  "physical_xy": select_xy,
                                                   "focus_raised": True, "focus_set": True,
                                                   "button_down_ms": 150, "button_up_flushed": True}
 
