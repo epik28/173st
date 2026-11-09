@@ -1115,6 +1115,59 @@
         "WORLD-SELECT-001-A01",
         "WORLD-SELECT-001-A02"
       ]
+    },
+    {
+      "id": "LIGHT-UPDATE-002-C01",
+      "owner": "codex",
+      "title": "Investigate edit shadow regression native contract",
+      "card": "docs/tasks/LIGHT-UPDATE-002.md",
+      "depends_on": []
+    },
+    {
+      "id": "LIGHT-UPDATE-002-A01",
+      "owner": "agy",
+      "title": "Investigate edit shadow regression implementation",
+      "card": "docs/tasks/LIGHT-UPDATE-002.md",
+      "depends_on": [
+        "LIGHT-UPDATE-002-C01"
+      ]
+    },
+    {
+      "id": "LIGHT-UPDATE-002-C02",
+      "owner": "codex",
+      "title": "Investigate edit shadow regression acceptance",
+      "card": "docs/tasks/LIGHT-UPDATE-002.md",
+      "depends_on": [
+        "LIGHT-UPDATE-002-C01",
+        "LIGHT-UPDATE-002-A01"
+      ]
+    },
+    {
+      "id": "MENU-PARITY-001-C01",
+      "owner": "codex",
+      "title": "Match original menu presentation native contract",
+      "card": "docs/tasks/MENU-PARITY-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "MENU-PARITY-001-A01",
+      "owner": "agy",
+      "title": "Match original menu presentation implementation",
+      "card": "docs/tasks/MENU-PARITY-001.md",
+      "depends_on": [
+        "MENU-PARITY-001-C01",
+        "WORLD-SELECT-001-C02"
+      ]
+    },
+    {
+      "id": "MENU-PARITY-001-C02",
+      "owner": "codex",
+      "title": "Match original menu presentation acceptance",
+      "card": "docs/tasks/MENU-PARITY-001.md",
+      "depends_on": [
+        "MENU-PARITY-001-C01",
+        "MENU-PARITY-001-A01"
+      ]
     }
   ]
 }

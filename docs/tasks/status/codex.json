@@ -906,6 +906,26 @@
         "Xvfb launch was inconclusive in the final run: the wrapper failed to open its X server; no screenshot or visual pass is claimed",
         "A02 remains in_progress on agy/development at 05e8aec; no adjacent worktree or status file was modified"
       ]
+    },
+    "LIGHT-UPDATE-002-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LIGHT-UPDATE-002-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MENU-PARITY-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MENU-PARITY-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
