@@ -456,9 +456,14 @@
       ]
     },
     "WORLD-SELECT-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен read-only catalog существующих Prism saves: bounded level.dat metadata, deterministic last-played/folder ordering, disabled reasons for malformed or incomplete worlds, dynamic spawn-centered 5x5 McRegion validation включая отрицательные координаты, chooser Select/Activate/Cancel state и fresh hash-pinned snapshot с проверками до/после копирования.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --lib → PASS: 19 tests, включая chooser actions и negative-coordinate chunk window",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings → PASS",
+        "cargo fmt --all; git diff --check → PASS",
+        "Snapshot copies only pinned regular files, writes loader markers/manifest, and rejects source changes before/after copy; source saves are never written"
+      ]
     }
   }
 }

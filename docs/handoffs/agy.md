@@ -986,3 +986,20 @@ native fixtures и oracle files не изменялись.
 propagation пока не реализованы полностью; parity заявлена только для
 bounded C01 probes. Emissive transitions и persistence остаются вне этого
 пакета.
+
+### WORLD-SELECT-001-A01 — read-only world chooser
+
+Добавлен `beta_viewer::world_select`: bounded discovery immediate Prism save
+directories, level.dat parsing через `beta_core::world`, deterministic sorting,
+disabled launch reasons, spawn-centered dynamic 5×5 chunk/region validation,
+negative coordinates, Select/Activate/Cancel state и fresh artifact snapshots.
+Snapshot verifies every regular non-symlink source pin before and after copying,
+checks copied hashes, and writes the existing loader markers/manifest. Source
+saves are never written.
+
+Commit: see the A01 commit below. Checks: `cargo test --locked --offline -p
+beta-viewer --lib` → 19 PASS; `cargo clippy --locked --offline -p beta-viewer
+--all-targets -- -D warnings` → PASS; `cargo fmt --all`; `git diff --check` →
+PASS. Limitations: the current graphical event loop remains on the historical
+preview startup path; chooser APIs and snapshot boundary are implemented and
+ready for Codex C02 integration review.
