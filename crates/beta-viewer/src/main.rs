@@ -329,6 +329,7 @@ fn build_chunk_mesh_cache(
     Ok((opaque, fluids))
 }
 
+#[allow(unreachable_code)]
 fn copy_local_world()
 -> Result<(std::path::PathBuf, Vec<loader::PreviewSourcePin>), Box<dyn std::error::Error>> {
     const SOURCE_NAMES: [&str; 5] = [
@@ -356,6 +357,34 @@ fn copy_local_world()
         }
     }
     let prism = prism.ok_or("config requires paths.prism_instance")?;
+    // World selection is intentionally completed before any renderer/window is
+    // created. Discovery is deterministic; only a validated disposable copy
+    // reaches the existing bounded scene loader.
+    let saves_root = std::path::PathBuf::from(&prism).join("minecraft/saves");
+    let catalog = beta_viewer::world_select::discover(&saves_root)?;
+    let selected = catalog
+        .iter()
+        .find(|world| world.launch_reason.is_none())
+        .ok_or("world chooser: no launchable existing saves")?;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let snapshot = beta_viewer::world_select::snapshot(
+        selected,
+        &saves_root,
+        &root.join("artifacts").join("viewer"),
+    )?;
+    let pins = selected
+        .pins
+        .iter()
+        .map(|pin| loader::PreviewSourcePin {
+            name: pin.name.clone(),
+            size: pin.size as usize,
+            sha256: pin.sha256.clone(),
+        })
+        .collect();
+    return Ok((snapshot, pins));
+
+    // Historical fixed-manifest path retained below for source compatibility
+    // and parity tooling; normal viewer startup returns through the chooser.
     let source_world = std::path::PathBuf::from(prism).join("minecraft/saves/New World");
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let manifest_path = local_world_manifest_path(&root)?;

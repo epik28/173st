@@ -131,6 +131,10 @@ fn required_chunks(spawn: [i32; 3]) -> Vec<(i32, i32)> {
 }
 
 pub fn discover(root: &Path) -> Result<Vec<WorldEntry>, SelectError> {
+    let initial = fs::symlink_metadata(root)?;
+    if initial.file_type().is_symlink() || !initial.is_dir() {
+        return Err(SelectError::Invalid("saves root is unsafe".into()));
+    }
     let root = fs::canonicalize(root)?;
     let meta = fs::symlink_metadata(&root)?;
     if !meta.is_dir() || meta.file_type().is_symlink() {
@@ -247,8 +251,21 @@ pub fn snapshot(
     if entry.launch_reason.is_some() {
         return Err(SelectError::Invalid("world is not launchable".into()));
     }
-    let source = fs::canonicalize(saves_root)?.join(&entry.folder);
+    let saves_meta = fs::symlink_metadata(saves_root)?;
+    if saves_meta.file_type().is_symlink() || !saves_meta.is_dir() {
+        return Err(SelectError::Invalid("saves root is unsafe".into()));
+    }
     let root = fs::canonicalize(saves_root)?;
+    let source_raw = root.join(&entry.folder);
+    let source_meta = fs::symlink_metadata(&source_raw)?;
+    if source_meta.file_type().is_symlink() || !source_meta.is_dir() {
+        return Err(SelectError::Invalid("save directory is unsafe".into()));
+    }
+    let region_meta = fs::symlink_metadata(source_raw.join("region"))?;
+    if region_meta.file_type().is_symlink() || !region_meta.is_dir() {
+        return Err(SelectError::Invalid("region directory is unsafe".into()));
+    }
+    let source = fs::canonicalize(source_raw)?;
     if !source.starts_with(&root) {
         return Err(SelectError::Invalid("save escapes saves root".into()));
     }
