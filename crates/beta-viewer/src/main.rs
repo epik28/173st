@@ -1100,7 +1100,15 @@ impl App {
                 })],
             }),
             primitive: Default::default(),
-            depth_stencil: None,
+            // HUD is drawn in the same color pass as the world. Keep an
+            // attachment-compatible depth state but bypass world occlusion.
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
             multisample: Default::default(),
             multiview_mask: None,
             cache: None,

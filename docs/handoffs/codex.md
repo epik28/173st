@@ -1419,5 +1419,16 @@ invalid stacks are skipped and counted. It does not load health, selected slot,
 armor, unsupported item types, stack labels, or any mutation/persistence.
 Regression tests cover supported stacks, unsupported IDs, missing/wrong list,
 and armor slot exclusion. Viewer tests: 32 main tests plus 17 library tests; two
-saved-player cases included. Clippy and fmt pass. Full `tools/check.py` remains
-the final acceptance check before push.
+saved-player cases included. Clippy and fmt pass. Full `tools/check.py` passed
+before the latest viewer launch.
+
+## HUD render-pass depth compatibility, 2026-11-09
+
+User reported a wgpu validation panic on the first rendered frame: the HUD
+pipeline had no depth state, while the shared world render pass binds a
+`Depth32Float` attachment. The HUD pipeline now declares a matching
+`Depth32Float` state with depth writes disabled and `CompareFunction::Always`,
+so screen-space elements overlay the world without depth occlusion. Viewer tests,
+fmt and clippy pass after this change. A fresh Xvfb screenshot was unavailable:
+the local X server again could not be opened, so GPU frame execution should be
+confirmed from the user's compositor. No save or source hash changed.
