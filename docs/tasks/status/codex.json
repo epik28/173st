@@ -714,9 +714,13 @@
       ]
     },
     "INVENTORY-UI-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned native inventory UI audit: exact resource/class hashes, E-open/E-ignored/Escape-close routing, centered panel and 36 slot geometry, plus runtime item atlas indices for IDs 1, 3, 332, 267.",
+      "checks": [
+        "python3 tools/oracle/inventory_ui_audit.py → PASS; original classes loaded from pinned JAR, resource bytes/dimensions and javap evidence verified",
+        "python3 -m unittest tests.python.test_inventory_ui_audit -v → 4 PASS, including wrong JAR and altered/removed fixture evidence rejection",
+        "Python-only py_compile and git diff --check → PASS; original JAR/resources and world remain read-only; no PNGs/decompiled classes committed"
+      ]
     },
     "INVENTORY-UI-001-C02": {
       "state": "pending",
