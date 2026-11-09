@@ -449,6 +449,16 @@
       "checks": []
     },
     "WORLD-SELECT-001-A01": {
+      "state": "done",
+      "summary": "Added the read-only world catalog and snapshot API: bounded metadata discovery, deterministic sorting, disabled invalid entries, dynamic 5×5 McRegion validation including negative coordinates, and hash-pinned disposable snapshots.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --lib → PASS: 19 tests, including chooser state and negative-coordinate region window",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings → PASS; cargo fmt --all; git diff --check → PASS",
+        "Snapshots verify source pins before/after copying and copied hashes; source saves remain read-only",
+        "Graphical chooser and selected-world startup are explicitly deferred to WORLD-SELECT-001-A02"
+      ]
+    },
+    "WORLD-SELECT-001-A02": {
       "state": "pending",
       "summary": "",
       "checks": []

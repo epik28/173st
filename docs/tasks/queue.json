@@ -1097,13 +1097,23 @@
       ]
     },
     {
+      "id": "WORLD-SELECT-001-A02",
+      "owner": "agy",
+      "title": "Integrate visible chooser and dynamic selected-world loading",
+      "card": "docs/tasks/WORLD-SELECT-001.md",
+      "depends_on": [
+        "WORLD-SELECT-001-A01"
+      ]
+    },
+    {
       "id": "WORLD-SELECT-001-C02",
       "owner": "codex",
       "title": "Accept selected-world preview flow",
       "card": "docs/tasks/WORLD-SELECT-001.md",
       "depends_on": [
         "WORLD-SELECT-001-C01",
-        "WORLD-SELECT-001-A01"
+        "WORLD-SELECT-001-A01",
+        "WORLD-SELECT-001-A02"
       ]
     }
   ]
