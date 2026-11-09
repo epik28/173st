@@ -1767,3 +1767,34 @@ Rust all-target and doc tests PASS; native material/menu/world-selector audits
 also pass in their stated scopes. Read-only final viewer smoke and build pass.
 WORLD-SELECT adds about1 interface point, giving **≈36%**; GitHub push remains
 deferred to the next5–10 point batch (around40%).
+
+## Full-domain light diagnostics
+
+Coordinator added `crates/beta-core/examples/light_snapshot_probe.rs`, a bounded
+stdin diagnostic over the independent V2 corpus from worker `f0dcc3e`
+(integrated `8d010b7`). The native fixture contains 44806 rows /2769192 bytes;
+SHA-256 `d12c5ba682813944647dbe3ac74e7d61235684d122cf40e8d9bc5440b78d8222`.
+Each step starts from the preceding native snapshot and compares all294912
+cells, separately counting light, ID and metadata differences. It does not
+compare Rust height maps, GPU frames or accumulated Rust state across steps.
+
+Command: `cargo run --quiet --locked --offline -p beta-core --example
+light_snapshot_probe < tests/fixtures/light_material/native_edits_v2.tsv`.
+The actual run exited1, with reports in
+`artifacts/light-full-state-comparison.tsv` and `.log`:
+
+| Case/phase | Light mismatches | ID | Metadata |
+| --- | ---: | ---: | ---: |
+| canopy place | 0 | 0 | 0 |
+| canopy remove | 0 | 0 | 12 |
+| water place/remove (each) | 0 | 0 | 0 |
+| leaf place | 2107 | 0 | 0 |
+| leaf remove | 0 | 0 | 0 |
+| glowstone edge place | 6195 | 0 | 0 |
+| glowstone edge remove | 3852 | 0 | 0 |
+
+This confirms remaining propagation defects beyond the accepted probes;
+it is explicitly a failing diagnostic, not a passed parity suite. Some native
+glowstone differences also affect y0 beyond the submitted local scan. The
+reported user camera/edit sequence is still unavailable, so no exact screenshot
+fix is claimed. No readiness point is added for this investigation.
