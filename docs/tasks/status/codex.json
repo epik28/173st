@@ -873,9 +873,16 @@
       ]
     },
     "LIGHT-UPDATE-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted bounded in-memory relighting against every queried C01 state for five native scenarios. The implementation reports sorted light deltas/dirty chunks, preserves atomic failure, and skips columns whose native radius-one chunk footprint is incomplete. General native queue and height-map propagation remain outside the accepted claim.",
+      "checks": [
+        "python3 tools/oracle/light_update_audit.py --jar ../.local/minecraft/client-b1.7.3.jar → PASS: two fresh captures, 2,322 rows, output SHA-256 effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb",
+        "cargo test --locked --offline -p beta-core --test light_update_fixture → PASS: four test functions cover all five C01 cases, sampled block/sky/combined values, edge boundary, atomic failures and coordinate extremes",
+        "cargo test --locked --offline -p beta-core --lib block::tests → PASS: 11 tests; cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all → PASS",
+        "python3 tools/check.py → PASS: full Python/Rust workspace check, formatting, clippy, all-target and doc tests",
+        "Read-only source-world verification: level.dat and all four pinned region files match artifacts/user-world-postplay.sha256; no world file, native fixture or oracle was modified",
+        "Native LIFO/coalescing region queue and general height-map propagation are not fully modeled; claims are restricted to bounded C01 probes. No GUI screenshot, latency benchmark, emissions, fluid lighting or persistence claim."
+      ]
     }
   }
 }

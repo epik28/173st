@@ -1,5 +1,29 @@
 # Отчёт Codex
 
+## LIGHT-UPDATE-001-C02 — принята bounded relight реализация
+
+- Принят agy snapshot `73ce3121ad09d207e7ef0c7df8ea964febd0465b` после
+  независимого просмотра Rust diff, fixture тестов и bytecode-аудита `fd/lm/st`.
+  Повторный native audit прошёл: два запуска, 2,322 строки, SHA-256 выхода
+  `effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb`.
+- `cargo test --locked --offline -p beta-core --test light_update_fixture` —
+  4/4 тестовых функции прошли и сверяют все пять C01 сценариев, включая
+  `edge-x31`; отдельный regression проверяет native skip при отсутствующем
+  диагональном chunk footprint. `cargo test --locked --offline -p beta-core
+  --lib block::tests` — 11/11. `cargo clippy --locked --offline -p beta-core
+  --all-targets -- -D warnings`, `cargo fmt --all`, `git diff --check` и
+  полный `python3 tools/check.py` прошли.
+- Проверено read-only, что `level.dat` и четыре pinned `.mcr` из
+  `/home/andrew/.local/share/PrismLauncher/instances/b1.7.3/minecraft/saves/New World`
+  точно совпадают с `artifacts/user-world-postplay.sha256`. Исходный мир,
+  native fixture и oracle не менялись.
+- Принимается только bounded C01 parity: native LIFO/coalescing queue и общая
+  height-map propagation не реализованы полностью; также вне scope emission
+  transitions, fluid lighting, persistence и world simulation. GUI screenshot
+  и latency/FPS benchmark не получены.
+- Оценка полной игры поднята с ≈34% до ≈35%. Интервал от 30% достиг 5 пунктов;
+  после интеграции проверенного snapshot публикуется обновлённый main.
+
 ## LIGHT-UPDATE-001-C01 — native edit and light-update oracle (accepted)
 
 The initial `fd.d` fixture was discarded. The accepted synthetic-only oracle
