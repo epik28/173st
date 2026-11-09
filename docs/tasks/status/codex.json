@@ -873,6 +873,56 @@
       ]
     },
     "LIGHT-UPDATE-001-C02": {
+      "state": "done",
+      "summary": "Accepted bounded in-memory relighting against every queried C01 state for five native scenarios. The implementation reports sorted light deltas/dirty chunks, preserves atomic failure, and skips columns whose native radius-one chunk footprint is incomplete. General native queue and height-map propagation remain outside the accepted claim.",
+      "checks": [
+        "python3 tools/oracle/light_update_audit.py --jar ../.local/minecraft/client-b1.7.3.jar → PASS: two fresh captures, 2,322 rows, output SHA-256 effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb",
+        "cargo test --locked --offline -p beta-core --test light_update_fixture → PASS: four test functions cover all five C01 cases, sampled block/sky/combined values, edge boundary, atomic failures and coordinate extremes",
+        "cargo test --locked --offline -p beta-core --lib block::tests → PASS: 11 tests; cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all → PASS",
+        "python3 tools/check.py → PASS: full Python/Rust workspace check, formatting, clippy, all-target and doc tests",
+        "Read-only source-world verification: level.dat and all four pinned region files match artifacts/user-world-postplay.sha256; no world file, native fixture or oracle was modified",
+        "Native LIFO/coalescing region queue and general height-map propagation are not fully modeled; claims are restricted to bounded C01 probes. No GUI screenshot, latency benchmark, emissions, fluid lighting or persistence claim."
+      ]
+    },
+    "WORLD-SELECT-001-C01": {
+      "state": "done",
+      "summary": "Pinned native Beta 1.7.3 Singleplayer/world-select behavior for fu/rq/mg/vb/tq, including 36 px rows, sorting, unset selection, activation, cancel-to-parent and loading guard. Audit is read-only and excludes save mutations.",
+      "checks": [
+        "python3 tools/oracle/world_select_audit.py → PASS; pinned JAR and five class hashes, native bytecode facts, mutation boundary",
+        "python3 -m unittest tests.python.test_world_select_audit -v → PASS: 1 test",
+        "git diff --check; queue/status JSON validation → PASS"
+      ]
+    },
+    "WORLD-SELECT-001-C02": {
+      "state": "pending",
+      "summary": "Review work on codex/verification repaired the chooser presentation and selection contract, but the card remains pending until the A02 implementation is integrated from agy/development and the visible flow is verified there.",
+      "checks": [
+        "python3 tools/oracle/world_select_audit.py → PASS; native menu/list/select/cancel/loading guard provenance pinned",
+        "python3 -m unittest tests.python.test_world_select_audit -v → PASS: 1 test",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 24 library + 51 viewer tests and examples",
+        "cargo test --locked --offline -p beta-core --test light_update_fixture → PASS: 4 tests; accepted main code synchronized into the verification branch",
+        "python3 tools/check.py → PASS: 222 Python tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc tests",
+        "Read-only user-world manifest verification → PASS: 6 source files match size and SHA-256; viewer smoke did not select or copy a world",
+        "Xvfb launch was inconclusive in the final run: the wrapper failed to open its X server; no screenshot or visual pass is claimed",
+        "A02 remains in_progress on agy/development at 05e8aec; no adjacent worktree or status file was modified"
+      ]
+    },
+    "LIGHT-UPDATE-002-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LIGHT-UPDATE-002-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MENU-PARITY-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "MENU-PARITY-001-C02": {
       "state": "pending",
       "summary": "",
       "checks": []

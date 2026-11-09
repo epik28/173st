@@ -6,7 +6,8 @@
 Наличие пункта в этом документе не означает готовность функции.
 
 RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001, VIEW-001,
-MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT и FLUID-001 приняты.
+MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT, FLUID-001 и
+bounded LIGHT-UPDATE-001 приняты.
 Viewer показывает воду ID 8/9 отдельным прозрачным проходом; simulation и lava
 остаются за границами поддержки. PLAYER-SAVE-001 добавил ограниченное чтение
 поддержанных предметов из `Player.Inventory`, но не изменение или сохранение.
@@ -95,7 +96,7 @@ NBT и Region сначала читают данные. Запись вводи�
 | 4.5 HOTBAR-ITEMS-001 — принято | Иконки сохранённых стэков в HUD и нативные count labels | Pinned bb/sj audit, exact item data parity, atlas/UV/count geometry tests и полный workspace check | Только поддержанные стеки; действия с предметами покрывает следующий пакет |
 | 4.6 INVENTORY-INTERACTION-001 — принято | Левый/правый клик по 36 main slots, курсорный стек, перенос/слияние/обмен | 23 ordered native states; Rust сравнивает cursor и все slots в 14 click states; полный workspace check | Изменения только в памяти; viewer возвращает курсорный стек при закрытии; native world drop, shift-click и persistence отложены |
 | 4.7 HEALTH-001 — принято | Saved `Player.Health` → full/half/empty hearts в HUD | `ls` NBT read/write audit, native `uq` heart branch/UV evidence, saved-player and ordered HUD vertex tests, full workspace check | Сохранённое здоровье только отображается; damage, healing, regen, hurt blink и death/respawn отложены |
-| 4.8 LIGHT-UPDATE-001 — подготовлен | Native-backed block/sky relight after in-memory break/place | Synthetic native edit/light corpus, exact nibble queries, atomic viewer edit tests, full workspace check | Only the bounded loaded-scene cases captured by C01; persistence, fluids, dynamic light and general world simulation are excluded |
+| 4.8 LIGHT-UPDATE-001 — принят в bounded scope | Block/sky relight after in-memory break/place | Five synthetic native scenes, exact sampled nibbles, unloaded-edge and diagonal-footprint tests, atomic viewer edits, full workspace check | Only the bounded C01 probes are accepted; native LIFO/coalescing queue, general height-map propagation, persistence, fluid light and world simulation are excluded |
 | 4.5 VIEW-LOCAL-001 — принято | Hash-pinned read-only preview обновлённой локальной 5×5 сцены без изменения исторических parity fixtures | Local manifest/path checks; two independent native captures; exact Rust preview probe; full workspace checks; source hashes before/after | World chooser, произвольные координаты, новые миры и полная визуальная проверка ещё не реализованы |
 | 4.4 SURVIVAL-001 — план | Рецепты и печь, инструменты, прочность, здоровье, урон, смерть/respawn | Таблицы именно Beta, тайминги и последовательности действий | Можно добыть ресурс, сделать инструмент, приготовить предмет, получить урон и восстановить игру |
 | 4.5 SAVE-001 — план | Запись изменений в отдельную копию мира, сохранение игрока, повторная загрузка | Чтение Rust-сохранения оригиналом и наоборот; неизвестные данные и аварийные записи | Сценарий продолжается после перезапуска обеих реализаций без потери поддержанных данных |
@@ -143,12 +144,23 @@ VIEW-001 и MATH-001 приняты. Следом готовим JAVA-001/GAME-O
 
 ## Приоритетные дефекты графики после MOVE-001
 
+- **LIGHT-UPDATE-002 — открыт, высокий приоритет:** пользовательский кадр
+  2026-11-09 показывает лишнее затемнение рядом с блоками после разрушения.
+  [Контракт](tasks/LIGHT-UPDATE-002.md): сначала native/Rust repro и данные
+  света, затем исправление и парные кадры. Пять принятых probes предыдущего
+  relight не закрывают этот дефект.
+- **MENU-PARITY-001 — запланирован:** после функционального WORLD-SELECT-001
+  привести временный chooser к оригинальным ресурсам, шрифту, геометрии,
+  GUI scale и поведению. См. [задачу](tasks/MENU-PARITY-001.md).
+  Эти два follow-up пока в backlog; в активной queue.json их нет.
+
 - UV-001 — принят: user screenshot 2026-11-08, исправлены faces1/3;
   все6 faces проверены по actual native Tessellator buffer.
 - COLOR-001 — принят: exact scalar climate + grass/foliage palettes.
 - LEAF-001 — принят: biome tint, листья/alpha-test и native encoded vertex colors.
 - LIGHT-001 — принят: native scalar saved-light arithmetic, clear-weather sun и static saved-time viewer.
-  Динамическое распространение света остаётся будущим LIGHT-UPDATE-001.
+  Bounded edit relighting принят в LIGHT-UPDATE-001; общая dynamic propagation
+  и height-map/region-queue parity остаются будущей работой.
   Не смешивать эти дефекты с UV-ориентацией; каждый имеет отдельную приёмку.
 - FLUID-001 — принят: native IDs 8/9 geometry, raw UV/color parity для 44 сцен и отдельный прозрачный viewer pass.
   Не заявляются lava, water ticks/flow simulation, сортировка перекрывающейся прозрачности или pixel parity.

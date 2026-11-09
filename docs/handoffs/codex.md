@@ -1,5 +1,29 @@
 # Отчёт Codex
 
+## LIGHT-UPDATE-001-C02 — принята bounded relight реализация
+
+- Принят agy snapshot `73ce3121ad09d207e7ef0c7df8ea964febd0465b` после
+  независимого просмотра Rust diff, fixture тестов и bytecode-аудита `fd/lm/st`.
+  Повторный native audit прошёл: два запуска, 2,322 строки, SHA-256 выхода
+  `effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb`.
+- `cargo test --locked --offline -p beta-core --test light_update_fixture` —
+  4/4 тестовых функции прошли и сверяют все пять C01 сценариев, включая
+  `edge-x31`; отдельный regression проверяет native skip при отсутствующем
+  диагональном chunk footprint. `cargo test --locked --offline -p beta-core
+  --lib block::tests` — 11/11. `cargo clippy --locked --offline -p beta-core
+  --all-targets -- -D warnings`, `cargo fmt --all`, `git diff --check` и
+  полный `python3 tools/check.py` прошли.
+- Проверено read-only, что `level.dat` и четыре pinned `.mcr` из
+  `/home/andrew/.local/share/PrismLauncher/instances/b1.7.3/minecraft/saves/New World`
+  точно совпадают с `artifacts/user-world-postplay.sha256`. Исходный мир,
+  native fixture и oracle не менялись.
+- Принимается только bounded C01 parity: native LIFO/coalescing queue и общая
+  height-map propagation не реализованы полностью; также вне scope emission
+  transitions, fluid lighting, persistence и world simulation. GUI screenshot
+  и latency/FPS benchmark не получены.
+- Оценка полной игры поднята с ≈34% до ≈35%. Интервал от 30% достиг 5 пунктов;
+  после интеграции проверенного snapshot публикуется обновлённый main.
+
 ## LIGHT-UPDATE-001-C01 — native edit and light-update oracle (accepted)
 
 The initial `fd.d` fixture was discarded. The accepted synthetic-only oracle
@@ -1664,3 +1688,41 @@ candidate with `MAX_RELIGHT_CELLS`, then publishes block state, duplicate chunk
 data, light, meshes and fluid caches in one transaction. Emission transitions,
 fluid ticks, diagonal propagation shortcuts, chunk loading, persistence and
 general world simulation remain excluded.
+
+## WORLD-SELECT-001-C02 — review implementation notes (pending A02 integration)
+
+Native menu audit and Python audit test pass. Review found that the A02 snapshot
+on `agy/development` still exposed rows only in the titlebar, so this verification
+worktree now carries a direct Codex implementation of the visible two-screen
+flow: main menu with Singleplayer, a rendered list with disabled-row reasons,
+mouse hit-testing aligned with rendered rows/buttons, keyboard navigation,
+cancel-to-parent, and explicit activation without preselecting a world. Dynamic
+selected-world loading remains guarded by the existing disposable snapshot API.
+
+`cargo test --locked --offline -p beta-viewer --all-targets` passes (24 library,
+51 viewer, and example tests); `cargo test --locked --offline -p beta-core --test
+light_update_fixture` passes four tests; `python3 tools/oracle/world_select_audit.py`
+and its unittest pass; full `python3 tools/check.py` passes (222 Python tests,
+18 opt-in skips, workspace fmt/check/clippy/all-target/doc tests). The local
+user-world manifest matches all six source files by size and SHA-256. An Xvfb
+launch could not be visually confirmed because the final wrapper failed to open
+its X server. No world was selected, copied, or modified.
+
+This is a verification-branch review fix and is not yet integrated into
+`agy/development`; that branch's A02 status remains `in_progress` at `05e8aec`.
+Therefore C02 remains pending, the completion estimate stays at about 35%, and
+no main/GitHub integration is claimed.
+
+## User follow-up 2026-11-09 — shadow report and final native fidelity
+
+Documentation-only request: retained the user's unmodified Rust-viewer PNG at
+`docs/bug-reports/light-update-002-after-break.png` (SHA-256
+`64fff96adb875c64df1198c94b8fe541b9da6084ed4129d93ff6661e183ceaa9`).
+Added planned `LIGHT-UPDATE-002` with a native/Rust reproduction, light-state
+capture and visual regression boundary; cause and fix remain unconfirmed.
+Added planned `MENU-PARITY-001` for the temporary menu's font/resources/layout/
+scaling/input deviations. Updated requirements, known issues, roadmap and
+progress; corrected the obsolete claim that no edit relighting exists.
+Both follow-ups remain backlog entries, with no active queue/status changes.
+Validation: `git diff --check`, new document links and PNG hash checked.
+No engine changes or gameplay tests; estimate remains about 35%.

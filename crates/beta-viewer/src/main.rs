@@ -29,6 +29,7 @@ use std::{
     time::Instant,
 };
 use wgpu::util::DeviceExt;
+use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -51,7 +52,10 @@ fn main() {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The chooser owns the first window and runs before any scene, mesh, or GPU
     // state is prepared. Its result is the only input used by the loader below.
-    let (input, source_pins) = copy_local_world()?;
+    let mut event = EventLoop::new()?;
+    let Some((input, source_pins)) = copy_local_world(&mut event)? else {
+        return Ok(());
+    };
     let terrain_path = terrain_path()?;
     let bytes = fs::read(&terrain_path)?;
     use sha2::Digest;
@@ -124,7 +128,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         chunk_mesh_vertex_count(&chunk_meshes),
         fluid_mesh.vertices.len()
     );
-    let event = EventLoop::new()?;
     let mut app = App {
         visible_faces,
         unsupported_blocks,
@@ -177,7 +180,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         inventory_resume_capture: false,
         cursor_position: None,
     };
-    event.run_app(&mut app)?;
+    event.run_app_on_demand(&mut app)?;
     Ok(())
 }
 fn terrain_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -324,16 +327,11 @@ fn build_chunk_mesh_cache(
     Ok((opaque, fluids))
 }
 
-#[allow(unreachable_code)]
-fn copy_local_world()
--> Result<(std::path::PathBuf, Vec<loader::PreviewSourcePin>), Box<dyn std::error::Error>> {
-    const SOURCE_NAMES: [&str; 5] = [
-        "level.dat",
-        "r.-1.-1.mcr",
-        "r.-1.0.mcr",
-        "r.0.-1.mcr",
-        "r.0.0.mcr",
-    ];
+type LocalWorldPreview = Option<(std::path::PathBuf, Vec<loader::PreviewSourcePin>)>;
+
+fn copy_local_world(
+    event_loop: &mut EventLoop<()>,
+) -> Result<LocalWorldPreview, Box<dyn std::error::Error>> {
     let config = fs::read_to_string("config/local.toml")?;
     let mut in_paths = false;
     let mut prism = None;
@@ -357,7 +355,9 @@ fn copy_local_world()
     // reaches the existing bounded scene loader.
     let saves_root = std::path::PathBuf::from(&prism).join("minecraft/saves");
     let catalog = beta_viewer::world_select::discover(&saves_root)?;
-    let selected_index = choose_world(&catalog)?.ok_or("world chooser cancelled")?;
+    let Some(selected_index) = choose_world(&catalog, event_loop)? else {
+        return Ok(None);
+    };
     let selected = catalog
         .get(selected_index)
         .ok_or("world chooser selected an invalid row")?;
@@ -376,190 +376,597 @@ fn copy_local_world()
             sha256: pin.sha256.clone(),
         })
         .collect();
-    return Ok((snapshot, pins));
-
-    // Historical fixed-manifest path retained below for source compatibility
-    // and parity tooling; normal viewer startup returns through the chooser.
-    let source_world = std::path::PathBuf::from(prism).join("minecraft/saves/New World");
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
-    let manifest_path = local_world_manifest_path(&root)?;
-    let manifest_meta = fs::symlink_metadata(&manifest_path)?;
-    if manifest_meta.file_type().is_symlink() || !manifest_meta.is_file() {
-        return Err("local world pin manifest must be a regular non-symlink file".into());
-    }
-    let manifest = fs::read_to_string(&manifest_path).map_err(|_| {
-        format!(
-            "local world pin manifest is missing: {}",
-            manifest_path.display()
-        )
-    })?;
-    let mut pins_by_name = HashMap::new();
-    for (line_number, line) in manifest.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let fields: Vec<_> = line.split_ascii_whitespace().collect();
-        if fields.len() != 3 {
-            return Err(format!("malformed local world pin at line {}", line_number + 1).into());
-        }
-        let name = if fields[0] == "level.dat" {
-            "level.dat"
-        } else if let Some(region_name) = fields[0].strip_prefix("region/") {
-            region_name
-        } else if fields[0] == "level.dat_old" {
-            continue;
-        } else {
-            return Err(format!("unexpected local world pin {}", fields[0]).into());
-        };
-        let size = fields[1].parse::<usize>()?;
-        let max_size = if name == "level.dat" {
-            16 * 1024 * 1024
-        } else {
-            64 * 1024 * 1024
-        };
-        if size == 0 || size > max_size {
-            return Err(format!("local world pin size is outside limit for {name}").into());
-        }
-        if fields[2].len() != 64
-            || !fields[2]
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-        {
-            return Err(format!("invalid SHA-256 in local world pin for {name}").into());
-        }
-        let pin = loader::PreviewSourcePin {
-            name: name.to_owned(),
-            size,
-            sha256: fields[2].to_owned(),
-        };
-        if pins_by_name.insert(name.to_owned(), pin).is_some() {
-            return Err(format!("duplicate local world pin for {name}").into());
-        }
-    }
-    if pins_by_name.len() != SOURCE_NAMES.len()
-        || SOURCE_NAMES
-            .iter()
-            .any(|name| !pins_by_name.contains_key(*name))
-    {
-        return Err("local world pin manifest must contain exactly the five viewer inputs".into());
-    }
-    let source_pins: Vec<_> = SOURCE_NAMES
-        .iter()
-        .map(|name| {
-            pins_by_name
-                .get(*name)
-                .expect("validated pin exists")
-                .clone()
-        })
-        .collect();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_nanos();
-    let run = root
-        .join("artifacts")
-        .join("viewer")
-        .join(format!("run-{}-{now}", std::process::id()));
-    let input = run.join("input");
-    fs::create_dir_all(input.join("region"))?;
-    use sha2::Digest;
-    let mut pin_manifest = String::new();
-    for pin in &source_pins {
-        let name = pin.name.as_str();
-        let parent = if name == "level.dat" {
-            source_world.clone()
-        } else {
-            source_world.join("region")
-        };
-        let source = parent.join(name);
-        let metadata = fs::symlink_metadata(&source)?;
-        if metadata.file_type().is_symlink()
-            || !metadata.is_file()
-            || metadata.len() as usize != pin.size
-        {
-            return Err(format!("unsafe or unexpected local world source {name}").into());
-        }
-        let data = fs::read(&source)?;
-        let hash = format!("{:x}", sha2::Sha256::digest(&data));
-        if hash != pin.sha256 {
-            return Err(format!("pinned world source hash mismatch: {name}").into());
-        }
-        pin_manifest.push_str(&format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256));
-        let destination = if name == "level.dat" {
-            input.join(name)
-        } else {
-            input.join("region").join(name)
-        };
-        fs::write(destination, data)?;
-    }
-    // Loader protocol requires all five top-level basenames. Keep region files at
-    // the top level as the checked native input-copy format does.
-    for name in SOURCE_NAMES.iter().filter(|name| **name != "level.dat") {
-        let nested = input.join("region").join(name);
-        fs::rename(&nested, input.join(name))?;
-    }
-    fs::remove_dir(input.join("region"))?;
-    fs::write(
-        input.join(".world-input-copy"),
-        "WORLD-LOAD-001 copied inputs\n",
-    )?;
-    fs::write(
-        input.join(".region-input-copy"),
-        "REGION-001 copied inputs\n",
-    )?;
-    fs::write(input.join(".preview-source-hashes.tsv"), pin_manifest)?;
-    Ok((input, source_pins))
+    Ok(Some((snapshot, pins)))
 }
 
-/// Small native-style chooser. The window title carries the same row metadata
-/// used by the eventual renderer, which keeps this phase independent of the
-/// world GPU pipeline and makes invalid rows visibly disabled with a reason.
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct ChooserVertex {
+    position: [f32; 2],
+    color: [f32; 4],
+}
+
+fn chooser_rect(
+    out: &mut Vec<ChooserVertex>,
+    size: PhysicalSize<u32>,
+    rect: [f32; 4],
+    color: [f32; 4],
+) {
+    let [x, y, width, height] = rect;
+    if width <= 0.0 || height <= 0.0 || size.width == 0 || size.height == 0 {
+        return;
+    }
+    let x0 = 2.0 * x / size.width as f32 - 1.0;
+    let x1 = 2.0 * (x + width) / size.width as f32 - 1.0;
+    let y0 = 1.0 - 2.0 * y / size.height as f32;
+    let y1 = 1.0 - 2.0 * (y + height) / size.height as f32;
+    let a = ChooserVertex {
+        position: [x0, y0],
+        color,
+    };
+    let b = ChooserVertex {
+        position: [x1, y0],
+        color,
+    };
+    let c = ChooserVertex {
+        position: [x1, y1],
+        color,
+    };
+    let d = ChooserVertex {
+        position: [x0, y1],
+        color,
+    };
+    out.extend_from_slice(&[a, b, c, a, c, d]);
+}
+
+fn chooser_glyph(character: u8) -> [u8; 7] {
+    match character.to_ascii_uppercase() {
+        b'A' => [14, 17, 17, 31, 17, 17, 17],
+        b'B' => [30, 17, 17, 30, 17, 17, 30],
+        b'C' => [14, 17, 16, 16, 16, 17, 14],
+        b'D' => [30, 17, 17, 17, 17, 17, 30],
+        b'E' => [31, 16, 16, 30, 16, 16, 31],
+        b'F' => [31, 16, 16, 30, 16, 16, 16],
+        b'G' => [14, 17, 16, 23, 17, 17, 15],
+        b'H' => [17, 17, 17, 31, 17, 17, 17],
+        b'I' => [14, 4, 4, 4, 4, 4, 14],
+        b'J' => [7, 2, 2, 2, 18, 18, 12],
+        b'K' => [17, 18, 20, 24, 20, 18, 17],
+        b'L' => [16, 16, 16, 16, 16, 16, 31],
+        b'M' => [17, 27, 21, 21, 17, 17, 17],
+        b'N' => [17, 25, 21, 19, 17, 17, 17],
+        b'O' => [14, 17, 17, 17, 17, 17, 14],
+        b'P' => [30, 17, 17, 30, 16, 16, 16],
+        b'Q' => [14, 17, 17, 17, 21, 18, 13],
+        b'R' => [30, 17, 17, 30, 20, 18, 17],
+        b'S' => [15, 16, 16, 14, 1, 1, 30],
+        b'T' => [31, 4, 4, 4, 4, 4, 4],
+        b'U' => [17, 17, 17, 17, 17, 17, 14],
+        b'V' => [17, 17, 17, 17, 17, 10, 4],
+        b'W' => [17, 17, 17, 21, 21, 21, 10],
+        b'X' => [17, 17, 10, 4, 10, 17, 17],
+        b'Y' => [17, 17, 10, 4, 4, 4, 4],
+        b'Z' => [31, 1, 2, 4, 8, 16, 31],
+        b'0' => [14, 17, 19, 21, 25, 17, 14],
+        b'1' => [4, 12, 4, 4, 4, 4, 14],
+        b'2' => [14, 17, 1, 2, 4, 8, 31],
+        b'3' => [30, 1, 1, 14, 1, 1, 30],
+        b'4' => [2, 6, 10, 18, 31, 2, 2],
+        b'5' => [31, 16, 16, 30, 1, 1, 30],
+        b'6' => [14, 16, 16, 30, 17, 17, 14],
+        b'7' => [31, 1, 2, 4, 8, 8, 8],
+        b'8' => [14, 17, 17, 14, 17, 17, 14],
+        b'9' => [14, 17, 17, 15, 1, 1, 14],
+        b'-' => [0, 0, 0, 31, 0, 0, 0],
+        b'_' => [0, 0, 0, 0, 0, 0, 31],
+        b'.' => [0, 0, 0, 0, 0, 12, 12],
+        b':' => [0, 12, 12, 0, 12, 12, 0],
+        b'/' => [1, 2, 2, 4, 8, 8, 16],
+        b'(' => [2, 4, 8, 8, 8, 4, 2],
+        b')' => [8, 4, 2, 2, 2, 4, 8],
+        b'[' => [14, 8, 8, 8, 8, 8, 14],
+        b']' => [14, 2, 2, 2, 2, 2, 14],
+        b'?' => [14, 17, 1, 2, 4, 0, 4],
+        _ => [0; 7],
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn chooser_text(
+    out: &mut Vec<ChooserVertex>,
+    size: PhysicalSize<u32>,
+    mut x: f32,
+    y: f32,
+    text: &str,
+    scale: f32,
+    color: [f32; 4],
+    max_chars: usize,
+) {
+    for byte in text.bytes().take(max_chars) {
+        if byte == b' ' {
+            x += 4.0 * scale;
+            continue;
+        }
+        let glyph = if byte.is_ascii() { byte } else { b'?' };
+        for (row, bits) in chooser_glyph(glyph).into_iter().enumerate() {
+            for column in 0..5 {
+                if bits & (1 << (4 - column)) != 0 {
+                    chooser_rect(
+                        out,
+                        size,
+                        [
+                            x + column as f32 * scale,
+                            y + row as f32 * scale,
+                            scale,
+                            scale,
+                        ],
+                        color,
+                    );
+                }
+            }
+        }
+        x += 6.0 * scale;
+    }
+}
+
+fn chooser_vertices(
+    size: PhysicalSize<u32>,
+    entries: &[beta_viewer::world_select::WorldEntry],
+    selected: Option<usize>,
+    first_visible: usize,
+    page: ChooserPage,
+) -> Vec<ChooserVertex> {
+    let mut out = Vec::new();
+    chooser_rect(
+        &mut out,
+        size,
+        [0.0, 0.0, size.width as f32, size.height as f32],
+        [0.34, 0.52, 0.74, 1.0],
+    );
+    chooser_rect(
+        &mut out,
+        size,
+        [0.0, 0.0, size.width as f32, 48.0],
+        [0.06, 0.06, 0.06, 0.96],
+    );
+    match page {
+        ChooserPage::MainMenu => {
+            chooser_text(
+                &mut out,
+                size,
+                186.0,
+                104.0,
+                "MINECRAFT BETA 1.7.3",
+                2.0,
+                [1.0, 1.0, 1.0, 1.0],
+                48,
+            );
+            chooser_rect(
+                &mut out,
+                size,
+                [260.0, 220.0, 200.0, 42.0],
+                [0.15, 0.15, 0.15, 0.94],
+            );
+            chooser_text(
+                &mut out,
+                size,
+                300.0,
+                237.0,
+                "SINGLEPLAYER",
+                1.5,
+                [1.0, 1.0, 1.0, 1.0],
+                32,
+            );
+            chooser_rect(
+                &mut out,
+                size,
+                [260.0, 276.0, 200.0, 42.0],
+                [0.20, 0.20, 0.20, 1.0],
+            );
+            chooser_text(
+                &mut out,
+                size,
+                326.0,
+                293.0,
+                "QUIT",
+                1.5,
+                [1.0, 1.0, 1.0, 1.0],
+                20,
+            );
+            return out;
+        }
+        ChooserPage::WorldList => chooser_text(
+            &mut out,
+            size,
+            22.0,
+            17.0,
+            "SELECT WORLD",
+            2.0,
+            [1.0, 1.0, 1.0, 1.0],
+            40,
+        ),
+    }
+
+    let row_top: f32 = 58.0;
+    let row_height: f32 = 42.0;
+    let button_top: f32 = 410.0;
+    let visible_rows = ((button_top - row_top) / row_height).floor() as usize;
+    for local in 0..visible_rows {
+        let index = first_visible + local;
+        let Some(entry) = entries.get(index) else {
+            break;
+        };
+        let y = row_top + local as f32 * row_height;
+        let is_selected = selected == Some(index);
+        let disabled = entry.launch_reason.is_some();
+        let background = if disabled {
+            [0.14, 0.14, 0.14, 0.88]
+        } else if is_selected {
+            [0.38, 0.25, 0.12, 0.96]
+        } else {
+            [0.08, 0.08, 0.08, 0.78]
+        };
+        chooser_rect(
+            &mut out,
+            size,
+            [16.0, y, size.width as f32 - 32.0, row_height - 3.0],
+            background,
+        );
+        if is_selected {
+            chooser_rect(
+                &mut out,
+                size,
+                [16.0, y, 4.0, row_height - 3.0],
+                [0.95, 0.78, 0.24, 1.0],
+            );
+        }
+        let title_color = if disabled {
+            [0.55, 0.55, 0.55, 1.0]
+        } else {
+            [1.0, 1.0, 1.0, 1.0]
+        };
+        chooser_text(
+            &mut out,
+            size,
+            28.0,
+            y + 5.0,
+            &entry.display_name,
+            1.6,
+            title_color,
+            64,
+        );
+        let detail = if let Some(reason) = &entry.launch_reason {
+            format!("{}  DISABLED: {}", entry.folder, reason)
+        } else {
+            format!("{}  LAST PLAYED {}", entry.folder, entry.last_played)
+        };
+        chooser_text(
+            &mut out,
+            size,
+            28.0,
+            y + 27.0,
+            &detail,
+            1.0,
+            [0.83, 0.83, 0.83, 1.0],
+            108,
+        );
+    }
+    if entries.is_empty() {
+        chooser_text(
+            &mut out,
+            size,
+            28.0,
+            76.0,
+            "NO WORLDS FOUND",
+            1.5,
+            [1.0, 1.0, 1.0, 1.0],
+            40,
+        );
+    }
+    let button_y = 414.0;
+    chooser_rect(
+        &mut out,
+        size,
+        [420.0, button_y, 150.0, 34.0],
+        if selected.is_some_and(|i| entries.get(i).is_some_and(|e| e.launch_reason.is_none())) {
+            [0.34, 0.25, 0.12, 1.0]
+        } else {
+            [0.22, 0.22, 0.22, 1.0]
+        },
+    );
+    chooser_text(
+        &mut out,
+        size,
+        465.0,
+        button_y + 13.0,
+        "SELECT",
+        1.5,
+        [1.0, 1.0, 1.0, 1.0],
+        20,
+    );
+    chooser_rect(
+        &mut out,
+        size,
+        [580.0, button_y, 120.0, 34.0],
+        [0.20, 0.20, 0.20, 1.0],
+    );
+    chooser_text(
+        &mut out,
+        size,
+        610.0,
+        button_y + 13.0,
+        "CANCEL",
+        1.5,
+        [1.0, 1.0, 1.0, 1.0],
+        20,
+    );
+    chooser_text(
+        &mut out,
+        size,
+        18.0,
+        462.0,
+        "ARROWS: SELECT   ENTER: OPEN   ESC: CANCEL",
+        1.0,
+        [1.0, 1.0, 1.0, 1.0],
+        68,
+    );
+    out
+}
+
+struct ChooserGpu {
+    _instance: wgpu::Instance,
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    pipeline: wgpu::RenderPipeline,
+}
+
+impl ChooserGpu {
+    fn new(
+        window: Arc<Window>,
+        event: &ActiveEventLoop,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
+            Box::new(event.owned_display_handle()),
+        ));
+        let surface = instance.create_surface(window.clone())?;
+        let (device, queue, mut config) = pollster::block_on(async {
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: false,
+                    compatible_surface: Some(&surface),
+                    ..Default::default()
+                })
+                .await?;
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: Some("beta world chooser"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    ..Default::default()
+                })
+                .await?;
+            let size = window.inner_size();
+            let mut config = surface
+                .get_default_config(&adapter, size.width.max(1), size.height.max(1))
+                .ok_or("chooser surface has no format")?;
+            let capabilities = surface.get_capabilities(&adapter);
+            config.format = preferred_surface_format(&capabilities.formats)
+                .ok_or("chooser surface lacks supported 8-bit format")?;
+            Ok::<_, Box<dyn std::error::Error>>((device, queue, config))
+        })?;
+        surface.configure(&device, &config);
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("world chooser color shader"),
+            source: wgpu::ShaderSource::Wgsl(
+                r#"
+struct VertexIn { @location(0) position: vec2<f32>, @location(1) color: vec4<f32> };
+struct VertexOut { @builtin(position) position: vec4<f32>, @location(0) color: vec4<f32> };
+@vertex fn vs_main(input: VertexIn) -> VertexOut {
+    var out: VertexOut;
+    out.position = vec4<f32>(input.position, 0.0, 1.0);
+    out.color = input.color;
+    return out;
+}
+@fragment fn fs_main(input: VertexOut) -> @location(0) vec4<f32> { return input.color; }
+"#
+                .into(),
+            ),
+        });
+        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("world chooser color layout"),
+            bind_group_layouts: &[],
+            immediate_size: 0,
+        });
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("world chooser UI pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<ChooserVertex>() as u64,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x4],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        config.width = window.inner_size().width.max(1);
+        config.height = window.inner_size().height.max(1);
+        Ok(Self {
+            _instance: instance,
+            surface,
+            device,
+            queue,
+            config,
+            pipeline,
+        })
+    }
+
+    fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        self.config.width = width;
+        self.config.height = height;
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    fn render(
+        &mut self,
+        window: &Window,
+        entries: &[beta_viewer::world_select::WorldEntry],
+        selected: Option<usize>,
+        first_visible: usize,
+        page: ChooserPage,
+    ) -> Result<(), wgpu::CurrentSurfaceTexture> {
+        let size = window.inner_size();
+        if size.width == 0 || size.height == 0 {
+            return Ok(());
+        }
+        if self.config.width != size.width || self.config.height != size.height {
+            self.resize(size.width, size.height);
+        }
+        let vertices = chooser_vertices(size, entries, selected, first_visible, page);
+        let buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("world chooser UI vertices"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        let frame = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+            error => return Err(error),
+        };
+        let view = frame.texture.create_view(&Default::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("world chooser frame"),
+            });
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("world chooser pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.34,
+                            g: 0.52,
+                            b: 0.74,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.pipeline);
+            pass.set_vertex_buffer(0, buffer.slice(..));
+            pass.draw(0..vertices.len() as u32, 0..1);
+        }
+        self.queue.submit([encoder.finish()]);
+        self.queue.present(frame);
+        Ok(())
+    }
+}
+
+/// Small native-informed main menu and world chooser, rendered before the
+/// bounded world scene is loaded. Invalid saves remain visible but disabled.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ChooserLayout {
+    row_top: f32,
+    row_height: f32,
+    select_top: f32,
+    cancel_top: f32,
+    button_height: f32,
+}
+
+impl ChooserLayout {
+    fn new() -> Self {
+        Self {
+            row_top: 58.0,
+            row_height: 42.0,
+            select_top: 414.0,
+            cancel_top: 414.0,
+            button_height: 34.0,
+        }
+    }
+    fn row_at(self, x: f32, y: f32, count: usize) -> Option<usize> {
+        if !(16.0..704.0).contains(&x) || y < self.row_top || y >= self.select_top {
+            return None;
+        }
+        let row_offset = y - self.row_top;
+        if row_offset.rem_euclid(self.row_height) >= self.row_height - 3.0 {
+            return None;
+        }
+        let index = (row_offset / self.row_height).floor() as usize;
+        (index < count).then_some(index)
+    }
+    fn is_select(self, x: f32, y: f32) -> bool {
+        (420.0..570.0).contains(&x)
+            && y >= self.select_top
+            && y < self.select_top + self.button_height
+    }
+    fn is_cancel(self, x: f32, y: f32) -> bool {
+        (580.0..700.0).contains(&x)
+            && y >= self.cancel_top
+            && y < self.cancel_top + self.button_height
+    }
+    fn is_singleplayer(self, x: f32, y: f32) -> bool {
+        (260.0..460.0).contains(&x) && (220.0..262.0).contains(&y)
+    }
+    fn is_quit(self, x: f32, y: f32) -> bool {
+        (260.0..460.0).contains(&x) && (276.0..318.0).contains(&y)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChooserPage {
+    MainMenu,
+    WorldList,
+}
+
 fn choose_world(
     entries: &[beta_viewer::world_select::WorldEntry],
+    event_loop: &mut EventLoop<()>,
 ) -> Result<Option<usize>, Box<dyn std::error::Error>> {
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    struct ChooserLayout {
-        row_top: f32,
-        row_height: f32,
-        select_top: f32,
-        cancel_top: f32,
-        button_height: f32,
-    }
-    impl ChooserLayout {
-        fn new() -> Self {
-            Self {
-                row_top: 56.0,
-                row_height: 42.0,
-                select_top: 410.0,
-                cancel_top: 410.0,
-                button_height: 36.0,
-            }
-        }
-        fn row_at(self, y: f32, count: usize) -> Option<usize> {
-            if y < self.row_top {
-                return None;
-            }
-            let i = ((y - self.row_top) / self.row_height).floor() as usize;
-            (i < count).then_some(i)
-        }
-        fn is_select(self, x: f32, y: f32) -> bool {
-            (420.0..570.0).contains(&x)
-                && y >= self.select_top
-                && y < self.select_top + self.button_height
-        }
-        fn is_cancel(self, x: f32, y: f32) -> bool {
-            (580.0..700.0).contains(&x)
-                && y >= self.cancel_top
-                && y < self.cancel_top + self.button_height
-        }
-    }
     struct Chooser {
         entries: Vec<beta_viewer::world_select::WorldEntry>,
         state: beta_viewer::world_select::ChooserState,
-        window: Option<Window>,
+        page: ChooserPage,
+        window: Option<Arc<Window>>,
+        gpu: Option<ChooserGpu>,
         result: Option<Option<usize>>,
         cursor: (f32, f32),
         layout: ChooserLayout,
+        first_visible: usize,
+        visible_rows: usize,
     }
     impl ApplicationHandler for Chooser {
         fn resumed(&mut self, event: &ActiveEventLoop) {
@@ -567,16 +974,73 @@ fn choose_world(
                 return;
             }
             let attrs = Window::default_attributes()
-                .with_title("Beta 1.7.3 — Select World")
-                .with_inner_size(PhysicalSize::new(720, 480));
-            let window = event.create_window(attrs).expect("chooser window");
-            self.window = Some(window);
-            self.state.select_first_valid(&self.entries);
-            if let Some(window) = &self.window {
-                window.set_title("Beta 1.7.3 — Singleplayer");
+                .with_title("Minecraft Beta 1.7.3")
+                .with_inner_size(PhysicalSize::new(720, 480))
+                .with_resizable(false);
+            let window = match event.create_window(attrs) {
+                Ok(window) => Arc::new(window),
+                Err(error) => {
+                    self.result = Some(None);
+                    eprintln!("beta-viewer chooser window error: {error}");
+                    event.exit();
+                    return;
+                }
+            };
+            match ChooserGpu::new(window.clone(), event) {
+                Ok(gpu) => self.gpu = Some(gpu),
+                Err(error) => {
+                    self.result = Some(None);
+                    eprintln!("beta-viewer chooser graphics error: {error}");
+                    event.exit();
+                    return;
+                }
             }
+            self.window = Some(window.clone());
+            window.request_redraw();
         }
         fn window_event(&mut self, event: &ActiveEventLoop, _: WindowId, input: WindowEvent) {
+            if let WindowEvent::CloseRequested = input {
+                self.result = Some(None);
+                event.exit();
+                return;
+            }
+            if let WindowEvent::Resized(size) = input {
+                if let Some(gpu) = &mut self.gpu {
+                    gpu.resize(size.width, size.height);
+                }
+                self.request_redraw();
+                return;
+            }
+            if let WindowEvent::RedrawRequested = input {
+                if let (Some(gpu), Some(window)) = (&mut self.gpu, &self.window)
+                    && let Err(error) = gpu.render(
+                        window,
+                        &self.entries,
+                        self.state.selected,
+                        self.first_visible,
+                        self.page,
+                    )
+                {
+                    match error {
+                        wgpu::CurrentSurfaceTexture::Lost
+                        | wgpu::CurrentSurfaceTexture::Outdated => {
+                            let size = window.inner_size();
+                            gpu.resize(size.width, size.height);
+                            window.request_redraw();
+                        }
+                        wgpu::CurrentSurfaceTexture::Timeout
+                        | wgpu::CurrentSurfaceTexture::Occluded => window.request_redraw(),
+                        wgpu::CurrentSurfaceTexture::Validation => {
+                            self.result = Some(None);
+                            eprintln!("beta-viewer chooser surface error: {error:?}");
+                            event.exit();
+                        }
+                        wgpu::CurrentSurfaceTexture::Success(_)
+                        | wgpu::CurrentSurfaceTexture::Suboptimal(_) => unreachable!(),
+                    }
+                }
+                return;
+            }
             if let WindowEvent::CursorMoved { position, .. } = input {
                 self.cursor = (position.x as f32, position.y as f32);
                 return;
@@ -588,20 +1052,33 @@ fn choose_world(
             } = input
             {
                 let (x, y) = self.cursor;
-                if let Some(index) = self.layout.row_at(y, self.entries.len()) {
+                if self.page == ChooserPage::MainMenu {
+                    if self.layout.is_singleplayer(x, y) {
+                        self.show_world_list();
+                    } else if self.layout.is_quit(x, y) {
+                        self.result = Some(None);
+                        event.exit();
+                    }
+                    return;
+                }
+                if let Some(local) = self.layout.row_at(x, y, self.visible_rows) {
+                    let index = self.first_visible + local;
+                    if index >= self.entries.len() {
+                        return;
+                    }
                     self.state.apply(
                         beta_viewer::world_select::ChooserAction::Select,
                         Some(index),
                         self.entries.len(),
                     );
+                    self.request_redraw();
                 } else if self.layout.is_select(x, y) {
                     if let Some(index) = self.state.activate(&self.entries) {
                         self.result = Some(Some(index));
                         event.exit();
                     }
                 } else if self.layout.is_cancel(x, y) {
-                    self.result = Some(None);
-                    event.exit();
+                    self.show_main_menu();
                 }
                 return;
             }
@@ -611,21 +1088,31 @@ fn choose_world(
                 }
                 match key.physical_key {
                     PhysicalKey::Code(KeyCode::Escape) => {
-                        self.result = Some(None);
-                        event.exit();
+                        if self.page == ChooserPage::WorldList {
+                            self.show_main_menu();
+                        } else {
+                            self.result = Some(None);
+                            event.exit();
+                        }
                     }
-                    PhysicalKey::Code(KeyCode::ArrowDown) => {
+                    PhysicalKey::Code(KeyCode::ArrowDown)
+                        if self.page == ChooserPage::WorldList =>
+                    {
                         self.state.move_selection(&self.entries, 1);
-                        self.refresh_title();
+                        self.ensure_visible();
+                        self.request_redraw();
                     }
-                    PhysicalKey::Code(KeyCode::ArrowUp) => {
+                    PhysicalKey::Code(KeyCode::ArrowUp) if self.page == ChooserPage::WorldList => {
                         self.state.move_selection(&self.entries, -1);
-                        self.refresh_title();
+                        self.ensure_visible();
+                        self.request_redraw();
                     }
                     PhysicalKey::Code(KeyCode::Enter)
                     | PhysicalKey::Code(KeyCode::NumpadEnter)
                     | PhysicalKey::Code(KeyCode::KeyS) => {
-                        if let Some(index) = self.state.activate(&self.entries) {
+                        if self.page == ChooserPage::MainMenu {
+                            self.show_world_list();
+                        } else if let Some(index) = self.state.activate(&self.entries) {
                             self.result = Some(Some(index));
                             event.exit();
                         }
@@ -636,25 +1123,65 @@ fn choose_world(
         }
     }
     impl Chooser {
-        fn refresh_title(&self) {
-            let _ = self.state.selected;
+        fn show_world_list(&mut self) {
+            self.page = ChooserPage::WorldList;
+            self.state.selected = None;
+            self.first_visible = 0;
+            self.ensure_visible();
+            if let Some(window) = &self.window {
+                window.set_title("Beta 1.7.3 — Select World");
+            }
+            self.request_redraw();
+        }
+
+        fn show_main_menu(&mut self) {
+            self.page = ChooserPage::MainMenu;
+            if let Some(window) = &self.window {
+                window.set_title("Minecraft Beta 1.7.3");
+            }
+            self.request_redraw();
+        }
+
+        fn ensure_visible(&mut self) {
+            if let Some(selected) = self.state.selected {
+                if selected < self.first_visible {
+                    self.first_visible = selected;
+                } else if selected >= self.first_visible + self.visible_rows {
+                    self.first_visible = selected + 1 - self.visible_rows;
+                }
+                self.first_visible = self
+                    .first_visible
+                    .min(self.entries.len().saturating_sub(self.visible_rows));
+            }
+        }
+
+        fn request_redraw(&self) {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
         }
     }
-    let event_loop = EventLoop::new()?;
+    let layout = ChooserLayout::new();
+    let visible_rows = ((layout.select_top - layout.row_top) / layout.row_height).floor() as usize;
     let mut app = Chooser {
         entries: entries.to_vec(),
         state: Default::default(),
+        page: ChooserPage::MainMenu,
         window: None,
+        gpu: None,
         result: None,
         cursor: (0.0, 0.0),
-        layout: ChooserLayout::new(),
+        layout,
+        first_visible: 0,
+        visible_rows,
     };
-    event_loop.run_app(&mut app)?;
+    event_loop.run_app_on_demand(&mut app)?;
     Ok(app.result.flatten())
 }
 
 /// Keep the user-owned world pin outside individual Git worktrees so `main`,
 /// `codex`, and `agy` can all launch the same local preview configuration.
+#[cfg(test)]
 fn local_world_manifest_path(
     repository_root: &std::path::Path,
 ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -2420,12 +2947,72 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
-        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
-        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear,
+        ChooserLayout, LightDimension, Vertex, build_atlas_mips, chooser_vertices,
+        fluid_frame_upload_bytes, interaction_shape, local_world_manifest_path,
+        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
+        sort_fluid_quad_indices, srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
+    use beta_viewer::world_select::WorldEntry;
+    use winit::dpi::PhysicalSize;
+
+    #[test]
+    fn chooser_renders_world_rows_and_hitboxes_match_visible_controls() {
+        let entries = [WorldEntry {
+            folder: "World1".into(),
+            display_name: "Survival".into(),
+            last_played: 123,
+            spawn: [0, 64, 0],
+            regions: vec![],
+            launch_reason: None,
+            pins: vec![],
+        }];
+        let vertices = chooser_vertices(
+            PhysicalSize::new(720, 480),
+            &entries,
+            Some(0),
+            0,
+            super::ChooserPage::WorldList,
+        );
+        assert!(vertices.len() > 150);
+        assert!(vertices.iter().all(|vertex| {
+            vertex
+                .position
+                .into_iter()
+                .all(|value| value.is_finite() && (-1.0..=1.0).contains(&value))
+        }));
+        assert!(
+            vertices
+                .iter()
+                .any(|vertex| vertex.color == [0.95, 0.78, 0.24, 1.0])
+        );
+        assert!(
+            vertices
+                .iter()
+                .any(|vertex| vertex.color == [1.0, 1.0, 1.0, 1.0])
+        );
+
+        let layout = ChooserLayout::new();
+        assert_eq!(layout.row_at(16.0, 58.0, 1), Some(0));
+        assert_eq!(layout.row_at(15.9, 58.0, 1), None);
+        assert_eq!(layout.row_at(704.0, 58.0, 1), None);
+        assert_eq!(layout.row_at(100.0, 97.0, 1), None);
+        assert_eq!(layout.row_at(100.0, 410.0, 1), None);
+        assert!(layout.is_select(500.0, 430.0));
+        assert!(layout.is_cancel(600.0, 430.0));
+        assert!(layout.is_singleplayer(300.0, 240.0));
+        assert!(layout.is_quit(300.0, 300.0));
+
+        let menu_vertices = chooser_vertices(
+            PhysicalSize::new(720, 480),
+            &entries,
+            None,
+            0,
+            super::ChooserPage::MainMenu,
+        );
+        assert!(menu_vertices.len() > 100);
+    }
 
     #[test]
     fn dirty_chunk_union_keeps_edit_corner_and_relight_neighbors() {
