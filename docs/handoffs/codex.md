@@ -1604,3 +1604,33 @@ inconclusive: timeout after launch, black capture, and a separate X server
 listener/ownership failure. No successful visual check is claimed. Overall
 game estimate moves from about 33% to **34%**; GitHub push remains deferred
 until the next 5–10 percentage-point batch.
+
+## LIGHT-UPDATE-001-C01 — native block edit light oracle (accepted)
+
+The synthetic-only oracle now drives the original `fd.a(x,y,z,id,meta)` edit,
+its bounded `fd.a(eb,bounds)` queue, and `fd.j()` drain. Five scenarios record
+complete bounded initial/final blocks, metadata, opacity/emission inputs,
+height-map exceptions and raw block/sky nibbles using explicit domain defaults
+plus sorted exception rows. They include stone removal/placement, an opaque roof
+at the sky boundary, and the loaded x=31/unloaded x=32 edge. Unloaded cells are
+sentinels, never interpreted as air. Native `lm.c()` initialization's sky
+profile (`0` at y=0, `15` at y=1..127) is encoded in each domain. Query ordering
+and combined light are captured; no callback order is inferred.
+
+The manifest pins the original client JAR, `fd/lm/wi/uu/eb/st` classes, Java
+source, inputs and output. `python3 tools/oracle/light_update_audit.py --jar
+../.local/minecraft/client-b1.7.3.jar` passes two fresh native captures (2,322
+rows; output SHA-256 `effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb`).
+The six focused Python tests pass, including wrong-JAR and malformed/mutated
+evidence rejection. An independent review reconstructed each full domain and
+matched all five initial digests.
+
+Frozen A01 API boundary: operate only on an already edited candidate
+`BlockScene`, with an explicit maximum processed-cell/queue budget derived from
+the C01 domain; return sorted exact block/sky nibble updates, sorted dirty chunk
+coordinates and explicit unloaded neighbor coordinates. Do not clamp silently
+or mutate unloaded chunks. Viewer publication remains one transaction across
+block state, duplicated chunks, light, meshes and fluid caches. Emission changes,
+fluid ticks, diagonal shortcuts, new chunk loading, persistence and general
+world simulation remain excluded. A01 may refine concrete Rust type names before
+implementation, but must preserve this behavioral signature and bounds.

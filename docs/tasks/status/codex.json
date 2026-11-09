@@ -862,9 +862,15 @@
       ]
     },
     "LIGHT-UPDATE-001-C01": {
-      "state": "pending",
-      "summary": "C01 remains incomplete pending complete bounded initial/final state evidence and corrected native queue fixture.",
-      "checks": []
+      "state": "done",
+      "summary": "Built and accepted the native synthetic-chunk block/sky relight oracle with complete bounded-domain state, raw queries, unloaded-edge behavior, pinned provenance and repeatable captures.",
+      "checks": [
+        "python3 tools/oracle/light_update_audit.py --jar ../.local/minecraft/client-b1.7.3.jar → PASS: two fresh native captures, 2,322 rows, output SHA-256 effa63e2c14cb76962b1023a07c60f4e9fcf6e55f4db62695f78b7013e5d02cb",
+        "python3 -m unittest tests.python.test_light_update_audit -v → PASS: 6 tests, including wrong-JAR, mutated provenance, incomplete state/delta and unloaded-boundary rejection",
+        "Fixture describes five full bounded domains via explicit defaults plus exception rows; independent reconstruction matched all five initial/domain digests",
+        "Pinned original JAR, fd/lm/wi/uu/eb/st class hashes, oracle source, input and output hashes; native x31 loaded-edge edit and x32 UNLOADED sentinel are explicit",
+        "No Rust, user-world, save, or world-guard files changed; native oracle uses synthetic in-memory chunks only"
+      ]
     },
     "LIGHT-UPDATE-001-C02": {
       "state": "pending",
