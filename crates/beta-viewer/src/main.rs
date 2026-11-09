@@ -3,6 +3,8 @@
 //! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
+mod hud;
+
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
     block::{
@@ -30,6 +32,7 @@ use winit::{
 use beta_viewer::loader;
 
 const TERRAIN_HASH: &str = "9e32336c83732193a20d0f942ae8aa1186ae01231245b5e83659ce6e9d3511cf";
+const HUD_NOTICE: &str = "HUD: empty hotbar, fixed 20/20 display (no survival state)";
 fn main() {
     if let Err(e) = run() {
         eprintln!("beta-viewer: {e}");
@@ -52,6 +55,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if image.dimensions() != (256, 256) {
         return Err("terrain.png must be 256x256".into());
     }
+    let client_jar = client_jar_path()?;
+    let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let input = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
@@ -130,6 +135,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         aimed_hit: None,
         target_status: "no target".to_owned(),
         atlas: image,
+        gui_atlas,
+        icons_atlas,
         window: None,
         gpu: None,
         camera: Camera::new(
@@ -195,6 +202,36 @@ fn terrain_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     } else {
         path
     })
+}
+
+fn client_jar_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let text = fs::read_to_string("config/local.toml")?;
+    let mut in_paths = false;
+    let mut client_jar = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_paths = line == "[paths]";
+            continue;
+        }
+        if in_paths
+            && let Some((key, value)) = line.split_once('=')
+            && key.trim() == "client_jar"
+        {
+            client_jar = Some(value.trim().trim_matches('"').to_owned());
+            break;
+        }
+    }
+    let value = client_jar.ok_or("config requires paths.client_jar for pinned GUI atlases")?;
+    let path = std::path::PathBuf::from(value);
+    let root = if path.is_absolute() {
+        path
+    } else {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../")
+            .join(path)
+    };
+    Ok(root)
 }
 
 fn copy_local_world() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -359,6 +396,8 @@ struct App {
     aimed_hit: Option<BlockHit>,
     target_status: String,
     atlas: image::RgbaImage,
+    gui_atlas: image::RgbaImage,
+    icons_atlas: image::RgbaImage,
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     camera: Camera,
@@ -379,6 +418,7 @@ struct Gpu {
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
     fluid_pipeline: wgpu::RenderPipeline,
+    hud_pipeline: wgpu::RenderPipeline,
     vertex: wgpu::Buffer,
     index: wgpu::Buffer,
     index_count: u32,
@@ -386,6 +426,10 @@ struct Gpu {
     fluid_vertex_count: u32,
     depth: wgpu::TextureView,
     bind: wgpu::BindGroup,
+    gui_bind: wgpu::BindGroup,
+    icons_bind: wgpu::BindGroup,
+    hud_gui_vertex: wgpu::Buffer,
+    hud_icons_vertex: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -521,8 +565,8 @@ impl App {
         }
         if let Some(window) = &self.window {
             window.set_title(&format!(
-                "Beta 1.7.3 sandbox — LMB break / RMB place | {}",
-                self.target_status
+                "Beta 1.7.3 sandbox — LMB break / RMB place | {} | {}",
+                self.target_status, HUD_NOTICE
             ));
         }
     }
@@ -701,7 +745,8 @@ impl App {
             )?,
         );
         w.set_title(&format!(
-            "Beta 1.7.3 sandbox — WASD/Space/Shift | F flight, R reset, Enter mouse | LMB break, RMB place | chunks {}, faces {}, water vertices {}, unsupported {}",
+            "Beta 1.7.3 sandbox — WASD/Space/Shift | F flight, R reset, Enter mouse | LMB break, RMB place | {} | chunks {}, faces {}, water vertices {}, unsupported {}",
+            HUD_NOTICE,
             self.loaded_chunks, self.mesh.visible_faces, self.fluid_mesh.vertices.len(), self.mesh.unsupported_blocks
         ));
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
@@ -925,6 +970,111 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
+        let hud_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("screen-space native HUD pipeline"),
+            layout: Some(&pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_hud"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 16,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x2],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_hud"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &output_srgb_constant,
+                    ..Default::default()
+                },
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        let create_hud_view = |label: &'static str, image: &image::RgbaImage| {
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some(label),
+                size: wgpu::Extent3d {
+                    width: 256,
+                    height: 256,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                image.as_raw(),
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(256 * 4),
+                    rows_per_image: Some(256),
+                },
+                wgpu::Extent3d {
+                    width: 256,
+                    height: 256,
+                    depth_or_array_layers: 1,
+                },
+            );
+            texture.create_view(&Default::default())
+        };
+        let gui_view = create_hud_view("Beta gui/gui.png", &self.gui_atlas);
+        let icons_view = create_hud_view("Beta gui/icons.png", &self.icons_atlas);
+        let make_hud_bind = |label, texture_view: &wgpu::TextureView| {
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some(label),
+                layout: &layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: camera_buffer.as_entire_binding(),
+                    },
+                ],
+            })
+        };
+        let gui_bind = make_hud_bind("native gui atlas bind", &gui_view);
+        let icons_bind = make_hud_bind("native icons atlas bind", &icons_view);
+        let hud_gui_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native hotbar screen-space vertices"),
+            size: 12 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let hud_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native hearts and crosshair screen-space vertices"),
+            size: 126 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let packed: Vec<[f32; 8]> = if self.mesh.vertices.is_empty() {
             vec![[0.0; 8]]
         } else {
@@ -1020,6 +1170,7 @@ impl App {
             config,
             pipeline,
             fluid_pipeline,
+            hud_pipeline,
             vertex,
             index,
             index_count: self.mesh.indices.len() as u32,
@@ -1027,6 +1178,10 @@ impl App {
             fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
             depth: dep,
             bind,
+            gui_bind,
+            icons_bind,
+            hud_gui_vertex,
+            hud_icons_vertex,
             camera_buffer,
         });
         self.window = Some(w);
@@ -1082,6 +1237,15 @@ impl App {
                 bytemuck::cast_slice(&m.to_cols_array()),
             )
         }
+        let (hud_gui, hud_icons) = hud::native_vertices(
+            g.config.width,
+            g.config.height,
+            hud::gui_scale(g.config.width, g.config.height),
+        );
+        g.queue
+            .write_buffer(&g.hud_gui_vertex, 0, bytemuck::cast_slice(&hud_gui));
+        g.queue
+            .write_buffer(&g.hud_icons_vertex, 0, bytemuck::cast_slice(&hud_icons));
         match g.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame)
             | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -1126,6 +1290,13 @@ impl App {
                         p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
                         p.draw(0..g.fluid_vertex_count, 0..1);
                     }
+                    p.set_pipeline(&g.hud_pipeline);
+                    p.set_bind_group(0, &g.gui_bind, &[]);
+                    p.set_vertex_buffer(0, g.hud_gui_vertex.slice(..));
+                    p.draw(0..12, 0..1);
+                    p.set_bind_group(0, &g.icons_bind, &[]);
+                    p.set_vertex_buffer(0, g.hud_icons_vertex.slice(..));
+                    p.draw(0..126, 0..1);
                 }
                 g.queue.submit([e.finish()]);
                 g.queue.present(frame)
@@ -1203,8 +1374,8 @@ impl ApplicationHandler for App {
                     self.target_status = format!("action rejected: {error}");
                     if let Some(window) = &self.window {
                         window.set_title(&format!(
-                            "Beta 1.7.3 sandbox — LMB break / RMB place | {}",
-                            self.target_status
+                            "Beta 1.7.3 sandbox — LMB break / RMB place | {} | {}",
+                            self.target_status, HUD_NOTICE
                         ));
                     }
                 }

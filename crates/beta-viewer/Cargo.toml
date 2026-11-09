@@ -10,6 +10,7 @@ repository.workspace = true
 beta-core = { path = "../beta-core" }
 beta-view = { path = "../beta-view" }
 bytemuck.workspace = true
+flate2.workspace = true
 glam.workspace = true
 image.workspace = true
 pollster.workspace = true

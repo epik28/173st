@@ -139,6 +139,7 @@ dependencies = [
  "beta-core",
  "beta-view",
  "bytemuck",
+ "flate2",
  "glam",
  "image",
  "pollster",
