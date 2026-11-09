@@ -723,9 +723,17 @@
       ]
     },
     "INVENTORY-UI-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted native inventory UI on merged main snapshot: audited E-open/Escape-close behavior, centered 176×166 panel, 36 slot geometry and supported icon indices now render from hash-verified in-memory atlases. Inventory remains empty until world/player inventory loading is implemented; no items are fabricated.",
+      "checks": [
+        "python3 tools/check.py → PASS: 208 Python tests (18 opt-in skips), cargo fmt, workspace check/clippy -D warnings, all-target and doc tests",
+        "python3 tools/oracle/inventory_ui_audit.py → PASS: pinned GUI resources, key/panel/slot bytecode and item icon indices",
+        "python3 -m unittest tests.python.test_inventory_ui_audit -v → PASS: 4 audit/provenance/mutation tests",
+        "python3 tools/parity/run.py items --strict → PASS: all ordered inventory states match native C01 rows",
+        "python3 tools/parity/run.py view --strict → blocked before world copy by existing user-owned level.dat hash mismatch; no hash was changed and no world data was accessed or modified",
+        "Agy A01 commit e63d2e3b47595f4fdd29c22935abc0fcfc31972f merged into main; viewer tests cover E/Escape/focus/capture suppression, scales, slot layout, item UVs and empty inventory",
+        "Guarded viewer startup validated pinned atlases then stopped at the existing level.dat hash guard; no screenshot or visual smoke claim"
+      ]
     }
   }
 }
