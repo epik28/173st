@@ -2,6 +2,30 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "INVENTORY-INTERACTION-001-C01",
+      "owner": "codex",
+      "title": "Original inventory click behavior corpus",
+      "card": "docs/tasks/INVENTORY-INTERACTION-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "INVENTORY-INTERACTION-001-A01",
+      "owner": "agy",
+      "title": "In-memory mouse stack interaction",
+      "card": "docs/tasks/INVENTORY-INTERACTION-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "INVENTORY-INTERACTION-001-C02",
+      "owner": "codex",
+      "title": "Accept inventory mouse interaction",
+      "card": "docs/tasks/INVENTORY-INTERACTION-001.md",
+      "depends_on": [
+        "INVENTORY-INTERACTION-001-C01",
+        "INVENTORY-INTERACTION-001-A01"
+      ]
+    },
+    {
       "id": "HOTBAR-ITEMS-001-C01",
       "owner": "codex",
       "title": "Native hotbar item draw audit",

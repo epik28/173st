@@ -1,5 +1,38 @@
 # Отчёт Codex
 
+## HOTBAR-ITEMS-001-C02 — принята отрисовка предметов
+
+- C01 native audit `076de31fb40a59bafafae559787b8a041c1ff4f0` и agy renderer
+  snapshot `6a303dba7ae9e81bdfbaf190c2168e526b232b7c` интегрированы в main.
+- `python3 tools/oracle/hotbar_items_audit.py ../.local/minecraft/client-b1.7.3.jar`
+  → PASS; две original JVM записи совпали. Проверены `uq/bb/sj`, atlas dispatch,
+  icon UV, digit widths, позиция/count/shadow; GL pixel parity не заявлена.
+- `python3 -m unittest tests.python.test_hotbar_items_audit -v` → 3 PASS.
+- `python3 tools/parity/run.py items --strict` → PASS: все упорядоченные
+  inventory states совпали с native эталоном.
+- `python3 tools/check.py` → PASS: полный Python/Rust workspace, fmt, clippy,
+  all-target и doc tests; focused viewer tests: 17 library + 36 viewer + 4 probes.
+- GUI smoke намеренно остановлен на прежнем guard несовпавшего `level.dat`; мир
+  не открывался и не менялся. Новый визуальный кадр не подтверждён.
+- Изменён HUD notice: сообщает о показе saved hotbar items и фиксированном
+  здоровье. Оценка поднята с ≈30% до ≈31% за видимые поддержанные предметы и
+  counts. Push пока не делался: это +1pp от текущего GitHub интервала.
+- Следующий контракт INVENTORY-INTERACTION-001 охватывает мышиный перенос между
+  36 слотами. `inventory_native_audit` подтвердил bytecode-семантику left/right,
+  merge/swap и Escape возврата cursor; отдельный строгий C01 corpus ещё предстоит.
+
+## INVENTORY-INTERACTION-001 — контракт опубликован локально
+
+- Зафиксированы внутренние индексы `0..8` hotbar, `9..35` main rows, click
+  semantics, cursor close/focus-loss, поддержанные stacks и ограничения.
+- C01 native fixture/oracle и A01 Rust implementation открыты параллельно;
+  C02 примет объединённую ревизию. Вне scope пока shift-click, armor/crafting,
+  world drops, use/pickup и persistence.
+- Рекомендации по отложенной визуальной диагностике получены read-only:
+  листва — full-cube faces/alpha-test/static light; тёмная грань после edits
+  вероятно требует LIGHT-UPDATE; остаточные flight spikes следует профилировать
+  CPU/GPU buffer work. Эти визуальные дефекты пока не исправлялись.
+
 ## BLOCK-001-C03 — принят, 2026-11-08
 
 - В `main` fast-forward интегрирован чистый agy snapshot `170033d`.

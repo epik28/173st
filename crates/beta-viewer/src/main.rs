@@ -41,7 +41,7 @@ use winit::{
 use beta_viewer::loader;
 
 const TERRAIN_HASH: &str = "9e32336c83732193a20d0f942ae8aa1186ae01231245b5e83659ce6e9d3511cf";
-const HUD_NOTICE: &str = "HUD: empty hotbar, fixed 20/20 display (no survival state)";
+const HUD_NOTICE: &str = "HUD: saved hotbar items, fixed 20/20 display (no survival state)";
 fn main() {
     if let Err(e) = run() {
         eprintln!("beta-viewer: {e}");

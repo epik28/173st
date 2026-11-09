@@ -2,6 +2,16 @@
   "schema_version": 1,
   "role": "codex",
   "tasks": {
+    "INVENTORY-INTERACTION-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "INVENTORY-INTERACTION-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "LIGHT-001-C01": {
       "state": "done",
       "summary": "Native LightOracle c610b1a + 8c8c6d1 captures unchanged original provider/world/chunk light behavior; synthetic lookups and zero weather are explicitly audited. No original world constructors or rewritten Java numerical formulas.",
@@ -790,9 +800,16 @@
       ]
     },
     "HOTBAR-ITEMS-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted native-backed hotbar item rendering and inventory atlas correction on the merged main snapshot. Saved supported stacks now render with native icons and count labels; unsupported/empty entries remain absent.",
+      "checks": [
+        "python3 tools/oracle/hotbar_items_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two original JVM captures identical; pinned classes/resources and count layout verified",
+        "python3 -m unittest tests.python.test_hotbar_items_audit -v → PASS: 3 tests",
+        "python3 tools/parity/run.py items --strict → PASS: all ordered inventory states match native C01 rows",
+        "python3 tools/check.py → PASS: full Python/Rust workspace, formatting, clippy -D warnings, all-target and doc tests",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 17 library, 36 viewer and 4 probe tests; clippy/fmt/diff check PASS",
+        "GUI smoke stopped before rendering at the existing modified level.dat hash guard; no user world was opened or changed. Pixel parity is not claimed."
+      ]
     }
   }
 }
