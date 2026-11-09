@@ -1039,6 +1039,22 @@
       ]
     },
     {
+      "id": "FLUID-RENDER-001-A01",
+      "owner": "agy",
+      "title": "Keep fluid vertices static and sort quad indices",
+      "card": "docs/tasks/FLUID-RENDER-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "FLUID-RENDER-001-C02",
+      "owner": "codex",
+      "title": "Accept static fluid vertices and sorted indices",
+      "card": "docs/tasks/FLUID-RENDER-001.md",
+      "depends_on": [
+        "FLUID-RENDER-001-A01"
+      ]
+    },
+    {
       "id": "LIGHT-UPDATE-001-C01",
       "owner": "codex",
       "title": "Native block edit light propagation oracle",

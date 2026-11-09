@@ -432,6 +432,11 @@
         "Изменения ограничены crates/beta-viewer/src/{saved_player.rs,hud.rs,main.rs}, status и handoff; world remains read-only and no health simulation/save writes were added"
       ]
     },
+    "FLUID-RENDER-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "LIGHT-UPDATE-001-A01": {
       "state": "pending",
       "summary": "",

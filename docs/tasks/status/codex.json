@@ -848,6 +848,11 @@
         "Viewer reads only the validated copied Player NBT. Native missing tag defaults to 10; viewer explicitly uses 20 as its safe fallback. No world writes, damage/regen simulation or screenshot parity claimed."
       ]
     },
+    "FLUID-RENDER-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
     "LIGHT-UPDATE-001-C01": {
       "state": "pending",
       "summary": "C01 remains incomplete pending complete bounded initial/final state evidence and corrected native queue fixture.",
