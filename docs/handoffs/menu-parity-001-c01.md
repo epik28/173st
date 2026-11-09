@@ -40,3 +40,15 @@ Ran 4 tests ... OK
 The four tests cover a clean live-native audit, rejected row-height/layout mutation, rejected translation mutation, and rejection of altered native output even if its local fixture hash is also changed. No workspace-wide checks were run.
 
 Remaining C01 work: capture original windows at two fixed resolutions/scales, including an empty world list and an unavailable/unconvertible save, then preserve paired frames and exact client/runtime launch metadata. No pixel comparison, GPU tolerance, live resize, or live mouse/keyboard behavior was measured here. Treat this commit as geometry/resource/API guidance for A01, not as completion of the full visual C01 card.
+
+## Prepared safe native capture
+
+`tools/oracle/native_menu_capture.py` now prepares an offline client runtime from the pinned read-only JAR and the locally cached Prism Java 8/LWJGL/JInput files. Its only writes are under ignored `artifacts/menu-parity-capture/`: extracted native libraries, a disposable `home/.minecraft/options.txt` containing only `guiScale`, an empty `saves/` directory, logs, frames, and a JSON manifest. Java receives `-Duser.home=<that disposable home>`; the process environment's `HOME` is not changed. It does not copy or open any existing save. The capture uses local X11/XTest libraries and ImageMagick; no package install or download is needed.
+
+Offline preparation succeeded with the locally present Java 8 and six Linux native libraries. No GUI was launched in this sandbox, because it cannot create the Xvfb AF_UNIX socket. The parent can run the following exact command with X11 escalation:
+
+```sh
+env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py --runtime artifacts/menu-parity-capture/runtime --output artifacts/menu-parity-capture/frames
+```
+
+The two profiles are 854×480/GUI scale 1 and 1280×720/GUI scale 3. Each process waits at most 45 seconds for the native window, records actual X window dimensions, captures the main menu, clicks Singleplayer through XTest, and requires a different PNG at the same viewport for the empty world list. The manifest includes client and local library hashes, Java version, full argument vector, disposable paths/options hash, actual window dimensions, frame hashes, timeout, elapsed times, and termination/kill/exit status. It explicitly leaves the unavailable-save case uncaptured. A successful run will provide window evidence, but C01 remains partial until the unavailable-save state and required review are covered.
