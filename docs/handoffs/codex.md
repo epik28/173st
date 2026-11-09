@@ -1,8 +1,12 @@
 # Отчёт Codex
 
-## LIGHT-UPDATE-001-C01 — native edit and light-update oracle (pending)
+## LIGHT-UPDATE-001-C01 — native edit and light-update oracle (accepted)
 
-C01 evidence is under revision. The earlier fixture incorrectly treated `fd.d` as light propagation and made unsupported claims about unloaded boundaries and a frozen A01 API. Native research now points to the bounded `fd.a(eb,...)` queue followed by `fd.j()`/`st.a(fd)`; the synthetic `cl` provider and queue state are being rebuilt around that path. No A01 API or acceptance result is frozen yet. Do not use the existing light-update fixture as acceptance evidence.
+The initial `fd.d` fixture was discarded. The accepted synthetic-only oracle
+drives `fd.a(eb,...)`, drains `fd.j()` to quiescence and captures the explicit
+unloaded edge. It is pinned and repeatable as documented below. The A01 API and
+limits are frozen in the final C01 handoff section; implementation may proceed
+against that contract.
 
 ## HEALTH-001-C01 — native Player.Health and heart audit
 
@@ -1625,12 +1629,34 @@ The six focused Python tests pass, including wrong-JAR and malformed/mutated
 evidence rejection. An independent review reconstructed each full domain and
 matched all five initial digests.
 
-Frozen A01 API boundary: operate only on an already edited candidate
-`BlockScene`, with an explicit maximum processed-cell/queue budget derived from
-the C01 domain; return sorted exact block/sky nibble updates, sorted dirty chunk
-coordinates and explicit unloaded neighbor coordinates. Do not clamp silently
-or mutate unloaded chunks. Viewer publication remains one transaction across
-block state, duplicated chunks, light, meshes and fluid caches. Emission changes,
-fluid ticks, diagonal shortcuts, new chunk loading, persistence and general
-world simulation remain excluded. A01 may refine concrete Rust type names before
-implementation, but must preserve this behavioral signature and bounds.
+Frozen A01 API (concrete Rust signature):
+
+```rust
+pub fn relight<F>(
+    &mut self,
+    changed: (i32, i32, i32),
+    max_visited_cells: usize,
+    material: F,
+) -> Result<RelightResult, RelightError>
+where
+    F: Fn(u8, u8) -> (u8, u8), // (native opacity, native emission)
+```
+
+`MAX_RELIGHT_CELLS` is exactly `3 * 3 * 128 * 256 = 294_912`, the maximum
+number of cells in C01's nine loaded chunks. `max_visited_cells` must be in
+`1..=MAX_RELIGHT_CELLS`; it counts distinct loaded cells dequeued by the
+deterministic update work queue. A smaller caller limit that is exhausted
+returns `RelightError::QueueLimitExceeded` and leaves `self` byte-for-byte
+unchanged; limits are never silently clamped. Invalid limits, an unloaded edit
+cell, invalid opacity/emission outside `0..=15`, or an internal chunk access
+failure also return an error without publishing partial light changes.
+
+`RelightResult` contains sorted `changed_cells` entries with world `(x,y,z)` and
+the final block/sky nibbles, a sorted/deduplicated `dirty_chunks` list, and a
+sorted/deduplicated `unloaded_neighbors` list of world cell coordinates. Queue
+expansion uses only the six cardinal cells; unloaded cells are reported and
+never read as air or mutated. Viewer invokes this API on its disposable edited
+candidate with `MAX_RELIGHT_CELLS`, then publishes block state, duplicate chunk
+data, light, meshes and fluid caches in one transaction. Emission transitions,
+fluid ticks, diagonal propagation shortcuts, chunk loading, persistence and
+general world simulation remain excluded.
