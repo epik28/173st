@@ -399,9 +399,16 @@
       ]
     },
     "HOTBAR-ITEMS-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлена модульная отрисовка сохранённых поддержанных стеков в first-person hotbar и разделены atlas batches для inventory/hotbar: block IDs 1/3 используют terrain.png, item IDs 332/267 — gui/items.png. Follow-up добавил hash-проверенный font/default.png 128x128 и native count labels только для count > 1, включая shadow/foreground passes в hotbar и inventory.",
+      "checks": [
+        "cargo fmt --all; cargo test --locked --offline -p beta-viewer → PASS: 17 library + 34 viewer tests + doc tests",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings → PASS",
+        "Тесты проверяют 9 hotbar slot positions, native UVs, независимые terrain/items batches, empty/unsupported behavior и inventory split",
+        "git diff --check → PASS; native fixtures/oracle, saved-player parsing, world guard and dependencies unchanged",
+        "GUI smoke не заявлялся: локальный world hash guard остаётся ограничением визуальной проверки",
+        "Count follow-up: native digit widths [8,8,8,8,9,9,8,9,8,8], 8x8 glyph UVs, anchor x+17-width/y+9, shadow offset +1/+1 and white foreground; tests cover count 1 omission, 2/16, scaling and inventory/hotbar"
+      ]
     }
   }
 }

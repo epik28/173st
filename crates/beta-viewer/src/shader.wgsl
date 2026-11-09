@@ -64,3 +64,8 @@ struct VertexOut {
     }
     return color;
 }
+@fragment fn fs_hud_shadow(input: VertexOut) -> @location(0) vec4<f32> {
+    let color = textureSample(atlas, atlas_sampler, input.uv);
+    if color.a <= 0.0 { discard; }
+    return vec4<f32>(0.2470588, 0.2470588, 0.2470588, color.a);
+}

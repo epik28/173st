@@ -10,6 +10,7 @@ pub const ICONS_SHA256: &str = "8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae
 pub const INVENTORY_SHA256: &str =
     "53dd5bde88588215b1700aee4a7dd70a3049e7e53f914982774ebdc26d6862b0";
 pub const ITEMS_SHA256: &str = "545699e0c5f655c1e1876bb9f2fa5d93c4fd514dae3802d1cea43ae0003343f3";
+pub const FONT_SHA256: &str = "6ded9b9e06a61beaa61bf8542c46b5d690d45fdaf42e6539afcbc02e4c7a6408";
 pub const CLIENT_JAR_SHA256: &str =
     "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c";
 
@@ -35,6 +36,13 @@ pub fn load_inventory_atlases(
     let inventory = decode_atlas(&inventory_bytes, INVENTORY_SHA256, "gui/inventory.png")?;
     let items = decode_atlas(&items_bytes, ITEMS_SHA256, "gui/items.png")?;
     Ok((inventory, items))
+}
+
+pub fn load_font_atlas(client_jar: &Path) -> Result<image::RgbaImage, Box<dyn Error>> {
+    let jar = fs::read(client_jar)?;
+    verify_hash(&jar, CLIENT_JAR_SHA256, "pinned client JAR")?;
+    let bytes = extract_zip_resource(&jar, "font/default.png")?;
+    decode_atlas_sized(&bytes, FONT_SHA256, "font/default.png", (128, 128))
 }
 
 fn verify_hash(bytes: &[u8], expected: &str, label: &str) -> Result<(), Box<dyn Error>> {
@@ -176,10 +184,23 @@ fn decode_atlas(
     expected_hash: &str,
     source: &str,
 ) -> Result<image::RgbaImage, Box<dyn Error>> {
+    decode_atlas_sized(bytes, expected_hash, source, (256, 256))
+}
+
+fn decode_atlas_sized(
+    bytes: &[u8],
+    expected_hash: &str,
+    source: &str,
+    dimensions: (u32, u32),
+) -> Result<image::RgbaImage, Box<dyn Error>> {
     verify_hash(bytes, expected_hash, &format!("native HUD atlas {source}"))?;
     let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)?.to_rgba8();
-    if image.dimensions() != (256, 256) {
-        return Err(format!("native HUD atlas must be 256x256: {source}").into());
+    if image.dimensions() != dimensions {
+        return Err(format!(
+            "native HUD atlas must be {}x{}: {source}",
+            dimensions.0, dimensions.1
+        )
+        .into());
     }
     Ok(image)
 }

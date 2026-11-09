@@ -805,3 +805,31 @@ Coordinator assistance provided that committed audit and synchronized main;
 no code was borrowed, no native fixture/oracle was changed, and no cost
 telemetry or provider model ID was exposed in this run. Counts, crafting,
 armor, item movement/use and persistence remain outside A01.
+
+## HOTBAR-ITEMS-001-A01 — saved stacks in first-person hotbar
+
+Added pure `hotbar_vertices` generation for the nine native hotbar slots. It
+uses only supported `Inventory` stacks and audited icon UVs; empty, unsupported
+and nonzero-damage entries stay absent. Geometry is split into atlas batches:
+IDs 1 and 3 bind the verified terrain atlas, while IDs 332 and 267 bind
+verified `gui/items.png`. The same split is used by the inventory screen,
+correcting its previous single `items.png` binding for block icons. Count labels
+remain excluded because no audited font/count layout was available in this card.
+
+Checks: `cargo fmt --all`; `cargo test --locked --offline -p beta-viewer`
+passed with 17 library and 34 viewer tests plus doc tests. Viewer clippy with
+`-D warnings` and `git diff --check` passed. Tests cover all nine hotbar
+positions, viewport scaling, atlas batch selection, supported UVs, empty slots
+and unsupported entries. No world, save parser, native fixture/oracle or
+dependency was changed. Visual smoke was not claimed because the local pinned
+world guard still blocks startup in the agent environment.
+
+Follow-up: native C01 count evidence is now implemented. The viewer loads and
+hash-checks `font/default.png` (128x128) from the pinned JAR in memory. Counts
+are emitted only for stack size >1, using the audited digit widths
+`[8,8,8,8,9,9,8,9,8,8]`, 8x8 atlas cells, `x+17-width,y+9` anchoring, a
+`#3f3f3f` shadow at `+1,+1`, then white foreground glyphs. The same count
+passes cover supported hotbar and inventory stacks, including two-digit values.
+Tests cover omission at one, counts 2 and 16, glyph UV bounds, shadow offset,
+inventory positions and viewport scaling. This is native-evidence-derived
+geometry; no pixel parity or GUI smoke claim is made.
