@@ -32,16 +32,17 @@ the captured interface has no metadata dimension. The relevant entries are:
 | 9 (water) | yes | 3 | 0 |
 | 18 (leaves) | yes | 1 | 0 |
 | 31 (tall grass) | yes | 0 | 0 |
-| 39 (redstone ore) | yes | 0 | 1 |
+| 39 (brown mushroom) | yes | 0 | 1 |
 | 50 (torch) | yes | 0 | 14 |
 | 51 (fire) | yes | 0 | 15 |
 | 104 (unregistered) | no | raw default 0 | raw default 0 |
 
 The values come from the committed native TSV, not from the Rust implementation.
 For an unregistered ID, `uu.m[id] == null`; zeroes in `uu.q` and `uu.s` are
-static-array defaults and are not valid material records. Native chunk light
-code in `eb` indexes `uu.q` while reading block IDs, confirming this is the
-opacity registry used by native light updates.
+static-array defaults and are not valid material records. Bytecode inspection
+confirms the native light propagation helper is `st`: it reads `uu.q` and
+`uu.s` and calls the world light accessors. `eb` is the light-kind enum passed
+to that helper, not the propagation class.
 
 This confirms a concrete mismatch in the callback reported by the coordinator:
 it supplies opacity 255 to every non-air ID, while native registered leaves use
@@ -62,13 +63,25 @@ both sides of the edit. Both adapters verify their original classes load from
 the pinned JAR; the audit records both Java source hashes, original class hashes,
 request/output hashes, and the registry bootstrap hash.
 
-`tests/fixtures/light_material/native_edits.tsv` contains 44 ordered rows. Its
-SHA-256 is `f6bfeaa184688a48e0691c51b6ed3ca9af6f8a1c81b5b04c603e10170f72301a`;
-two fresh captures match exactly. In the fixed canopy case, the sampled leaf at
-`(8,66,7)` has opacity 1. Removing the log at `(8,65,8)` changes that cell's
-native sky light from 0 to 13; neighboring leaf cells retain their captured
-opacity and light. In the water cases, ID 9 has opacity 3 and emission 0; placing
-it changes sampled sky light from 15 to 12, and removing it restores 15.
+`tests/fixtures/light_material/native_edits.tsv` contains 8,159 ordered rows.
+For each of the three cases it includes the complete pre-edit exceptions for
+all nine loaded chunks, followed by the samples before and after the edit. State
+rows use `state<TAB>name<TAB>x<TAB>y<TAB>z<TAB>id<TAB>meta<TAB>blocklight<TAB>skylight`;
+height rows use `height<TAB>name<TAB>x<TAB>z<TAB>height`. The domain descriptor
+declares defaults of block/meta/block-light 0, sky 0 at y=0 and 15 at y=1..127,
+and height 0 from the native all-air initialization. The pre-edit digest covers
+the complete native state. Output SHA-256 is
+`52184b840b178cb00a3e6b442c54659d6c6dafb0db7eda05ce9ca09558901f80`; two fresh
+captures match exactly.
+
+In the fixed canopy case, the sampled leaf at `(8,66,7)` has opacity 1. Removing
+the log at `(8,65,8)` changes that cell's native sky light from 0 to 13. The
+post-edit native sample also records metadata 8 on the neighboring leaf at
+`(8,66,7)`, showing native block metadata/neighbor marking during this edit.
+The Rust work under review is light-only and does not implement that block
+metadata behavior; this capture makes no claim of full block/metadata parity.
+In the water cases, ID 9 has opacity 3 and emission 0; placing it changes sampled
+sky light from 15 to 12, and removing it restores 15.
 These results demonstrate native behavior for these synthetic inputs only.
 They do not reproduce the user's exact save, edit sequence, or screenshot, and
 do not rule out other queue, height-map, boundary, or publication defects.
@@ -92,14 +105,15 @@ Commands run:
 - `python3 tools/oracle/light_material_audit.py` — two fresh captures matched
   the committed TSV and audit hashes.
 - `python3 tools/oracle/light_material_edit_audit.py --write` — three native
-  synthetic edit cases; two fresh 44-row captures matched.
+  synthetic edit cases; two fresh 8,159-row captures matched.
 - `python3 tools/oracle/light_material_edit_audit.py` — two fresh edit captures
-  matched the committed TSV and audit hashes.
+  matched the committed complete-state TSV and audit hashes (8,159 rows,
+  including all native pre-edit block/light and height exceptions).
 - `python3 -m unittest tests/python/test_light_material_audit.py -v` — 6 tests
   passed, including malformed/changed registry data, provenance mutation, and
   wrong-JAR and malformed-protocol rejection.
 - `git diff --check` — passed.
 
-The oracle only reads the pinned client JAR and uses synthetic fixed registry
-input. It does not open saves or alter original assets. Native edit/reproduction
-evidence and visual comparison remain outstanding.
+The oracle only reads the pinned client JAR and uses synthetic fixed input. It
+does not open saves or alter original assets. The user's exact edit/save
+reproduction and visual comparison remain outstanding.

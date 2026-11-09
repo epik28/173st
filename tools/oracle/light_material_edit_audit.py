@@ -34,6 +34,10 @@ CAPTURE_CONTRACT = {
     "edit": "native fd.a(IIIII)Z followed by bounded native light-update queue drain",
     "samples": "ordered raw id, metadata, uu.q opacity, uu.s emission, sky, block, combined light rows before and after",
     "domain": {"loaded_chunks_x": [-1, 0, 1], "loaded_chunks_z": [-1, 0, 1], "y": [0, 127]},
+    "initial_domain": "complete per-case pre-edit exceptions for block/meta/block-light/sky and height; default block/meta/block-light=0, sky=0 at y0 and 15 at y1..127, height=0",
+    "state_row": "state<TAB>name<TAB>x<TAB>y<TAB>z<TAB>id<TAB>meta<TAB>blocklight<TAB>skylight",
+    "height_row": "height<TAB>name<TAB>x<TAB>z<TAB>height",
+    "metadata_scope": "native leaf neighbor metadata is recorded; not part of a light-only parity claim",
 }
 EXPECTED_POINTS = {
     "canopy-log-remove": [(8, 65, 8), (8, 64, 8), (8, 66, 8), (7, 65, 8), (8, 65, 7), (8, 66, 7), (8, 67, 8)],
@@ -85,7 +89,77 @@ def validate_output(output: bytes) -> None:
                 raise ValueError(f"invalid native pre-edit digest at row {line_number}")
             if not all(-16 <= value <= 31 for value in (target[0], target[2])) or not 0 <= target[1] <= 127:
                 raise ValueError(f"native edit target outside loaded domain at row {line_number}")
-            cases[name] = {"target": target, "replacement": replacement, "samples": {"before": [], "after": []}, "final": False}
+            if not 0 <= replacement <= 255:
+                raise ValueError(f"native replacement ID outside range at row {line_number}")
+            cases[name] = {
+                "target": target, "replacement": replacement, "before_digest": digest,
+                "domain": None, "states": {}, "heights": {},
+                "samples": {"before": [], "after": []}, "final": False,
+            }
+        elif fields[0] == "domain" and len(fields) == 14:
+            name = fields[1]
+            if name not in cases or cases[name]["domain"] is not None:
+                raise ValueError(f"orphaned or duplicate native domain descriptor at row {line_number}")
+            descriptor = dict(field.split("=", 1) for field in fields[2:])
+            expected = {
+                "chunks_x": "-1,0,1", "chunks_z": "-1,0,1", "y": "0..127",
+                "default_block": "0", "default_meta": "0", "default_block_light": "0",
+                "default_sky": "0@y0;15@y1..127(native-lm.c-all-air)",
+                "default_height": "0(native-lm.c-all-air)", "material": "uu.q[id],uu.s[id]",
+                "init": "xa.a(0);lm.c();fd.j-quiescent",
+            }
+            if any(descriptor.get(key) != value for key, value in expected.items()):
+                raise ValueError(f"native domain descriptor differs from the explicit all-air defaults: {name}")
+            digest = descriptor.get("digest", "")
+            if digest != cases[name]["before_digest"]:
+                raise ValueError(f"native domain digest differs from case pre-edit digest: {name}")
+            seed_text = descriptor.get("seed_ops")
+            if seed_text is None:
+                raise ValueError(f"native domain descriptor omits seed operations: {name}")
+            seeds: list[tuple[int, int, int, int, int]] = []
+            for operation in seed_text.split(";"):
+                try:
+                    seed = tuple(map(int, operation.split(",")))
+                except ValueError as exc:
+                    raise ValueError(f"invalid native seed operation for {name}") from exc
+                if len(seed) != 5:
+                    raise ValueError(f"invalid native seed operation for {name}")
+                sx, sy, sz, block_id, metadata = seed
+                if not (-16 <= sx <= 31 and -16 <= sz <= 31 and 0 <= sy <= 127 and 1 <= block_id <= 255 and 0 <= metadata <= 15):
+                    raise ValueError(f"native seed operation outside supported domain for {name}")
+                seeds.append(seed)
+            if len(set((seed[0], seed[1], seed[2]) for seed in seeds)) != len(seeds):
+                raise ValueError(f"duplicate native seed coordinate for {name}")
+            cases[name]["domain"] = {"descriptor": descriptor, "seeds": seeds}
+        elif fields[0] == "state" and len(fields) == 9:
+            name = fields[1]
+            if name not in cases or cases[name]["domain"] is None:
+                raise ValueError(f"native state exception precedes its domain descriptor at row {line_number}")
+            try:
+                x, y, z, block_id, metadata, block_light, sky_light = map(int, fields[2:9])
+            except ValueError as exc:
+                raise ValueError(f"non-numeric native state exception at row {line_number}") from exc
+            key = (x, y, z)
+            if key in cases[name]["states"] or not (-16 <= x <= 31 and -16 <= z <= 31 and 0 <= y <= 127):
+                raise ValueError(f"duplicate or out-of-domain native state exception: {name} {key}")
+            if not (0 <= block_id <= 255 and 0 <= metadata <= 15 and 0 <= block_light <= 15 and 0 <= sky_light <= 15):
+                raise ValueError(f"native state exception outside property range: {name} {key}")
+            default_sky = 0 if y == 0 else 15
+            if block_id == 0 and metadata == 0 and block_light == 0 and sky_light == default_sky:
+                raise ValueError(f"redundant native state exception equals its declared default: {name} {key}")
+            cases[name]["states"][key] = (block_id, metadata, block_light, sky_light)
+        elif fields[0] == "height" and len(fields) == 5:
+            name = fields[1]
+            if name not in cases or cases[name]["domain"] is None:
+                raise ValueError(f"native height exception precedes its domain descriptor at row {line_number}")
+            try:
+                x, z, height = map(int, fields[2:5])
+            except ValueError as exc:
+                raise ValueError(f"non-numeric native height exception at row {line_number}") from exc
+            key = (x, z)
+            if key in cases[name]["heights"] or not (-16 <= x <= 31 and -16 <= z <= 31) or not 1 <= height <= 128:
+                raise ValueError(f"duplicate or invalid native height exception: {name} {key}")
+            cases[name]["heights"][key] = height
         elif fields[0] == "final" and len(fields) == 3:
             if fields[1] not in cases or cases[fields[1]]["final"] or len(fields[2]) != 64 or any(c not in "0123456789abcdef" for c in fields[2]):
                 raise ValueError(f"orphaned, duplicate, or malformed final digest at row {line_number}")
@@ -110,14 +184,27 @@ def validate_output(output: bytes) -> None:
     if tuple(cases) != CASE_NAMES:
         raise ValueError("native edit output must cover the three declared scenarios in order")
     for name, case in cases.items():
+        if case["domain"] is None:
+            raise ValueError(f"missing complete native initial domain for {name}")
         if not case["final"]:
             raise ValueError(f"missing final native state digest for {name}")
+        state_rows = case["states"]
+        for seed in case["domain"]["seeds"]:
+            sx, sy, sz, block_id, metadata = seed
+            actual = state_rows.get((sx, sy, sz))
+            if actual is None or actual[:2] != (block_id, metadata):
+                raise ValueError(f"native seed cell is missing or differs in complete state exceptions: {name} {(sx, sy, sz)}")
         expected = EXPECTED_POINTS[name]
         for phase in ("before", "after"):
             actual_points = [row[:3] for row in case["samples"][phase]]
             if actual_points != expected:
                 raise ValueError(f"{name} {phase} samples differ from the fixed ordered protocol")
         target = case["target"]
+        for sample in case["samples"]["before"]:
+            x, y, z, block_id, metadata, opacity, emission, sky, block, combined = sample
+            default = (0, 0, 0, 0 if y == 0 else 15)
+            if state_rows.get((x, y, z), default) != (block_id, metadata, block, sky):
+                raise ValueError(f"pre-edit sampled value differs from complete native state for {name} {(x, y, z)}")
         before_target = next(row for row in case["samples"]["before"] if row[:3] == target)
         after_target = next(row for row in case["samples"]["after"] if row[:3] == target)
         if before_target[3] == case["replacement"] or after_target[3] != case["replacement"]:
@@ -129,6 +216,9 @@ def validate_output(output: bytes) -> None:
     leaf = sampled("canopy-log-remove", "before", (8, 66, 7))
     if leaf[3:7] != (18, 0, 1, 0):
         raise ValueError("native canopy sample must retain registered leaf ID 18 opacity 1 emission 0")
+    marked_leaf = sampled("canopy-log-remove", "after", (8, 66, 7))
+    if marked_leaf[3:7] != (18, 8, 1, 0):
+        raise ValueError("native post-edit leaf sample must retain metadata 8 and opacity 1")
     transitions = {
         "canopy-log-remove": ((17, 255, 0, 0), (0, 0, 0, 13)),
         "water-remove": ((9, 3, 0, 12), (0, 0, 0, 15)),

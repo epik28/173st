@@ -89,6 +89,21 @@ class LightMaterialAuditTests(unittest.TestCase):
         manifest = json.loads((FIXTURE / "edit_audit.json").read_text())
         edit_audit.validate_output(output)
         edit_audit.validate_evidence([output, output], output, manifest, JAR)
+        rows = [line.split("\t") for line in output.decode("ascii").splitlines()]
+        domains = [row for row in rows if row[0] == "domain"]
+        states = [row for row in rows if row[0] == "state"]
+        heights = [row for row in rows if row[0] == "height"]
+        self.assertEqual(len(domains), 3)
+        self.assertGreater(len(states), 7000)
+        self.assertGreater(len(heights), 0)
+        for row in domains:
+            self.assertEqual(row[5:8], ["default_block=0", "default_meta=0", "default_block_light=0"])
+            self.assertEqual(row[8], "default_sky=0@y0;15@y1..127(native-lm.c-all-air)")
+            self.assertEqual(row[9], "default_height=0(native-lm.c-all-air)")
+        leaf_exception = [row for row in states if row[1:5] == ["canopy-log-remove", "8", "66", "7"]]
+        self.assertEqual(leaf_exception, [["state", "canopy-log-remove", "8", "66", "7", "18", "0", "0", "14"]])
+        marked_leaf = next(row for row in rows if row[:5] == ["canopy-log-remove", "after", "8", "66", "7"])
+        self.assertEqual(marked_leaf[5:9], ["18", "8", "1", "0"])
 
         wrong_leaf_opacity = output.replace(
             b"canopy-log-remove\tbefore\t8\t66\t7\t18\t0\t1\t0",
@@ -102,6 +117,19 @@ class LightMaterialAuditTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "samples differ"):
             edit_audit.validate_output(missing_edit_row)
+
+        wrong_default = output.replace(
+            b"default_sky=0@y0;15@y1..127(native-lm.c-all-air)",
+            b"default_sky=15(native-lm.c-all-air)", 1,
+        )
+        with self.assertRaisesRegex(ValueError, "explicit all-air defaults"):
+            edit_audit.validate_output(wrong_default)
+
+        missing_state = output.replace(
+            b"state\tcanopy-log-remove\t8\t66\t7\t18\t0\t0\t14\n", b"", 1,
+        )
+        with self.assertRaisesRegex(ValueError, "seed cell is missing"):
+            edit_audit.validate_output(missing_state)
 
         wrong_capture_hash = dict(manifest)
         wrong_capture_hash["capture_output_sha256"] = ["0" * 64, "0" * 64]

@@ -17,6 +17,47 @@ public final class LightMaterialEditOracle {
     LightUpdateOracle.settle(world, cell.x, cell.y, cell.z);
   }
 
+  static String domainRows(LightUpdateOracle.W world, Case scenario, String digest) {
+    StringBuilder rows = new StringBuilder();
+    rows.append("domain\t").append(scenario.name)
+        .append("\tchunks_x=-1,0,1\tchunks_z=-1,0,1\ty=0..127")
+        .append("\tdefault_block=0\tdefault_meta=0\tdefault_block_light=0")
+        .append("\tdefault_sky=0@y0;15@y1..127(native-lm.c-all-air)")
+        .append("\tdefault_height=0(native-lm.c-all-air)")
+        .append("\tmaterial=uu.q[id],uu.s[id]")
+        .append("\tinit=xa.a(0);lm.c();fd.j-quiescent")
+        .append("\tseed_ops=");
+    for (int i = 0; i < scenario.seed.size(); i++) {
+      Cell cell = scenario.seed.get(i);
+      if (i != 0) rows.append(';');
+      rows.append(cell.x).append(',').append(cell.y).append(',').append(cell.z).append(',').append(cell.id).append(",0");
+    }
+    rows.append("\tdigest=").append(digest).append('\n');
+
+    for (int cx = -1; cx <= 1; cx++) for (int cz = -1; cz <= 1; cz++) {
+      lm chunk = world.c(cx, cz);
+      for (int y = 0; y < 128; y++) for (int lx = 0; lx < 16; lx++) for (int lz = 0; lz < 16; lz++) {
+        int id = chunk.a(lx, y, lz);
+        int metadata = chunk.e.a(lx, y, lz);
+        int blockLight = chunk.g.a(lx, y, lz);
+        int skyLight = chunk.f.a(lx, y, lz);
+        int defaultSky = y == 0 ? 0 : 15;
+        if (id != 0 || metadata != 0 || blockLight != 0 || skyLight != defaultSky) {
+          rows.append("state\t").append(scenario.name).append('\t').append(cx * 16 + lx).append('\t')
+              .append(y).append('\t').append(cz * 16 + lz).append('\t').append(id).append('\t')
+              .append(metadata).append('\t').append(blockLight).append('\t').append(skyLight).append('\n');
+        }
+      }
+      for (int lx = 0; lx < 16; lx++) for (int lz = 0; lz < 16; lz++) {
+        int height = chunk.h[lx * 16 + lz];
+        if (height != 0)
+          rows.append("height\t").append(scenario.name).append('\t').append(cx * 16 + lx).append('\t')
+              .append(cz * 16 + lz).append('\t').append(height).append('\n');
+      }
+    }
+    return rows.toString();
+  }
+
   static Case[] cases() {
     return new Case[] {
       new Case("canopy-log-remove", List.of(
@@ -72,6 +113,7 @@ public final class LightMaterialEditOracle {
             .append(scenario.edit.x).append(',').append(scenario.edit.y).append(',').append(scenario.edit.z)
             .append("\treplacement=").append(scenario.replacement)
             .append("\tbefore_digest=").append(beforeDigest).append('\n');
+        out.append(domainRows(world, scenario, beforeDigest));
         for (Point point : scenario.samples)
           out.append(LightUpdateOracle.row(world, scenario.name, "before", point.x, point.y, point.z)).append('\n');
 

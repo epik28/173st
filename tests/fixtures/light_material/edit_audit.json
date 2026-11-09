@@ -23,12 +23,16 @@
       ]
     },
     "edit": "native fd.a(IIIII)Z followed by bounded native light-update queue drain",
+    "height_row": "height<TAB>name<TAB>x<TAB>z<TAB>height",
+    "initial_domain": "complete per-case pre-edit exceptions for block/meta/block-light/sky and height; default block/meta/block-light=0, sky=0 at y0 and 15 at y1..127, height=0",
+    "metadata_scope": "native leaf neighbor metadata is recorded; not part of a light-only parity claim",
     "samples": "ordered raw id, metadata, uu.q opacity, uu.s emission, sky, block, combined light rows before and after",
-    "seed": "synthetic blocks placed with native fd.a and light settled via native fd.j; no save files"
+    "seed": "synthetic blocks placed with native fd.a and light settled via native fd.j; no save files",
+    "state_row": "state<TAB>name<TAB>x<TAB>y<TAB>z<TAB>id<TAB>meta<TAB>blocklight<TAB>skylight"
   },
   "capture_output_sha256": [
-    "f6bfeaa184688a48e0691c51b6ed3ca9af6f8a1c81b5b04c603e10170f72301a",
-    "f6bfeaa184688a48e0691c51b6ed3ca9af6f8a1c81b5b04c603e10170f72301a"
+    "52184b840b178cb00a3e6b442c54659d6c6dafb0db7eda05ce9ca09558901f80",
+    "52184b840b178cb00a3e6b442c54659d6c6dafb0db7eda05ce9ca09558901f80"
   ],
   "class_sha256": {
     "eb": "da8164fc071e412e751668ffa0f79a42bcbb24d2c475e9cf34a7c7f4bae04176",
@@ -40,9 +44,9 @@
   },
   "input_sha256": "4480e96683047b360aa90cbe40c211941811257f6daf8fd67611b1262a38b491",
   "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
-  "output_sha256": "f6bfeaa184688a48e0691c51b6ed3ca9af6f8a1c81b5b04c603e10170f72301a",
+  "output_sha256": "52184b840b178cb00a3e6b442c54659d6c6dafb0db7eda05ce9ca09558901f80",
   "source_sha256": {
     "light_update_helper": "eec6d0ccab1ed70c3ca7bbdec8d9b3ec8e020a3112c288968deb56f33a76bb53",
-    "material_edit": "ed8ac286f21b443db8d0383ae168497cc650eab1d1fb0de4cb71d1da266cebf7"
+    "material_edit": "5052ae402375c423d13dfafe80e90d7bc368e5c4ed46c26aabe2b9857d7c2ef9"
   }
 }
