@@ -45,15 +45,19 @@ touch the live world.
 
 ### HOTBAR-ITEMS-001-A01 — hotbar stack rendering (agy)
 
-After C01 is committed, use the audited native geometry and existing
-`Inventory`/icon mapping to render supported hotbar stacks. Add pure vertex
+Work in parallel with C01 on behavior already pinned by
+`INVENTORY-UI-001-C01`; do not finalize any fact that C01 is still auditing.
+Use the audited native geometry and existing `Inventory`/icon mapping to
+render supported hotbar stacks. Add pure vertex
 generation and integration tests for all nine slot locations, selected-slot
 independence, empty slots, supported stacks, unsupported entries, viewport
 scales, atlas bounds, and draw ordering. Implement count labels only if C01
 proves the font/layout and the code can use the pinned original font resource;
 otherwise leave counts outside this slice. Do not alter core items, player
 save reads, native fixtures, the world guard, or add dependencies. Update agy
-handoff/status and commit the result.
+handoff/status and commit the result. Keep A01 review-pending until C01's exact
+draw order and atlas binding have been accepted; correct any conflicts before
+C02 integration.
 
 ### HOTBAR-ITEMS-001-C02 — integration and acceptance (Codex)
 

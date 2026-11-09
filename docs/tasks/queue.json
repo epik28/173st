@@ -13,9 +13,7 @@
       "owner": "agy",
       "title": "Render saved item stacks in the hotbar",
       "card": "docs/tasks/HOTBAR-ITEMS-001.md",
-      "depends_on": [
-        "HOTBAR-ITEMS-001-C01"
-      ]
+      "depends_on": []
     },
     {
       "id": "HOTBAR-ITEMS-001-C02",
