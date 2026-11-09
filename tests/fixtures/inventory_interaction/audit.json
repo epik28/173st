@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "jar_size": 1465375,
+    "oracle": "InventoryInteractionOracle",
+    "native_classes": {
+      "dw": "6fed57e852ed35892c165d37bb0dfe6b8585a3c2aa70b791d9316868e93f0f47",
+      "aa": "8de8d32824f6ebc4cec9b0aca886cc0c3569cefeb77e22e8f94ef39d27b86cb3",
+      "id": "934c3e5664d2113ab02b57ff73560bac66ff65fd5620f3754db69cffbe72792c",
+      "ix": "03eb35aef64c71087942c5dc8b2849e9b47e9482c97be825895cfc2149b8e009",
+      "iz": "3e8a07bf8c43729c8367bab454af876e698505620f230e012432c04e3828d6d6",
+      "gs": "52e2d97748d9a306703e018822fece7d0ef9ca8ddf3448a1d0e568f2fbe29202",
+      "gp": "1c5ab56b12dc83efc81c2fb058bc28bff1b10e64e4435ba1a31f3e3ce756d7c3",
+      "bb": "696e7e8a848ebdbc92979be779b42ab87c39b91fd9ec6b6f7a239a8dc4a792b6"
+    },
+    "native_methods": {
+      "click": ["dw", "a", "(IIZLgs;)Liz;"],
+      "shift_transfer": ["aa", "a", "(I)Liz;"],
+      "cursor_get": ["ix", "i", "()Liz;"],
+      "cursor_set": ["ix", "b", "(Liz;)V"]
+    }
+  },
+  "protocol": {
+    "row_format": "scenario\\tstep\\top\\tcursor=<id:count:damage|->\\tslots=<36 comma-separated stacks>",
+    "supported_ids": [1, 3, 332, 267],
+    "supported_stack_sizes": [1, 2, 4, 8, 16, 64],
+    "scenarios": ["left_pick_place", "right_split", "merge_same", "swap_different", "close_return"],
+    "expected_rows": 15,
+    "expected_output_sha256": "9771ba6be699b1e9554b25cf834e7bd00249235d8b7bb66250ecff2c5f79259e",
+    "deterministic_repeats": 2
+  },
+  "cursor_rendering": {
+    "renderer_class": "bb",
+    "icon_method": ["bb", "a", "(Lsj;Lji;Liz;II)V"],
+    "count_method": ["bb", "b", "(Lsj;Lji;Liz;II)V"],
+    "position": "screen mouse coordinates minus inventory origin minus (8,8)",
+    "icon_size": [16, 16],
+    "atlas_dispatch": "item ID < 256 uses terrain.png tile; item ID >= 256 uses gui/items.png tile",
+    "draw_order": ["slot contents", "cursor icon", "cursor count", "tooltip"],
+    "count": "native count text is drawn only when stack count > 1"
+  }
+}
