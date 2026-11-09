@@ -701,9 +701,17 @@
       ]
     },
     "HOTBAR-INPUT-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят объединённый HOTBAR-INPUT-001: нативный аудит закрепляет физические клавиши 1–9 и целочисленные wheel events, viewer обновляет выбранный Inventory slot и HUD frame без записи в мир.",
+      "checks": [
+        "python3 tools/oracle/hotbar_audit.py → PASS: pinned JAR/classes, descriptors и исходные bytecode claims",
+        "python3 -m unittest tests.python.test_hotbar_audit -v → PASS: 4 audit/provenance/mutation tests",
+        "python3 tools/parity/run.py items --strict → PASS: all ordered native inventory states match",
+        "python3 tools/check.py → PASS: 204 Python tests (18 opt-in skips), cargo fmt, workspace check, clippy -D warnings, all-target and doc tests",
+        "cargo tests cover physical Digit1..Digit9, release/repeat/focus, fractional line/pixel accumulation, one native-direction step per completed event, wrapping, and HUD selection geometry",
+        "Xvfb startup verified pinned HUD atlas, then stopped at unchanged safety guard because user-owned level.dat hash differs; no world read/write/copy or guard bypass",
+        "Line/pixel fractional conversion is explicitly viewer adapter policy; original parity claim is limited to integer LWJGL wheel events"
+      ]
     }
   }
 }

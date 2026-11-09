@@ -47,7 +47,15 @@ HUD-001 принят: viewer рисует нативную рамку и выд�
 прошёл на объединённой ревизии. Xvfb smoke загрузил атласы, но остановился на
 защите изменённого `level.dat`, поэтому новый скриншот не получен.
 
-Оценка готовности **полной игры — около 25%** после HUD-001.
+HOTBAR-INPUT-001 принят: клавиши 1–9 и колесо теперь выбирают слот в
+`Inventory`, а рамка HUD следует выбранной позиции. Native bytecode подтверждает
+hardcoded mapping клавиш и один sign-directed шаг на ненулевое целочисленное
+wheel event с wrap по 0..8. Fractional line/pixel conversion — политика viewer,
+не native parity. `items --strict`, pinned hotbar audit и полный `tools/check.py`
+прошли. Xvfb startup проверил HUD atlas и остановился на защите изменённого
+локального `level.dat`; мир не затронут.
+
+Оценка готовности **полной игры — около 26%** после HOTBAR-INPUT-001.
 Замечание о кроне остаётся открытым; визуальная проверка сглаживания полёта
 отложена до доступной закреплённой сцены. См. [known-issues.md](known-issues.md).
 Методика и веса: [completion-estimate.md](completion-estimate.md).
