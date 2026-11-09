@@ -191,7 +191,8 @@
             "row_y+row_height-3"
           ],
           "inner_color": 16777215
-        }
+        },
+        "short_content_alignment": "lg.d(): max_scroll=content_height-(bottom-top-4); if negative divide by 2 with Java integer truncation; initial_scroll=min(0,max_scroll); first_row_top=top+4-initial_scroll"
       },
       "buttons": [
         {
@@ -352,11 +353,15 @@
     "lg": [
       "bipush        110",
       "Field j:I",
+      "Field h:I",
+      "Field i:I",
       "Method a:()I",
       "Method c_:(I)Z",
       "Field m:F",
       "long 250l",
       "int 8421504",
+      "iconst_4",
+      "iconst_2",
       "glDisable:(I)V",
       "glEnable:(I)V"
     ],

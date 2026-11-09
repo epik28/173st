@@ -75,7 +75,7 @@ EXPECTED_LAYOUT = {
     },
     "world_select": {
         "title": {"anchor": ["width/2", 20], "color": 16777215},
-        "list": {"left": 32, "top": 32, "bottom": "height-64", "row_height": 36, "text_y": ["row_y+1", "row_y+12"], "primary_color": 16777215, "secondary_color": 8421504,
+        "list": {"left": 32, "top": 32, "bottom": "height-64", "row_height": 36, "short_content_alignment": "lg.d(): max_scroll=content_height-(bottom-top-4); if negative divide by 2 with Java integer truncation; initial_scroll=min(0,max_scroll); first_row_top=top+4-initial_scroll", "text_y": ["row_y+1", "row_y+12"], "primary_color": 16777215, "secondary_color": 8421504,
                  "selection_outline": {"condition": "list enabled and selected index equals row index", "outer_x": ["width/2-110", "width/2+110"], "outer_y_edges": ["row_y-2", "row_y+row_height-2"], "outer_color": 8421504, "inner_x": ["width/2-109", "width/2+109"], "inner_y_edges": ["row_y-1", "row_y+row_height-3"], "inner_color": 16777215}},
         "buttons": [
             {"key": "selectWorld.select", "id": 1, "x": "width/2-154", "y": "height-52", "size": [150, 20]},
@@ -170,7 +170,7 @@ EVIDENCE = {
     "fu": ["/title/mclogo.png", "class rq", "menu.singleplayer", "menu.multiplayer", "menu.mods", "menu.options", "menu.quit", "sipush        274", "sipush        155", "bipush        44", "Minecraft.a:(Lda;)V"],
     "rq": ["selectWorld.title", "selectWorld.select", "selectWorld.rename", "selectWorld.delete", "selectWorld.deleteQuestion", "selectWorld.create", "gui.cancel", "sipush        154", "sipush        150", "bipush        20", "iconst_m1", "Field ke.g:Z", "Field i:Ljava/lang/String;", "Minecraft.a:(Lda;)V"],
     "mg": ["bipush        32", "bipush        36", "bipush        64", "bipush        12", "ldc           #2                  // int 16777215", "ldc           #1                  // int 8421504", "rq.e:(I)V"],
-    "lg": ["bipush        110", "Field j:I", "Method a:()I", "Method c_:(I)Z", "Field m:F", "long 250l", "int 8421504", "glDisable:(I)V", "glEnable:(I)V"],
+    "lg": ["bipush        110", "Field j:I", "Field h:I", "Field i:I", "Method a:()I", "Method c_:(I)Z", "Field m:F", "long 250l", "int 8421504", "iconst_4", "iconst_2", "glDisable:(I)V", "glEnable:(I)V"],
     "da": ["/gui/background.png", "iconst_1", "Keyboard.getEventKey:()I", "Mouse.getEventX:()I", "Minecraft.a:(Lda;)V", "Minecraft.g:()V"],
     "ke": ["/gui/gui.png", "bipush        46", "bipush        20", "int -6250336", "int 14737632", "int 16777120"],
     "qq": ["Field kv.I:I", "sipush        1000", "sipush        320", "sipush        240", "java/lang/Math.ceil:(D)D"],

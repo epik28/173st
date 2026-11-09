@@ -257,6 +257,18 @@ def gui_to_physical(profile, gui_x, gui_y):
             round(gui_y * profile["height"] / profile["scaled_height"]))
 
 
+def native_first_row_top(scaled_height, row_count, row_height=36):
+    """Derive GuiSlot's initial row y from pinned lg.d() short-list centering."""
+    top = 32
+    bottom = scaled_height - 64
+    available = bottom - top - 4
+    max_scroll = row_count * row_height - available
+    if max_scroll < 0:
+        max_scroll = -(abs(max_scroll) // 2)  # Java integer division truncates toward zero.
+    initial_scroll = min(0, max_scroll)
+    return top + 4 - initial_scroll
+
+
 def set_window_size(window, width, height):
     window_id = int(window["id"], 16)
     with XSession() as x11:
@@ -416,13 +428,22 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
 
         if context["save_set"] == "synthetic":
             list_x = profile["scaled_width"] // 2
-            list_y = 50  # center of the first 36px native list row at y=32
+            row_count = sum(1 for case in context["synthetic_save_fixture"]["cases"]
+                            if case["expected_native_row"])
+            list_row_top = native_first_row_top(profile["scaled_height"], row_count)
+            list_y = list_row_top + 18
             select_xy = gui_to_physical(profile, list_x, list_y)
             with XSession() as x11:
                 x11.focus_and_click(int(initial["id"], 16), *select_xy)
             time.sleep(1.5)
             selected_path = output_dir / f"{profile['name']}-world-list-selected-row.png"
             profile_result["world_list_selected_frame"] = capture_record(initial["id"], selected_path, profile)
+            profile_result["world_row_click"] = {"row_index": 0, "row_count": row_count,
+                                                  "native_first_row_top_scaled": list_row_top,
+                                                  "scaled_gui_xy": [list_x, list_y],
+                                                  "physical_xy": list_xy,
+                                                  "focus_raised": True, "focus_set": True,
+                                                  "button_down_ms": 150, "button_up_flushed": True}
 
             with XSession() as x11:
                 x11.focus_and_press_key(int(initial["id"], 16), 0xff0d)  # XK_Return
