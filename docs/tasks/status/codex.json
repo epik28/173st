@@ -619,6 +619,26 @@
         "Native action parity remains unavailable; Rust unit tests cover edits, bounds, atomicity, dirty-chunk reporting. No save persistence, survival mining, inventory, or orientation claim.",
         "Read-only integration fast-forwarded agy/development snapshot 170033d into main; estimate updated from about 21% to about 23%; push deferred until 30%."
       ]
+    },
+    "FLIGHT-SMOOTH-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "ITEMS-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "ITEMS-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "ITEMS-001-C03": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

@@ -261,3 +261,30 @@ shape, occupied/unloaded placement и некорректный ввод без �
 Проверить protocol/error/limit cases и viewer smoke на disposable scene.
 Выполнить общие проверки и собственные block unit tests; обновить только свой
 status/handoff, commit A02.
+
+## FLIGHT-SMOOTH-001-A01 — interpolate debug-flight camera
+
+Прочитать [FLIGHT-SMOOTH-001](FLIGHT-SMOOTH-001.md). Оставить fixed 20 Hz state
+updates и текущую скорость/направление; сохранять предыдущую и текущую позицию
+debug-flight для render interpolation по accumulator alpha. Mouse yaw/pitch остаются
+немедленными. Toggle/reset/focus-loss должны синхронизировать историю позиции.
+Добавить тест frame partitions 20/30/60/144 Hz и переходов режима. Изменять только
+`crates/beta-viewer/src/`, обычные Rust tests, свой status/handoff. Не менять
+движение/контракт/oracle, проверить fmt/clippy/tests, commit A01.
+
+## ITEMS-001-A01 — pure stack and main inventory model
+
+После native C01 прочитать [ITEMS-001](ITEMS-001.md). Добавить bounded pure API
+для 36 slots, selected hotbar 0..8, stack identity/count/damage/verified max,
+split, merge, insertion и replacement по реальному fixture. Не добавлять GUI,
+неизвестный item catalog, произвольный NBT, armor или save writes. Unit tests
+покрывают atomic invalid inputs, границы, merge order/limits, split и hotbar.
+Изменять только `crates/beta-core/src/` и обычные тесты, свой status/handoff;
+commit A01.
+
+## ITEMS-001-A02 — bounded items probe
+
+После A01/C02 добавить atomic `items_probe` по точному TSV-контракту runner.
+Сравнить все C01 native rows и malformed/duplicate/limit paths. Не расширять
+реестр предметов вне native-captured set. Запустить проверки, записать ограничения,
+обновить свой status/handoff и commit A02.

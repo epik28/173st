@@ -796,6 +796,69 @@
         "BLOCK-001-A01",
         "BLOCK-001-A02"
       ]
+    },
+    {
+      "id": "FLIGHT-SMOOTH-001-A01",
+      "owner": "agy",
+      "title": "Interpolate debug-flight camera between fixed ticks",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": []
+    },
+    {
+      "id": "FLIGHT-SMOOTH-001-C03",
+      "owner": "codex",
+      "title": "Accept smooth debug-flight presentation",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "FLIGHT-SMOOTH-001-A01"
+      ]
+    },
+    {
+      "id": "ITEMS-001-C01",
+      "owner": "codex",
+      "title": "Native ItemStack and inventory oracle",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": []
+    },
+    {
+      "id": "ITEMS-001-C02",
+      "owner": "codex",
+      "title": "Strict items parity runner",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "ITEMS-001-C01"
+      ]
+    },
+    {
+      "id": "ITEMS-001-A01",
+      "owner": "agy",
+      "title": "Pure bounded stack and inventory model",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "ITEMS-001-C01"
+      ]
+    },
+    {
+      "id": "ITEMS-001-A02",
+      "owner": "agy",
+      "title": "Items probe and native fixture parity",
+      "card": "docs/tasks/AGY.md",
+      "depends_on": [
+        "ITEMS-001-A01",
+        "ITEMS-001-C02"
+      ]
+    },
+    {
+      "id": "ITEMS-001-C03",
+      "owner": "codex",
+      "title": "Items integration and acceptance",
+      "card": "docs/tasks/CODEX.md",
+      "depends_on": [
+        "ITEMS-001-C01",
+        "ITEMS-001-C02",
+        "ITEMS-001-A01",
+        "ITEMS-001-A02"
+      ]
     }
   ]
 }

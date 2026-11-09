@@ -380,3 +380,38 @@ fast-forward до `170033d`; все проверки прошли. Xvfb screensh
 рабочий кадр, GUI break/place clicks не автоматизировались. Native action parity
 не заявляется; unit coverage и in-memory-only viewer edits зафиксированы.
 BLOCK-001 принят, estimate ≈23%, GitHub push ждёт 30%.
+
+## FLIGHT-SMOOTH-001-C03 — acceptance
+
+После A01 проверить exact agy commit, unit tests на frame partitions и toggle/
+focus paths, полный `tools/check.py`, и viewer Xvfb smoke. Проверить, что nominal
+speed/mapping и mouse look не изменились. Принять fix как presentation-quality
+improvement; не заявлять native flight parity. Записать ограничения в progress и
+handoff.
+
+## ITEMS-001-C01 — native stack/inventory oracle
+
+Изучить [ITEMS-001](ITEMS-001.md) и pinned Beta client JAR. Найти реальные
+ItemStack/inventory classes/methods, доказать их
+hash/code source и вызвать безопасно в памяти. Снять два одинаковых capture для
+empty/set/split/remove/merge/overflow/hotbar bounds на 64-stack, smaller-limit и
+non-stackable примерах, если native bootstrap это позволяет. Сохранить exact
+ordered inputs/results, audit и hashes в fixtures/artifacts. Источником не брать
+изменённый Prism save. Не писать Rust. Если способ создать native object
+безопасно не найден, зафиксировать препятствие и минимальное проверяемое scope,
+не придумывать oracle. Commit C01.
+
+## ITEMS-001-C02 — strict item runner
+
+После C01 добавить `items --strict`, exact typed protocol, retained report review,
+проверки missing process/JAR/probe, malformed/extra/reordered rows, limits и
+single-field mutation. До Rust probe strict должен возвращать not_implemented.
+Не менять Rust или expected fixture после сравнения. Commit C02.
+
+## ITEMS-001-C03 — integration and acceptance
+
+После C01/C02/A01/A02 проверить bounded API и exact source revision, весь
+`tools/check.py`, прежние strict parity suites, `items --strict` и saved report.
+Убедиться, что user save не читался/не записывался. Обновить progress/estimate
+только за завершённые игровые возможности; GUI пока не входит. Принять в main и
+синхронизировать idle worktrees.

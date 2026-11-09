@@ -35,6 +35,10 @@ BLOCK-001: `170033d` интегрирован в main. Проверены 17 nat
 bounded viewer break/place и полная пересборка сцены; edits остаются в памяти.
 См. подробности в [completion-estimate.md](completion-estimate.md).
 
+Текущая цель — примерно 25%: отдельно устраняем 20 Hz stepping debug flight и
+начинаем native-backed inventory core (36 слотов/hotbar, без GUI). Оценка пока
+остаётся 23%, пока эти возможности не приняты.
+
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
   VIEW-001, MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT,
   FLUID-001 и BLOCK-001 приняты**.

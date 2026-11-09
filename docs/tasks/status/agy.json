@@ -332,6 +332,21 @@
         "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → scene loaded and rendered (25 chunks, 334776 opaque vertices, 9768 water vertices); timeout ended the smoke after 10 seconds; mouse actions were not automated",
         "Viewer edits are in-memory only. C01 has no break/place oracle, so action behavior is unit-tested and no native action parity is claimed. Strict fixture inputs and runner enforce the pinned 17-row order; the probe itself parses bounded input and computes output from row values, not case IDs."
       ]
+    },
+    "FLIGHT-SMOOTH-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "ITEMS-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "ITEMS-001-A02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
