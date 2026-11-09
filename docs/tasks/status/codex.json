@@ -621,9 +621,14 @@
       ]
     },
     "FLIGHT-SMOOTH-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят Agy commit 7ee4df1: debug-flight сохраняет fixed 20 Hz движение, но камера рендерится с interpolation alpha; управление/мышь не изменены. Нативный flight parity не заявляется.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer → PASS: 15 library + 6 binary тестов, включая frame partitions 20/30/60/144 Hz и reset/toggle/focus transitions",
+        "python3 tools/check.py → PASS: 182 Python tests, 18 opt-in skips; fmt, workspace check/clippy, all-target/doc tests",
+        "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → остановлен guard: pinned world source hash mismatch level.dat; локальный мир не менялся",
+        "Physics, native oracle и сохранение мира не менялись; nominal control mapping/rate сохранены"
+      ]
     },
     "ITEMS-001-C01": {
       "state": "done",

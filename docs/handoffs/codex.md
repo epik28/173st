@@ -1202,3 +1202,12 @@ committed audit and output hashes; `python3 -m unittest
 tests.python.test_items_corpus -v` → 2 PASS; `git diff --check` → PASS. Rust,
 runner C02, general item catalog, tagged stacks, GUI and save behavior remain out
 of this card. Next step: C02 strict runner, after this C01 commit is reviewed.
+
+## FLIGHT-SMOOTH-001-C03 — принято
+
+- Принята ревизия agy `7ee4df1691586314657340e23e50c3036af8dbe9`.
+- `cargo test --locked --offline -p beta-viewer` — PASS (15 library + 6 binary).
+- `python3 tools/check.py` — PASS: 182 Python tests (18 opt-in skips), Rust fmt/check/clippy/all-target/doc tests.
+- Xvfb smoke запускался, но viewer правильно остановил чтение мира из-за несовпадения pinned `level.dat`. Локальное сохранение не изменялось. Визуальная проверка сглаживания на этой копии мира не подтверждена.
+- Изменение ограничено отображением debug-flight: fixed 20 Hz state и controls сохранены, translation интерполируется; native flight parity не заявляется.
+- Готовность остаётся около 23%: это качество представления уже имеющегося режима, не новая игровая подсистема.
