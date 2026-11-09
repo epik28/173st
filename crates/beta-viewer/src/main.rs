@@ -2280,27 +2280,38 @@ mod tests {
 
     #[test]
     fn transparent_water_overlapping_depths_keep_farther_quad_first() {
-        let quad = |z: f32, x: f32| {
+        let quad = |depths: [f32; 4]| {
             let points = [
-                [x, 0.0, z],
-                [x, 1.0, z],
-                [x + 1.0, 1.0, z],
-                [x + 1.0, 0.0, z],
+                [0.0, 0.0, depths[0]],
+                [0.0, 1.0, depths[1]],
+                [1.0, 1.0, depths[2]],
+                [1.0, 0.0, depths[3]],
             ];
             [0, 1, 2, 0, 2, 3].map(|corner| beta_view::fluid::Vertex {
                 position: points[corner],
-                uv: [corner as f32, z],
+                uv: [corner as f32, depths[corner]],
                 color: 0,
             })
         };
-        // Depth intervals overlap, but the centers are distinct from the camera
-        // in squared distance, so the same back-to-front comparator applies.
-        let submitted: Vec<_> = [quad(4.0, 2.0), quad(5.0, 0.0)]
+        // These quads cover the same projected square and their depth ranges
+        // overlap ([4, 6] and [4.3, 5.3]). Their weighted six-vertex centers are
+        // at z=5 and z=4.8, so the first quad is unambiguously farther away.
+        let submitted: Vec<_> = [quad([4.0, 6.0, 6.0, 4.0]), quad([4.3, 5.3, 5.3, 4.3])]
             .into_iter()
             .flatten()
             .collect();
         let indices = sort_fluid_quad_indices(&submitted, [0.0; 3]).unwrap();
-        assert_eq!(indices, (6..12).chain(0..6).collect::<Vec<_>>());
+        assert_eq!(indices, (0..6).chain(6..12).collect::<Vec<_>>());
+        assert_eq!(
+            indices
+                .iter()
+                .map(|&index| submitted[index as usize].position)
+                .collect::<Vec<_>>(),
+            submitted
+                .iter()
+                .map(|vertex| vertex.position)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
