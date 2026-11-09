@@ -22,11 +22,12 @@ in memory; the source world and saved `level.dat` stay read-only.
   incompatible stacks swap only when the cursor stack fits the target slot.
   Supported item IDs/damage and stack limits remain exactly those already
   represented by `ItemStack`; do not synthesize unsupported stacks.
-- Closing the screen returns the cursor stack to the in-memory inventory using
-  the native insertion order. If no supported slot can accept it, preserve the
-  cursor and keep/reopen the inventory UI so the stack remains reachable; do not
-  silently discard it or spawn an unsupported world drop. Focus loss follows
-  the same preservation rule.
+- Native closing drops the carried stack into the world; that entity behavior is
+  captured by C01 but remains outside this package. The viewer uses a safe local
+  policy: put the carried stack back into the first available in-memory slot. If
+  there is no capacity, preserve the cursor and keep/reopen the inventory UI so
+  the stack remains reachable. Focus loss follows the same no-loss policy. This
+  close behavior is an explicit viewer adaptation, not native parity.
 - Clicks outside the 36 supported slots are no-ops. Native outside-drop requires
   world entities and is explicitly deferred. Shift-click, crafting slots,
   crafting output, armor slots, item pickup/drop/use, and save persistence are
@@ -42,8 +43,8 @@ Use the pinned Beta 1.7.3 client to construct a repeatable native oracle over
 supported main slots. Capture ordered operations and resulting 36 slot states,
 cursor stack, selected hotbar, and held-icon draw layout. Cover left/right pickup/place, odd/even split,
 compatible merge at/near limit, incompatible swap, full/unacceptable target,
-empty click, screen hitbox edges, close/focus-loss cursor return, and stable
-replay. Pin JAR/classes, source evidence and fixture hashes. Keep outside-drop,
+empty click, screen hitbox edges, native close-time drop sink, and stable replay.
+Pin JAR/classes, source evidence and fixture hashes. Keep outside-drop,
 shift-click and unsupported container slots explicitly out of the oracle.
 
 ### INVENTORY-INTERACTION-001-A01 — in-memory viewer interaction (agy)
@@ -60,10 +61,11 @@ not edit C01 files, saved-player parsing, source guards or persistence.
 ### INVENTORY-INTERACTION-001-C02 — strict integration acceptance (Codex)
 
 Review the pinned native fixture and A01 snapshot; run the native audit/tests,
-strict Rust-vs-original interaction comparison, viewer tests, full workspace
-check, fmt and clippy. Confirm all changes remain in memory and no unsupported
-outside-drop/persistence behavior is claimed. Update progress, roadmap,
-completion estimate and handoffs.
+strict Rust-vs-original click-state comparison, viewer tests, full workspace
+check, fmt and clippy. Confirm all changes remain in memory, the close behavior
+is described as a safe viewer adaptation, and no unsupported outside-drop or
+persistence behavior is claimed. Update progress, roadmap, completion estimate
+and handoffs.
 
 ## Acceptance boundary
 

@@ -813,12 +813,12 @@
     },
     "INVENTORY-INTERACTION-001-C01": {
       "state": "done",
-      "summary": "Pinned a native Beta 1.7.3 click corpus for supported inventory slots. The original JVM oracle replays left/right pickup, rounded split, compatible merge, incompatible swap and close cursor return across 36 slots, with cursor state after every operation. Cursor icon/count atlas dispatch and layering facts are pinned from native bb.",
+      "summary": "Pinned native Beta 1.7.3 interaction corpus over supported inventory slots. The original JVM oracle replays left/right pickup, rounded split, compatible merge at the stack limit, incompatible swap, close-time return, empty click and full target across 36 slots, with cursor state after every operation. Cursor icon/count geometry and layering are pinned from native bb bytecode.",
       "checks": [
-        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two original JVM captures are byte-identical",
-        "15 ordered states cover five scenarios; each row contains cursor plus all 36 slots; pinned output SHA is recorded in tests/fixtures/inventory_interaction/audit.json",
-        "Native dw/aa/id/ix/iz/gs/gp and bb class hashes plus click/cursor/render descriptors are verified from the pinned JAR",
-        "Cursor rendering evidence pins bb icon/count calls, 16x16 size, mouse-origin-(8,8) placement, terrain/gui-items atlas dispatch and icon→count→tooltip order",
+        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two fresh original JVM outputs match committed native.tsv byte-for-byte",
+        "23 ordered states across eight scenarios; each state records cursor plus all 36 slots; source/output hashes and raw TSV are pinned in tests/fixtures/inventory_interaction/",
+        "Near-limit merge 60+4→64, full-target cursor retention, empty click and close-return sink are captured; supported IDs 1/3/332/267 only",
+        "Native dw/aa/id/ix/iz/gs/gp/bb class hashes, source hash and method descriptors are verified; cursor hitbox 18×18 and renderer offset, atlas dispatch and draw order are pinned",
         "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v → 7 PASS; no Rust, world or save files changed"
       ]
     }

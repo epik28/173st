@@ -27,16 +27,20 @@ def load_fixture(path=FIXTURE):
     reference = value.get("reference", {})
     if reference.get("jar_sha256") != PINNED_SHA or reference.get("jar_size") != PINNED_SIZE:
         raise ValueError("fixture does not pin the original client JAR")
+    if reference.get("oracle_source_sha256") != digest(ORACLE.read_bytes()):
+        raise ValueError("oracle source hash differs from pinned fixture")
     protocol = value.get("protocol", {})
-    if protocol.get("expected_rows") != 15 or protocol.get("deterministic_repeats") != 2:
+    if protocol.get("expected_rows") != 23 or protocol.get("deterministic_repeats") != 2:
         raise ValueError("interaction protocol bounds were altered")
-    if protocol.get("scenarios") != ["left_pick_place", "right_split", "merge_same", "swap_different", "close_return"]:
+    if protocol.get("scenarios") != ["left_pick_place", "right_split", "merge_same", "swap_different", "close_return", "empty_click", "near_limit", "full_target"]:
         raise ValueError("interaction scenario set was altered")
     cursor = value.get("cursor_rendering", {})
     if cursor.get("position") != "screen mouse coordinates minus inventory origin minus (8,8)" or cursor.get("icon_size") != [16, 16]:
         raise ValueError("cursor rendering geometry was altered")
     if cursor.get("draw_order") != ["slot contents", "cursor icon", "cursor count", "tooltip"]:
         raise ValueError("cursor rendering order was altered")
+    if value.get("hitbox", {}).get("size") != [18, 18]:
+        raise ValueError("native hitbox geometry was altered")
     return value
 
 
@@ -72,6 +76,17 @@ def verify(jar_path, fixture_path=FIXTURE):
                                          capture_output=True, text=True, timeout=30)
             if disassembly.returncode or f"descriptor: {descriptor}" not in disassembly.stdout:
                 raise ValueError(f"native descriptor missing: {cls}.{name}{descriptor}")
+        id_code = subprocess.run([javap, "-classpath", str(jar), "-p", "-c", "id"],
+                                 capture_output=True, text=True, timeout=30).stdout
+        bb_code = subprocess.run([javap, "-classpath", str(jar), "-p", "-c", "bb"],
+                                 capture_output=True, text=True, timeout=30).stdout
+        evidence = fixture["hitbox"]["bytecode_evidence"]
+        for excerpt in (evidence["cursor_position"], evidence["cursor_count"], evidence["cursor_offset"]):
+            if excerpt not in id_code:
+                raise ValueError("cursor position/count bytecode evidence missing")
+        for excerpt in (evidence["atlas_terrain"], evidence["atlas_items"]):
+            if excerpt not in bb_code:
+                raise ValueError("cursor atlas bytecode evidence missing")
         runs = []
         for _ in range(2):
             result = subprocess.run([java, "-cp", f"{classes}:{jar}", "InventoryInteractionOracle", str(jar)],
@@ -85,6 +100,9 @@ def verify(jar_path, fixture_path=FIXTURE):
         expected = fixture["protocol"]["expected_output_sha256"]
         if digest(output) != expected:
             raise ValueError(f"native output hash differs: {digest(output)}")
+        reference_tsv = ROOT / fixture["reference"]["reference_tsv"]
+        if reference_tsv.read_bytes() != output:
+            raise ValueError("committed native reference TSV differs from fresh output")
         rows = runs[0].splitlines()
         if not rows or rows[0] != "jar_sha256\t" + PINNED_SHA:
             raise ValueError("native output omitted the pinned JAR hash")

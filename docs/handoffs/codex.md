@@ -1500,18 +1500,22 @@ The pinned Beta 1.7.3 client is exercised through `dw`/`aa` with an isolated
 native `ix` inventory and a synthetic player. No window, world, or save is
 created. `InventoryInteractionOracle` captures ordered operations and the full
 cursor plus 36-slot state after each operation. The oracle repeats the exact
-sequence twice and the audit rejects any output or pinned class/hash mutation.
+sequence twice and verifies the raw output against
+`tests/fixtures/inventory_interaction/native.tsv`. The 23 ordered states cover
+left pickup/place, right rounded split and one-item place, compatible merge
+`60+4→64`, incompatible swap, close return through a native player sink, empty
+click, and a full target that retains the cursor. Only IDs 1/3/332/267 are used.
+Shift-click and world outside-drop remain outside the contract.
 
-The corpus covers left pickup/place, right rounded split and one-item place,
-compatible merge, incompatible swap, and close-time cursor return. Shift-click
-and outside-drop remain outside the contract. Native cursor rendering is pinned
-from `bb`: 16x16 icon at mouse coordinates relative to the panel origin minus
-(8,8), atlas dispatch follows the item ID threshold 256, and the pass order is
-slot contents, cursor icon, cursor count, tooltip. Counts use the native count
-call and are shown only for stacks greater than one.
+Class/JAR and oracle-source hashes are pinned. The evidence also records the
+18×18 hitbox and native renderer methods: cursor icon is 16×16 at screen mouse
+coordinates adjusted by the GUI origin and `(-8,-8)`; IDs below 256 use
+`terrain.png`, others use `gui/items.png`; cursor draw order is icon, count,
+tooltip after slot contents, and count appears only above one. No pixel-level GL
+claim is made.
 
 `python3 tools/oracle/inventory_interaction_audit.py
-../.local/minecraft/client-b1.7.3.jar` passes with 15 states and two identical
-JVM outputs. Focused Python tests pass. The fixture and oracle are limited to
-`tools/oracle`, `tests/fixtures/inventory_interaction`, and the corresponding
-Python test; no Rust, user world, or save data was changed.
+../.local/minecraft/client-b1.7.3.jar` → PASS, two native outputs byte-identical
+to the committed reference. `python3 -m unittest
+tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit
+-v` → 7 PASS. No Rust, user world, or save data changed.

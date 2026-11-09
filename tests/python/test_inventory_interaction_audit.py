@@ -13,7 +13,7 @@ class InventoryInteractionNativeAuditTests(unittest.TestCase):
     def test_native_replay_and_protocol(self):
         jar = ROOT.parent / ".local/minecraft/client-b1.7.3.jar"
         fixture = inventory_interaction_audit.verify(jar)
-        self.assertEqual(fixture["protocol"]["expected_rows"], 15)
+        self.assertEqual(fixture["protocol"]["expected_rows"], 23)
 
     def test_rejects_wrong_jar(self):
         with tempfile.TemporaryDirectory() as directory:
