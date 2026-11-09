@@ -317,7 +317,7 @@ and commit A01.
 
 Follow [INVENTORY-UI-001](INVENTORY-UI-001.md). Work in parallel with C01:
 start the state/input scaffold, then consume its committed evidence for native
-coordinates/resources/icon mapping before finalizing rendering. Implement E/Escape toggling, focus
+coordinates/resources/icon mapping before finalizing rendering. Implement E-to-open/Escape-to-close handling, focus
 and capture handling, centered native panel, 36 slots, and icons for only supported
 `Inventory` stacks. Do not invent items or unsupported item semantics. Edit only
 viewer source/tests plus your status/handoff. Cover empty/supported stacks, native

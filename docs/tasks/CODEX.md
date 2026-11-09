@@ -438,7 +438,7 @@ the accepted visible behavior.
 
 ## INVENTORY-UI-001-C01 — native inventory screen audit
 
-Follow [INVENTORY-UI-001](INVENTORY-UI-001.md). Audit native E/Escape behavior,
+Follow [INVENTORY-UI-001](INVENTORY-UI-001.md). Audit native E-to-open/Escape-to-close behavior,
 panel/slot coordinates and UVs, pinned `gui/inventory.png` and `gui/items.png`,
 and icon mappings for supported item IDs. Keep exact JAR/class hashes and
 obfuscated descriptors, implement fixture verifier and mutation tests. Edit only
