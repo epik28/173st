@@ -15,7 +15,14 @@ pub struct InventoryLayout {
 
 pub struct InventoryVertices {
     pub panel: Vec<[f32; 4]>,
+    pub terrain_items: Vec<[f32; 4]>,
     pub items: Vec<[f32; 4]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemAtlas {
+    Terrain,
+    Items,
 }
 
 /// Native centered inventory panel and 36 main slot positions, scaled in
@@ -69,6 +76,14 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
     })
 }
 
+pub fn item_atlas(id: u16) -> Result<ItemAtlas, &'static str> {
+    match id {
+        1 | 3 => Ok(ItemAtlas::Terrain),
+        332 | 267 => Ok(ItemAtlas::Items),
+        _ => Err("unsupported inventory item ID"),
+    }
+}
+
 /// Build the background quad and icon quads for the current inventory. Empty
 /// and unsupported slots never receive a fabricated replacement icon.
 pub fn native_vertices(
@@ -88,20 +103,65 @@ pub fn native_vertices(
         },
         (width, height),
     );
+    let mut terrain_items = Vec::with_capacity(MAIN_SLOT_COUNT * 6);
     let mut items = Vec::with_capacity(MAIN_SLOT_COUNT * 6);
     for slot in 0..MAIN_SLOT_COUNT {
         if let Some(stack) = inventory
             .stack_at(slot)
             .map_err(|_| "invalid inventory slot")?
         {
-            let uv = item_icon_uv(stack.id(), stack.damage())?;
-            items.extend(quad_vertices(layout.slots[slot], uv, (width, height)));
+            let Ok(uv) = item_icon_uv(stack.id(), stack.damage()) else {
+                continue;
+            };
+            match item_atlas(stack.id()) {
+                Ok(ItemAtlas::Terrain) => {
+                    terrain_items.extend(quad_vertices(layout.slots[slot], uv, (width, height)))
+                }
+                Ok(ItemAtlas::Items) => {
+                    items.extend(quad_vertices(layout.slots[slot], uv, (width, height)))
+                }
+                Err(_) => continue,
+            }
         }
     }
     Ok(InventoryVertices {
         panel: panel.to_vec(),
+        terrain_items,
         items,
     })
+}
+
+/// Build the first-person hotbar icon passes. The frame and selection are
+/// emitted by `hud`; this function only emits validated saved stacks.
+pub fn hotbar_vertices(
+    inventory: &Inventory,
+    width: u32,
+    height: u32,
+    scale: u32,
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
+    let layout = super::hud::layout_with_selection(width, height, scale, 0);
+    let mut terrain = Vec::with_capacity(9 * 6);
+    let mut items = Vec::with_capacity(9 * 6);
+    for slot in 0..9 {
+        let Ok(Some(stack)) = inventory.stack_at(slot) else {
+            continue;
+        };
+        let Ok(uv) = item_icon_uv(stack.id(), stack.damage()) else {
+            continue;
+        };
+        let rect = Rect {
+            x: layout.hotbar.x + (3 + slot * 20) as f32 * layout.scale as f32,
+            y: layout.hotbar.y + 3.0 * layout.scale as f32,
+            width: 16.0 * layout.scale as f32,
+            height: 16.0 * layout.scale as f32,
+        };
+        match item_atlas(stack.id()) {
+            Ok(ItemAtlas::Terrain) => terrain.extend(quad_vertices(rect, uv, (width, height))),
+            Ok(ItemAtlas::Items) => items.extend(quad_vertices(rect, uv, (width, height))),
+            Err(_) => {}
+        }
+    }
+    (terrain, items)
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -158,7 +218,7 @@ impl InventoryScreen {
 #[cfg(test)]
 mod tests {
     use super::{InventoryScreen, Transition};
-    use super::{Rect, item_icon_uv, native_layout, native_vertices};
+    use super::{Rect, hotbar_vertices, item_icon_uv, native_layout, native_vertices};
     use beta_core::items::{Inventory, ItemStack};
 
     #[test]
@@ -347,17 +407,39 @@ mod tests {
             );
         }
         let vertices = native_vertices(&inventory, 1280, 720, 3).unwrap();
-        assert_eq!(vertices.items.len(), 4 * 6);
-        for (quad, expected) in [
-            (0, (16.0, 0.0)),
-            (1, (32.0, 0.0)),
-            (2, (224.0, 0.0)),
-            (3, (32.0, 64.0)),
+        assert_eq!(vertices.terrain_items.len(), 2 * 6);
+        assert_eq!(vertices.items.len(), 2 * 6);
+        for (batch, expected) in [
+            (&vertices.terrain_items, [(16.0, 0.0), (32.0, 0.0)]),
+            (&vertices.items, [(224.0, 0.0), (32.0, 64.0)]),
         ] {
-            assert_eq!(vertices.items[quad * 6][2], expected.0 / 256.0);
-            assert_eq!(vertices.items[quad * 6][3], expected.1 / 256.0);
+            for (quad, expected) in expected.into_iter().enumerate() {
+                assert_eq!(batch[quad * 6][2], expected.0 / 256.0);
+                assert_eq!(batch[quad * 6][3], expected.1 / 256.0);
+            }
         }
         assert!(item_icon_uv(1, 1).is_err());
         assert!(native_vertices(&inventory, 1280, 720, 3).is_ok());
+    }
+
+    #[test]
+    fn hotbar_icons_use_native_slot_positions_and_atlas_batches() {
+        let mut inventory = Inventory::new();
+        inventory
+            .set_slot(0, Some(ItemStack::new(1, 1, 0).unwrap()))
+            .unwrap();
+        inventory
+            .set_slot(4, Some(ItemStack::new(267, 1, 0).unwrap()))
+            .unwrap();
+        inventory
+            .set_slot(8, Some(ItemStack::new(3, 1, 0).unwrap()))
+            .unwrap();
+        let (terrain, items) = hotbar_vertices(&inventory, 1280, 720, 3);
+        assert_eq!(terrain.len(), 2 * 6);
+        assert_eq!(items.len(), 6);
+        assert_eq!(terrain[0][2], 16.0 / 256.0);
+        assert_eq!(terrain[6][2], 32.0 / 256.0);
+        assert_eq!(items[0][2], 32.0 / 256.0);
+        assert!(terrain[0][0] < terrain[6][0]);
     }
 }

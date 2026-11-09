@@ -628,7 +628,10 @@ struct Gpu {
     hud_gui_vertex: wgpu::Buffer,
     hud_icons_vertex: wgpu::Buffer,
     inventory_vertex: wgpu::Buffer,
+    inventory_terrain_icons_vertex: wgpu::Buffer,
     inventory_icons_vertex: wgpu::Buffer,
+    hotbar_terrain_vertex: wgpu::Buffer,
+    hotbar_items_vertex: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -1356,9 +1359,27 @@ impl App {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let inventory_terrain_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native inventory terrain item vertices"),
+            size: 36 * 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let inventory_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native inventory item screen-space vertices"),
             size: 36 * 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let hotbar_terrain_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native hotbar terrain item vertices"),
+            size: 9 * 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let hotbar_items_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native hotbar item vertices"),
+            size: 9 * 6 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -1433,7 +1454,10 @@ impl App {
             hud_gui_vertex,
             hud_icons_vertex,
             inventory_vertex,
+            inventory_terrain_icons_vertex,
             inventory_icons_vertex,
+            hotbar_terrain_vertex,
+            hotbar_items_vertex,
             camera_buffer,
         });
         self.window = Some(w);
@@ -1522,7 +1546,7 @@ impl App {
         g.queue
             .write_buffer(&g.hud_icons_vertex, 0, bytemuck::cast_slice(&hud_icons));
         let inventory_open = self.inventory_screen.is_open();
-        let inventory_icon_count = if inventory_open {
+        let (inventory_terrain_count, inventory_icon_count) = if inventory_open {
             match inventory_screen::native_vertices(
                 &self.inventory,
                 g.config.width,
@@ -1542,15 +1566,44 @@ impl App {
                             bytemuck::cast_slice(&vertices.items),
                         );
                     }
-                    vertices.items.len() as u32
+                    if !vertices.terrain_items.is_empty() {
+                        g.queue.write_buffer(
+                            &g.inventory_terrain_icons_vertex,
+                            0,
+                            bytemuck::cast_slice(&vertices.terrain_items),
+                        );
+                    }
+                    (
+                        vertices.terrain_items.len() as u32,
+                        vertices.items.len() as u32,
+                    )
                 }
                 Err(error) => {
                     eprintln!("beta-viewer inventory render rejected: {error}");
-                    0
+                    (0, 0)
                 }
             }
         } else {
-            0
+            (0, 0)
+        };
+        let (hotbar_terrain_count, hotbar_items_count) = if show_hud {
+            let (terrain, items) = inventory_screen::hotbar_vertices(
+                &self.inventory,
+                g.config.width,
+                g.config.height,
+                hud::gui_scale(g.config.width, g.config.height),
+            );
+            if !terrain.is_empty() {
+                g.queue
+                    .write_buffer(&g.hotbar_terrain_vertex, 0, bytemuck::cast_slice(&terrain));
+            }
+            if !items.is_empty() {
+                g.queue
+                    .write_buffer(&g.hotbar_items_vertex, 0, bytemuck::cast_slice(&items));
+            }
+            (terrain.len() as u32, items.len() as u32)
+        } else {
+            (0, 0)
         };
         match g.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame)
@@ -1603,6 +1656,11 @@ impl App {
                         p.set_bind_group(0, &g.inventory_bind, &[]);
                         p.set_vertex_buffer(0, g.inventory_vertex.slice(..));
                         p.draw(0..6, 0..1);
+                        if inventory_terrain_count > 0 {
+                            p.set_bind_group(0, &g.bind, &[]);
+                            p.set_vertex_buffer(0, g.inventory_terrain_icons_vertex.slice(..));
+                            p.draw(0..inventory_terrain_count, 0..1);
+                        }
                         if inventory_icon_count > 0 {
                             p.set_bind_group(0, &g.items_bind, &[]);
                             p.set_vertex_buffer(0, g.inventory_icons_vertex.slice(..));
@@ -1616,6 +1674,16 @@ impl App {
                         p.set_bind_group(0, &g.icons_bind, &[]);
                         p.set_vertex_buffer(0, g.hud_icons_vertex.slice(..));
                         p.draw(0..126, 0..1);
+                        if hotbar_terrain_count > 0 {
+                            p.set_bind_group(0, &g.bind, &[]);
+                            p.set_vertex_buffer(0, g.hotbar_terrain_vertex.slice(..));
+                            p.draw(0..hotbar_terrain_count, 0..1);
+                        }
+                        if hotbar_items_count > 0 {
+                            p.set_bind_group(0, &g.items_bind, &[]);
+                            p.set_vertex_buffer(0, g.hotbar_items_vertex.slice(..));
+                            p.draw(0..hotbar_items_count, 0..1);
+                        }
                     }
                 }
                 g.queue.submit([e.finish()]);
