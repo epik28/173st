@@ -21,13 +21,28 @@ BLOCK-001 принят: exact native ray targeting на поддержанных
 creative break/place тестового полного блока и пересборка видимой сцены после
 изменения. Strict runner сверяет 17 native ray cases; действия не имеют native
 oracle и подтверждены Rust tests, без заявления action parity. Источник save
-не изменяется. Survival mining, инвентарь, ориентация блоков и light propagation
-остаются вне пакета.
+не изменяется. Survival mining, ориентация блоков и light propagation остаются
+вне пакета.
 
-Оценка готовности **полной игры — около 23%** после BLOCK-001.
-Новые пользовательские замечания к густой/тёмной кроне и рывкам полёта
-записаны в [known-issues.md](known-issues.md) для отдельного воспроизведения и
-сверки с оригиналом.
+FLIGHT-SMOOTH-001 принят: debug-flight сохраняет fixed 20 Hz движение, а камера
+рендерит промежуточную позицию. Тесты покрывают 20/30/60/144 Hz, смену режима,
+reset и потерю фокуса. Это сглаживание нашего debug-режима, не parity полёта
+Minecraft; GUI-smoke остановил hash guard из-за изменённого локального `level.dat`.
+
+ITEMS-001 принят как первый ограниченный слой инвентаря: 36 main slots,
+9-позиционная hotbar, выбор слота, split/remove, merge и spill. Native `iz`/`ix`
+эталон и Rust probe совпали по всем 21 состояниям, каждому из 36 слотов и
+подтверждённым stack limits. Пока поддержаны только IDs 1/3/332/267 и damage 0;
+нет GUI, armor, crafting, pickup/drop, survival, полного каталога предметов или
+записи сохранения. `items --strict` и retained report review прошли. На объединённой
+ревизии прошли 12 из 15 прежних strict parity групп; `region`, `world` и `view`
+остановлены source-hash guard на изменённых файлах пользовательского Prism-мира
+до копирования в артефакты/передачи native adapter. Эталоны не перепривязывались,
+мир не изменялся.
+
+Оценка готовности **полной игры — около 24%** после ITEMS-001.
+Замечание о кроне остаётся открытым; визуальная проверка сглаживания полёта
+отложена до доступной закреплённой сцены. См. [known-issues.md](known-issues.md).
 Методика и веса: [completion-estimate.md](completion-estimate.md).
 Это приблизительная оценка возможностей, не доля закрытых задач.
 
@@ -35,13 +50,13 @@ BLOCK-001: `170033d` интегрирован в main. Проверены 17 nat
 bounded viewer break/place и полная пересборка сцены; edits остаются в памяти.
 См. подробности в [completion-estimate.md](completion-estimate.md).
 
-Текущая цель — примерно 25%: отдельно устраняем 20 Hz stepping debug flight и
-начинаем native-backed inventory core (36 слотов/hotbar, без GUI). Оценка пока
-остаётся 23%, пока эти возможности не приняты.
+FLIGHT-SMOOTH-001 и ITEMS-001 приняты в `a0b12bb`. Inventory пока data-only:
+в viewer ещё нет hotbar/inventory GUI и health HUD; это следующие видимые этапы.
+Оценка остаётся приблизительной и не означает полноту игрового цикла.
 
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
   VIEW-001, MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT,
-  FLUID-001 и BLOCK-001 приняты**.
+  FLUID-001, BLOCK-001, FLIGHT-SMOOTH-001 и ITEMS-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.

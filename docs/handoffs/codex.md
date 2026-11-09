@@ -1241,3 +1241,37 @@ slot and selection invariants, missing/wrong JAR, process failure/timeout, and
 retained artifact/hash/path tampering. No Rust, fixture, oracle, or user save was
 changed. Next: A01/A02 implementation; C03 not started. Model: gpt-6-luna low;
 no delegated agent or direct Rust engine edits.
+
+## ITEMS-001-C03 — принято
+
+Точный Agy snapshot `a0b12bbd688baeb18dac1232c786c7a779d89135` fast-forward-объединён
+в `codex/verification`; `beta_core::items` и `items_probe` просмотрены. Модель
+покрывает 36 main slots/hotbar, native-supported stack limits, split/remove/
+replacement/merge/spill и selection; только item IDs 1/3/332/267 с damage 0.
+Видимый GUI, armor, crafting, pickup/drop, survival и сохранение не входят.
+
+`python3 tools/check.py` — PASS: 195 Python tests (18 opt-in skips), полный
+workspace fmt/check/clippy/all-target/doc checks. На clean merged revision
+`a0b12bb` `python3 tools/parity/run.py items --strict` совпал со всеми шестью
+сценариями и 21 упорядоченным native состоянием; сохранённый отчёт
+`artifacts/parity/items/run-jtwas56h/report.json` прошёл `items_review.py`
+(8 процессов, C01 output SHA-256
+`b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916`).
+
+На этой ревизии также прошли 12/15 прежних strict групп: rng, rng-extended,
+chunk, nbt, math, java, geometry, movement, color, light, fluid, block.
+`region --strict` остановился на несовпадении размера `r.-1.-1.mcr`; `world` и
+`view` остановились на SHA `level.dat`. Guards отказали до копирования файлов в
+артефакты или передачи native adapter/viewer; проверка размера/hash прочитала
+только данные, нужные для integrity guard. Файлы не менялись, hashes не обновлялись.
+Эти три suites остаются
+непроверенными на текущем пользовательском snapshot, хотя ранее принятые
+pinned-fixture результаты сохраняются. Inventory oracle/probe сам Prism save
+не использует и не записывает.
+
+FLIGHT-SMOOTH-001 также принят: debug flight state/mapping остаются fixed-step,
+translation рендерится интерполированно; unit tests и `tools/check.py` прошли.
+Xvfb viewer остановил pinned-world guard, поэтому новый визуальный кадр не заявлен.
+Процент готовности: около24% (ITEMS-001 добавил примерно1 пункт предметного data
+слоя; flight interpolation сама по себе оценку не увеличивает). Push в GitHub
+отложен до30%, как указал пользователь.

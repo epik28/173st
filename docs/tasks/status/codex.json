@@ -653,9 +653,17 @@
       ]
     },
     "ITEMS-001-C03": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принята точная Agy ревизия a0b12bb: ограниченный inventory data API и probe совпадают с native ItemStack/Inventory на 21 упорядоченном состоянии и всех 36 слотах. GUI/crafting/survival/save write не входят. Оценка полной игры обновлена до ≈24%.",
+      "checks": [
+        "python3 tools/check.py → PASS: 195 Python tests (18 opt-in skips), Rust fmt/workspace check/clippy/all-target/doc tests",
+        "python3 tools/parity/run.py items --strict → PASS: 6 scenarios, 21 ordered states, 0 mismatches; clean Rust revision 77f968e8038c0a6c59bc4acc700e8553747a5389",
+        "python3 tools/parity/items_review.py artifacts/parity/items/run-jtwas56h/report.json → PASS: 8 processes, report/reference/audit hashes verified; native SHA-256 b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916",
+        "Legacy strict PASS on merged revision: rng, rng-extended, chunk, nbt, math, java, geometry, movement, color, light, fluid, block (12/15 groups)",
+        "region/world/view strict runs stopped before copying files into artifacts or passing them to native adapter/viewer because pinned local Prism files differ: region r.-1.-1.mcr; world/view level.dat. Integrity guard checked size/hash only; no re-pinning or writes.",
+        "Reviewed bounded beta_core::items and items_probe; invalid -1/9 lookups preserve safe internal selection bounds and match native empty lookup rows; failure input stages no partial stdout",
+        "Flight smoothing accepted separately: unit/frame-partition checks and full workspace checks PASS; Xvfb stopped by same level.dat hash guard, no visual smoke claim"
+      ]
     }
   }
 }
