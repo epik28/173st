@@ -859,3 +859,5 @@ the stack. Close and focus-loss paths use this guarded restoration. A
 regression fills all 36 slots and verifies the held stack remains available.
 The visible held cursor icon is deliberately deferred until C01 pins its exact
 native mouse geometry and layering; no guessed rendering claim is made here.
+Therefore `INVENTORY-INTERACTION-001-A01` remains pending until C01 evidence
+lands and the held cursor icon/count pass is implemented and tested.

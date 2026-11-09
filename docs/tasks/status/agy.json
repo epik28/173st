@@ -416,8 +416,8 @@
       ]
     },
     "INVENTORY-INTERACTION-001-A01": {
-      "state": "done",
-      "summary": "Добавлено in-memory взаимодействие открытого inventory screen: cursor stack, left/right pickup/place/split/merge/swap для 36 слотов, native 18x18 hitboxes, возврат cursor при закрытии и focus loss. Индексирование сохраняет 0..8 hotbar и 9..35 main, selected hotbar не меняется.",
+      "state": "pending",
+      "summary": "Core in-memory interaction и full-inventory cursor safeguard реализованы, но A01 ожидает C01 evidence для точной native held cursor icon geometry/layering.",
       "checks": [
         "cargo fmt --all; cargo test --locked --offline -p beta-viewer → PASS: 17 library + 38 viewer tests + doc tests",
         "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
