@@ -1535,5 +1535,11 @@ Checks: `python3 tools/oracle/inventory_interaction_audit.py
 ../.local/minecraft/client-b1.7.3.jar` PASS; focused Python audit/UI tests 7
 PASS; `cargo test --locked --offline -p beta-viewer --all-targets` PASS (17
 library and 40 viewer tests plus examples); fmt, beta-viewer clippy with
-`-D warnings`, and `git diff --check` PASS. No persistence, outside-drop,
-shift transfer, crafting, armor, item use or survival behavior is claimed.
+`-D warnings`, and `git diff --check` PASS. An additional fixture-driven Rust
+test compares cursor and all 36 slots after each of the 14 native click states;
+the native close/world-drop state is excluded because viewer intentionally uses
+the safe reinsertion adaptation. `python3 tools/check.py` PASS: 214 Python tests
+(18 opt-in skips), workspace fmt/check/clippy, all-target Rust tests, and docs.
+No persistence, outside-drop, shift transfer, crafting, armor, item use or
+survival behavior is claimed. The viewer was not opened against the user's
+modified world; no world files were read or changed for this acceptance.

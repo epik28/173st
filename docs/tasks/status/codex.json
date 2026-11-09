@@ -4,10 +4,13 @@
   "tasks": {
     "INVENTORY-INTERACTION-001-C01": {
       "state": "done",
-      "summary": "Pinned and reviewed the expanded native inventory interaction corpus: 23 ordered rows across eight scenarios, including cursor rendering facts and native close-time drop sink.",
+      "summary": "Pinned and reviewed the expanded native inventory interaction corpus: 23 ordered states across eight scenarios, including cursor rendering facts and native close-time world-drop sink.",
       "checks": [
-        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar -> PASS; native capture replayed twice with 36 slots and cursor",
-        "Committed native.tsv contains 23 ordered states and audit pins source/class/output hashes; no world or save writes"
+        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two fresh original JVM outputs match committed native.tsv byte-for-byte",
+        "23 ordered states across eight scenarios; each state records cursor plus all 36 slots; source/output hashes and raw TSV are pinned in tests/fixtures/inventory_interaction/",
+        "Near-limit merge 60+4→64, full-target cursor retention, empty click and close-drop sink are captured; supported IDs 1/3/332/267 only",
+        "Native dw/aa/id/ix/iz/gs/gp/bb class hashes, source hash and method descriptors are verified; cursor hitbox 18×18 and renderer offset, atlas dispatch and draw order are pinned",
+        "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v → 7 PASS; no Rust, world or save files changed"
       ]
     },
     "INVENTORY-INTERACTION-001-C02": {
@@ -18,7 +21,9 @@
         "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v -> PASS: 7 tests",
         "cargo test --locked --offline -p beta-viewer --all-targets -> PASS: 17 library + 40 viewer tests and examples",
         "cargo fmt --all -- --check; cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check -> PASS",
-        "Viewer changes remain in memory; no persistence, outside-drop, shift transfer, crafting, armor, item use or survival behavior is claimed"
+        "Viewer changes remain in memory; no persistence, outside-drop, shift transfer, crafting, armor, item use or survival behavior is claimed",
+        "cargo test --locked --offline -p beta-viewer --all-targets supported_click_sequences_match_every_native_fixture_state → PASS: 14 click rows, all 36 slots plus cursor compared against native.tsv; close drop excluded by viewer policy.",
+        "python3 tools/check.py → PASS: 214 Python tests (18 opt-in skips), workspace fmt/check/clippy -D warnings, all-target Rust and doc tests."
       ]
     },
     "LIGHT-001-C01": {
@@ -818,17 +823,6 @@
         "python3 tools/check.py → PASS: full Python/Rust workspace, formatting, clippy -D warnings, all-target and doc tests",
         "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 17 library, 36 viewer and 4 probe tests; clippy/fmt/diff check PASS",
         "GUI smoke stopped before rendering at the existing modified level.dat hash guard; no user world was opened or changed. Pixel parity is not claimed."
-      ]
-    },
-    "INVENTORY-INTERACTION-001-C01": {
-      "state": "done",
-      "summary": "Pinned native Beta 1.7.3 interaction corpus over supported inventory slots. The original JVM oracle replays left/right pickup, rounded split, compatible merge at the stack limit, incompatible swap, close-time return, empty click and full target across 36 slots, with cursor state after every operation. Cursor icon/count geometry and layering are pinned from native bb bytecode.",
-      "checks": [
-        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two fresh original JVM outputs match committed native.tsv byte-for-byte",
-        "23 ordered states across eight scenarios; each state records cursor plus all 36 slots; source/output hashes and raw TSV are pinned in tests/fixtures/inventory_interaction/",
-        "Near-limit merge 60+4→64, full-target cursor retention, empty click and close-return sink are captured; supported IDs 1/3/332/267 only",
-        "Native dw/aa/id/ix/iz/gs/gp/bb class hashes, source hash and method descriptors are verified; cursor hitbox 18×18 and renderer offset, atlas dispatch and draw order are pinned",
-        "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v → 7 PASS; no Rust, world or save files changed"
       ]
     }
   }

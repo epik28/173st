@@ -827,4 +827,98 @@ mod tests {
         assert_eq!(items.len(), 6);
         assert_eq!(counts.foreground.len(), 0);
     }
+
+    #[test]
+    fn supported_click_sequences_match_every_native_fixture_state() {
+        fn parse_stack(value: &str) -> Option<ItemStack> {
+            if value == "-" {
+                return None;
+            }
+            let mut parts = value.split(':');
+            let id = parts.next().unwrap().parse::<u16>().unwrap();
+            let count = parts.next().unwrap().parse::<u8>().unwrap();
+            let damage = parts.next().unwrap().parse::<u16>().unwrap();
+            assert!(parts.next().is_none());
+            Some(ItemStack::new(id, count, damage).unwrap())
+        }
+
+        fn assert_state(row: &[&str], screen: &InventoryScreen, inventory: &Inventory) {
+            assert_eq!(
+                screen.cursor_stack(),
+                parse_stack(row[3].strip_prefix("cursor=").unwrap()),
+                "cursor mismatch in {} step {}",
+                row[0],
+                row[1]
+            );
+            let expected = row[4].strip_prefix("slots=").unwrap();
+            let expected: Vec<_> = expected.split(',').map(parse_stack).collect();
+            assert_eq!(expected.len(), MAIN_SLOT_COUNT);
+            for (slot, stack) in expected.into_iter().enumerate() {
+                assert_eq!(
+                    inventory.stack_at(slot).unwrap(),
+                    stack,
+                    "slot {slot} mismatch in {} step {}",
+                    row[0],
+                    row[1]
+                );
+            }
+        }
+
+        let mut inventory = Inventory::new();
+        let mut screen = InventoryScreen::default();
+        let mut scenario = String::new();
+        let mut compared = 0;
+        for line in include_str!("../../../tests/fixtures/inventory_interaction/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let row: Vec<_> = line.split('\t').collect();
+            assert_eq!(row.len(), 5);
+            let step = row[1].parse::<usize>().unwrap();
+            if step == 0 {
+                scenario.clear();
+                scenario.push_str(row[0]);
+                screen = InventoryScreen {
+                    open: true,
+                    cursor: None,
+                };
+                inventory = Inventory::new();
+                for (slot, value) in row[4]
+                    .strip_prefix("slots=")
+                    .unwrap()
+                    .split(',')
+                    .enumerate()
+                {
+                    inventory.set_slot(slot, parse_stack(value)).unwrap();
+                }
+                assert_state(&row, &screen, &inventory);
+                continue;
+            }
+
+            assert_eq!(row[0], scenario);
+            if let Some(args) = row[2].strip_prefix("click:") {
+                let mut args = args.split(':');
+                let container_slot = args.next().unwrap().parse::<usize>().unwrap();
+                let button = args.next().unwrap().parse::<u8>().unwrap();
+                assert!(args.next().unwrap().starts_with("shift="));
+                assert!(args.next().is_none());
+                let inventory_slot = match container_slot {
+                    9..=35 => container_slot,
+                    36..=44 => container_slot - 36,
+                    _ => panic!("native fixture slot is outside the 36-slot scope"),
+                };
+                assert!(screen.click(&mut inventory, inventory_slot, button == 1));
+                assert_state(&row, &screen, &inventory);
+                compared += 1;
+            } else {
+                // Native close drops into the world. Viewer reinsertion is a
+                // safe adaptation and is exercised separately above.
+                assert!(row[2].starts_with("close:sink="));
+            }
+        }
+        assert_eq!(
+            compared, 14,
+            "all in-scope native click rows must be checked"
+        );
+    }
 }

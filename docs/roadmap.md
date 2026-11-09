@@ -10,8 +10,9 @@ MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT и FLUID-001 п�
 Viewer показывает воду ID 8/9 отдельным прозрачным проходом; simulation и lava
 остаются за границами поддержки. PLAYER-SAVE-001 добавил ограниченное чтение
 поддержанных предметов из `Player.Inventory`, но не изменение или сохранение.
-Общая экспертная оценка текущего среза — около30%; следующие игровые механики
-требуют нового контракта.
+Общая экспертная оценка текущего среза — около32%; следующие игровые механики
+требуют нового контракта. Инвентарь поддерживает ограниченный mouse transfer,
+но ещё не умеет world drop, crafting, armor, item use или сохранение изменений.
 
 ## Общий цикл каждого пакета
 
@@ -90,8 +91,8 @@ NBT и Region сначала читают данные. Запись вводи�
 | 4.2 HUD-001 — принят частично | Нативная отрисовка hotbar frame/selection, full-health hearts и crosshair | GUI atlas hashes, GuiIngame layout/UV audit и pixel-aligned viewport tests | Render-only HUD после world passes; item sprites, inventory GUI и реальное здоровье не входят |
 | 4.3 HOTBAR-INPUT-001 — принято | Прямой выбор слота 1–9 и прокрутка по проверенной модели инвентаря | Native bytecode audit, viewer input tests, полный workspace check и ITEMS strict parity | Выделенная рамка следует selected slot; fractional line/pixel conversion — viewer policy |
 | 4.4 INVENTORY-UI-001 — принято | Экран инвентаря E/Escape с нативной панелью, 36 слотами и поддержанными item icons | Pinned native resource/layout audit, viewer input/render tests, полный workspace check, ITEMS strict parity | Поддержанные saved stacks и counts отображаются; перенос предметов мышью, crafting, armor, survival и запись сохранения остаются открыты |
-| 4.5 HOTBAR-ITEMS-001 — принято | Иконки сохранённых стэков в HUD и нативные count labels | Pinned bb/sj audit, exact item data parity, atlas/UV/count geometry tests и полный workspace check | Только отображение поддержанных стеков; действия с предметами пока отсутствуют |
-| 4.6 INVENTORY-INTERACTION-001 — в работе | Левый/правый клик по 36 main slots, курсорный стек, перенос/слияние/обмен | Native interaction corpus и строгая последовательность состояний; full workspace check | Изменения только в памяти; shift-click, world drop и persistence позже |
+| 4.5 HOTBAR-ITEMS-001 — принято | Иконки сохранённых стэков в HUD и нативные count labels | Pinned bb/sj audit, exact item data parity, atlas/UV/count geometry tests и полный workspace check | Только поддержанные стеки; действия с предметами покрывает следующий пакет |
+| 4.6 INVENTORY-INTERACTION-001 — принято | Левый/правый клик по 36 main slots, курсорный стек, перенос/слияние/обмен | 23 ordered native states; Rust сравнивает cursor и все slots в 14 click states; полный workspace check | Изменения только в памяти; viewer возвращает курсорный стек при закрытии; native world drop, shift-click и persistence отложены |
 | 4.5 VIEW-LOCAL-001 — принято | Hash-pinned read-only preview обновлённой локальной 5×5 сцены без изменения исторических parity fixtures | Local manifest/path checks; two independent native captures; exact Rust preview probe; full workspace checks; source hashes before/after | World chooser, произвольные координаты, новые миры и полная визуальная проверка ещё не реализованы |
 | 4.4 SURVIVAL-001 — план | Рецепты и печь, инструменты, прочность, здоровье, урон, смерть/respawn | Таблицы именно Beta, тайминги и последовательности действий | Можно добыть ресурс, сделать инструмент, приготовить предмет, получить урон и восстановить игру |
 | 4.5 SAVE-001 — план | Запись изменений в отдельную копию мира, сохранение игрока, повторная загрузка | Чтение Rust-сохранения оригиналом и наоборот; неизвестные данные и аварийные записи | Сценарий продолжается после перезапуска обеих реализаций без потери поддержанных данных |
