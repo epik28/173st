@@ -1648,8 +1648,12 @@ number of cells in C01's nine loaded chunks. `max_visited_cells` must be in
 deterministic update work queue. A smaller caller limit that is exhausted
 returns `RelightError::QueueLimitExceeded` and leaves `self` byte-for-byte
 unchanged; limits are never silently clamped. Invalid limits, an unloaded edit
-cell, invalid opacity/emission outside `0..=15`, or an internal chunk access
-failure also return an error without publishing partial light changes.
+cell, invalid material properties, or an internal chunk access failure also
+return an error without publishing partial light changes. Material opacity uses
+the native unsigned-byte domain `0..=255` (native stone ID 1 has opacity 255);
+emission is restricted to `0..=15`. Native opacity zero is treated as
+attenuation one by the update routine, while opacity `>=15` blocks propagated
+light unless an emission source overrides it.
 
 `RelightResult` contains sorted `changed_cells` entries with world `(x,y,z)` and
 the final block/sky nibbles, a sorted/deduplicated `dirty_chunks` list, and a
