@@ -1,0 +1,44 @@
+case	canopy-log-remove	target=8,65,8	replacement=0	before_digest=7ad80147fe2280fcf20d8c43dd1491137667be8dad312e6cd7fc779a98bc9df8
+canopy-log-remove	before	8	65	8	17	0	255	0	0	0	0
+canopy-log-remove	before	8	64	8	17	0	255	0	0	0	0
+canopy-log-remove	before	8	66	8	17	0	255	0	0	0	0
+canopy-log-remove	before	7	65	8	0	0	0	0	14	0	14
+canopy-log-remove	before	8	65	7	0	0	0	0	14	0	14
+canopy-log-remove	before	8	66	7	18	0	1	0	14	0	14
+canopy-log-remove	before	8	67	8	0	0	0	0	15	0	15
+final	canopy-log-remove	8290d21d3083198f594fb5d80f58bf6b3bc973f71a7b311de24c6bf9048caf6f
+canopy-log-remove	after	8	65	8	0	0	0	0	13	0	13
+canopy-log-remove	after	8	64	8	17	0	255	0	0	0	0
+canopy-log-remove	after	8	66	8	17	0	255	0	0	0	0
+canopy-log-remove	after	7	65	8	0	0	0	0	14	0	14
+canopy-log-remove	after	8	65	7	0	0	0	0	14	0	14
+canopy-log-remove	after	8	66	7	18	8	1	0	14	0	14
+canopy-log-remove	after	8	67	8	0	0	0	0	15	0	15
+case	water-remove	target=8,64,8	replacement=0	before_digest=3f7b65ebc7058032ed2a07588448c01ed0b85dc50fef4ed175e36969663605ea
+water-remove	before	8	64	8	9	0	3	0	12	0	12
+water-remove	before	8	65	8	0	0	0	0	15	0	15
+water-remove	before	7	64	8	0	0	0	0	15	0	15
+water-remove	before	9	64	8	0	0	0	0	15	0	15
+water-remove	before	8	64	7	0	0	0	0	15	0	15
+water-remove	before	8	64	9	0	0	0	0	15	0	15
+final	water-remove	e3a3dbe730d19d6519ff6b991f5928a545480c6928ce38670b920718794d5e38
+water-remove	after	8	64	8	0	0	0	0	15	0	15
+water-remove	after	8	65	8	0	0	0	0	15	0	15
+water-remove	after	7	64	8	0	0	0	0	15	0	15
+water-remove	after	9	64	8	0	0	0	0	15	0	15
+water-remove	after	8	64	7	0	0	0	0	15	0	15
+water-remove	after	8	64	9	0	0	0	0	15	0	15
+case	water-place	target=8,64,8	replacement=9	before_digest=e3a3dbe730d19d6519ff6b991f5928a545480c6928ce38670b920718794d5e38
+water-place	before	8	64	8	0	0	0	0	15	0	15
+water-place	before	8	65	8	0	0	0	0	15	0	15
+water-place	before	7	64	8	0	0	0	0	15	0	15
+water-place	before	9	64	8	0	0	0	0	15	0	15
+water-place	before	8	64	7	0	0	0	0	15	0	15
+water-place	before	8	64	9	0	0	0	0	15	0	15
+final	water-place	3f7b65ebc7058032ed2a07588448c01ed0b85dc50fef4ed175e36969663605ea
+water-place	after	8	64	8	9	0	3	0	12	0	12
+water-place	after	8	65	8	0	0	0	0	15	0	15
+water-place	after	7	64	8	0	0	0	0	15	0	15
+water-place	after	9	64	8	0	0	0	0	15	0	15
+water-place	after	8	64	7	0	0	0	0	15	0	15
+water-place	after	8	64	9	0	0	0	0	15	0	15

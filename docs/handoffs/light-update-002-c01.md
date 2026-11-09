@@ -49,12 +49,40 @@ it supplies opacity 255 to every non-air ID, while native registered leaves use
 candidate for the symptom. It does not prove the user's exact edit sequence or
 exclude independent light-queue, height-map, or mesh publication issues.
 
+## Native synthetic edit probes
+
+The separate `LightMaterialEditOracle` reuses the existing bounded native
+`LightUpdateOracle` world, setter, and light-queue helpers without changing that
+adapter or its fixtures. It performs three fixed synthetic cases: remove a log
+under registered leaves, remove still water from an isolated stone-floor cell,
+and place still water into that cell. All seed and edit operations call the
+native block setter and drain the native update queue. Samples record block ID,
+metadata, raw opacity/emission, sky light, block light, and combined light on
+both sides of the edit. Both adapters verify their original classes load from
+the pinned JAR; the audit records both Java source hashes, original class hashes,
+request/output hashes, and the registry bootstrap hash.
+
+`tests/fixtures/light_material/native_edits.tsv` contains 44 ordered rows. Its
+SHA-256 is `f6bfeaa184688a48e0691c51b6ed3ca9af6f8a1c81b5b04c603e10170f72301a`;
+two fresh captures match exactly. In the fixed canopy case, the sampled leaf at
+`(8,66,7)` has opacity 1. Removing the log at `(8,65,8)` changes that cell's
+native sky light from 0 to 13; neighboring leaf cells retain their captured
+opacity and light. In the water cases, ID 9 has opacity 3 and emission 0; placing
+it changes sampled sky light from 15 to 12, and removing it restores 15.
+These results demonstrate native behavior for these synthetic inputs only.
+They do not reproduce the user's exact save, edit sequence, or screenshot, and
+do not rule out other queue, height-map, boundary, or publication defects.
+
 ## Files and validation
 
 Files added: `tools/oracle/src/LightMaterialOracle.java`,
 `tools/oracle/light_material_audit.py`,
 `tests/fixtures/light_material/native.tsv`,
 `tests/fixtures/light_material/audit.json`,
+`tools/oracle/src/LightMaterialEditOracle.java`,
+`tools/oracle/light_material_edit_audit.py`,
+`tests/fixtures/light_material/native_edits.tsv`,
+`tests/fixtures/light_material/edit_audit.json`,
 `tests/python/test_light_material_audit.py`, and this handoff.
 
 Commands run:
@@ -63,9 +91,13 @@ Commands run:
   matched and generated the 256-row fixture.
 - `python3 tools/oracle/light_material_audit.py` — two fresh captures matched
   the committed TSV and audit hashes.
-- `python3 -m unittest tests/python/test_light_material_audit.py -v` — 4 tests
+- `python3 tools/oracle/light_material_edit_audit.py --write` — three native
+  synthetic edit cases; two fresh 44-row captures matched.
+- `python3 tools/oracle/light_material_edit_audit.py` — two fresh edit captures
+  matched the committed TSV and audit hashes.
+- `python3 -m unittest tests/python/test_light_material_audit.py -v` — 6 tests
   passed, including malformed/changed registry data, provenance mutation, and
-  wrong-JAR rejection.
+  wrong-JAR and malformed-protocol rejection.
 - `git diff --check` — passed.
 
 The oracle only reads the pinned client JAR and uses synthetic fixed registry

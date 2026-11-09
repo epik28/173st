@@ -16,6 +16,11 @@ audit = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = audit
 spec.loader.exec_module(audit)
 
+edit_spec = importlib.util.spec_from_file_location("light_material_edit_audit", ROOT / "tools/oracle/light_material_edit_audit.py")
+edit_audit = importlib.util.module_from_spec(edit_spec)
+sys.modules[edit_spec.name] = edit_audit
+edit_spec.loader.exec_module(edit_audit)
+
 
 class LightMaterialAuditTests(unittest.TestCase):
     @classmethod
@@ -78,6 +83,35 @@ class LightMaterialAuditTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, b"")
         self.assertIn(b"wrong or missing pinned client JAR", result.stderr)
+
+    def test_native_synthetic_edit_capture_and_mutation_checks(self):
+        output = (FIXTURE / "native_edits.tsv").read_bytes()
+        manifest = json.loads((FIXTURE / "edit_audit.json").read_text())
+        edit_audit.validate_output(output)
+        edit_audit.validate_evidence([output, output], output, manifest, JAR)
+
+        wrong_leaf_opacity = output.replace(
+            b"canopy-log-remove\tbefore\t8\t66\t7\t18\t0\t1\t0",
+            b"canopy-log-remove\tbefore\t8\t66\t7\t18\t0\t255\t0", 1,
+        )
+        with self.assertRaisesRegex(ValueError, "canopy sample"):
+            edit_audit.validate_output(wrong_leaf_opacity)
+
+        missing_edit_row = output.replace(
+            b"water-remove\tafter\t8\t64\t8\t0\t0\t0\t0\t15\t0\t15\n", b"", 1,
+        )
+        with self.assertRaisesRegex(ValueError, "samples differ"):
+            edit_audit.validate_output(missing_edit_row)
+
+        wrong_capture_hash = dict(manifest)
+        wrong_capture_hash["capture_output_sha256"] = ["0" * 64, "0" * 64]
+        with self.assertRaisesRegex(ValueError, "capture_output_sha256 mismatch"):
+            edit_audit.validate_evidence([output, output], output, wrong_capture_hash, JAR)
+
+    def test_native_edit_oracle_rejects_noncanonical_request(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(ValueError, "native edit oracle failed"):
+                edit_audit.capture(JAR, pathlib.Path(temporary) / "bad-request", b"material-edits-v1\nextra\n")
 
 
 if __name__ == "__main__":
