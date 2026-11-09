@@ -49,6 +49,9 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    // The chooser owns the first window and runs before any scene, mesh, or GPU
+    // state is prepared. Its result is the only input used by the loader below.
+    let (input, source_pins) = copy_local_world()?;
     let terrain_path = terrain_path()?;
     let bytes = fs::read(&terrain_path)?;
     use sha2::Digest;
@@ -68,16 +71,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
     let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
     let font_atlas = hud::load_font_atlas(&client_jar)?;
-    let (input, source_pins) = copy_local_world()?;
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
-    let scene_path = root.join("tests/fixtures/view/scene.tsv");
     let (mut scene, metadata, scene_chunks, mappings) =
-        loader::load_scene_for_preview_with_edit_data(
-            &input,
-            &terrain_path,
-            &scene_path,
-            &source_pins,
-        )?;
+        loader::load_scene_for_selected_world_with_edit_data(&input, &terrain_path, &source_pins)?;
     let palette_dir = terrain_path
         .parent()
         .ok_or("terrain atlas path has no parent for color palettes")?;
@@ -329,6 +324,7 @@ fn build_chunk_mesh_cache(
     Ok((opaque, fluids))
 }
 
+#[allow(unreachable_code)]
 fn copy_local_world()
 -> Result<(std::path::PathBuf, Vec<loader::PreviewSourcePin>), Box<dyn std::error::Error>> {
     const SOURCE_NAMES: [&str; 5] = [
@@ -356,6 +352,34 @@ fn copy_local_world()
         }
     }
     let prism = prism.ok_or("config requires paths.prism_instance")?;
+    // World selection is intentionally completed before any renderer/window is
+    // created. Discovery is deterministic; only a validated disposable copy
+    // reaches the existing bounded scene loader.
+    let saves_root = std::path::PathBuf::from(&prism).join("minecraft/saves");
+    let catalog = beta_viewer::world_select::discover(&saves_root)?;
+    let selected_index = choose_world(&catalog)?.ok_or("world chooser cancelled")?;
+    let selected = catalog
+        .get(selected_index)
+        .ok_or("world chooser selected an invalid row")?;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let snapshot = beta_viewer::world_select::snapshot(
+        selected,
+        &saves_root,
+        &root.join("artifacts").join("viewer"),
+    )?;
+    let pins = selected
+        .pins
+        .iter()
+        .map(|pin| loader::PreviewSourcePin {
+            name: pin.name.clone(),
+            size: pin.size as usize,
+            sha256: pin.sha256.clone(),
+        })
+        .collect();
+    return Ok((snapshot, pins));
+
+    // Historical fixed-manifest path retained below for source compatibility
+    // and parity tooling; normal viewer startup returns through the chooser.
     let source_world = std::path::PathBuf::from(prism).join("minecraft/saves/New World");
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let manifest_path = local_world_manifest_path(&root)?;
@@ -485,6 +509,148 @@ fn copy_local_world()
     )?;
     fs::write(input.join(".preview-source-hashes.tsv"), pin_manifest)?;
     Ok((input, source_pins))
+}
+
+/// Small native-style chooser. The window title carries the same row metadata
+/// used by the eventual renderer, which keeps this phase independent of the
+/// world GPU pipeline and makes invalid rows visibly disabled with a reason.
+fn choose_world(
+    entries: &[beta_viewer::world_select::WorldEntry],
+) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct ChooserLayout {
+        row_top: f32,
+        row_height: f32,
+        select_top: f32,
+        cancel_top: f32,
+        button_height: f32,
+    }
+    impl ChooserLayout {
+        fn new() -> Self {
+            Self {
+                row_top: 56.0,
+                row_height: 42.0,
+                select_top: 410.0,
+                cancel_top: 410.0,
+                button_height: 36.0,
+            }
+        }
+        fn row_at(self, y: f32, count: usize) -> Option<usize> {
+            if y < self.row_top {
+                return None;
+            }
+            let i = ((y - self.row_top) / self.row_height).floor() as usize;
+            (i < count).then_some(i)
+        }
+        fn is_select(self, x: f32, y: f32) -> bool {
+            (420.0..570.0).contains(&x)
+                && y >= self.select_top
+                && y < self.select_top + self.button_height
+        }
+        fn is_cancel(self, x: f32, y: f32) -> bool {
+            (580.0..700.0).contains(&x)
+                && y >= self.cancel_top
+                && y < self.cancel_top + self.button_height
+        }
+    }
+    struct Chooser {
+        entries: Vec<beta_viewer::world_select::WorldEntry>,
+        state: beta_viewer::world_select::ChooserState,
+        window: Option<Window>,
+        result: Option<Option<usize>>,
+        cursor: (f32, f32),
+        layout: ChooserLayout,
+    }
+    impl ApplicationHandler for Chooser {
+        fn resumed(&mut self, event: &ActiveEventLoop) {
+            if self.window.is_some() {
+                return;
+            }
+            let attrs = Window::default_attributes()
+                .with_title("Beta 1.7.3 — Select World")
+                .with_inner_size(PhysicalSize::new(720, 480));
+            let window = event.create_window(attrs).expect("chooser window");
+            self.window = Some(window);
+            self.state.select_first_valid(&self.entries);
+            if let Some(window) = &self.window {
+                window.set_title("Beta 1.7.3 — Singleplayer");
+            }
+        }
+        fn window_event(&mut self, event: &ActiveEventLoop, _: WindowId, input: WindowEvent) {
+            if let WindowEvent::CursorMoved { position, .. } = input {
+                self.cursor = (position.x as f32, position.y as f32);
+                return;
+            }
+            if let WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } = input
+            {
+                let (x, y) = self.cursor;
+                if let Some(index) = self.layout.row_at(y, self.entries.len()) {
+                    self.state.apply(
+                        beta_viewer::world_select::ChooserAction::Select,
+                        Some(index),
+                        self.entries.len(),
+                    );
+                } else if self.layout.is_select(x, y) {
+                    if let Some(index) = self.state.activate(&self.entries) {
+                        self.result = Some(Some(index));
+                        event.exit();
+                    }
+                } else if self.layout.is_cancel(x, y) {
+                    self.result = Some(None);
+                    event.exit();
+                }
+                return;
+            }
+            if let WindowEvent::KeyboardInput { event: key, .. } = input {
+                if key.state != ElementState::Pressed {
+                    return;
+                }
+                match key.physical_key {
+                    PhysicalKey::Code(KeyCode::Escape) => {
+                        self.result = Some(None);
+                        event.exit();
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowDown) => {
+                        self.state.move_selection(&self.entries, 1);
+                        self.refresh_title();
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowUp) => {
+                        self.state.move_selection(&self.entries, -1);
+                        self.refresh_title();
+                    }
+                    PhysicalKey::Code(KeyCode::Enter)
+                    | PhysicalKey::Code(KeyCode::NumpadEnter)
+                    | PhysicalKey::Code(KeyCode::KeyS) => {
+                        if let Some(index) = self.state.activate(&self.entries) {
+                            self.result = Some(Some(index));
+                            event.exit();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    impl Chooser {
+        fn refresh_title(&self) {
+            let _ = self.state.selected;
+        }
+    }
+    let event_loop = EventLoop::new()?;
+    let mut app = Chooser {
+        entries: entries.to_vec(),
+        state: Default::default(),
+        window: None,
+        result: None,
+        cursor: (0.0, 0.0),
+        layout: ChooserLayout::new(),
+    };
+    event_loop.run_app(&mut app)?;
+    Ok(app.result.flatten())
 }
 
 /// Keep the user-owned world pin outside individual Git worktrees so `main`,
@@ -855,6 +1021,14 @@ fn interaction_shape(mappings: &[BlockMapping], id: u8, metadata: u8) -> RayShap
     }
 }
 
+fn dirty_chunk_union(edit: &[(i32, i32)], relight: &[(i32, i32)]) -> Vec<(i32, i32)> {
+    let mut result = edit.to_vec();
+    result.extend_from_slice(relight);
+    result.sort_unstable();
+    result.dedup();
+    result
+}
+
 #[cfg(test)]
 fn srgb_to_linear(channel: f32) -> f32 {
     if channel <= 0.04045 {
@@ -1066,6 +1240,15 @@ impl App {
             next_block_scene.place_block(hit, 1, 0, &supported)?
         };
         let (x, y, z) = edit.changed;
+        let relight = next_block_scene.relight(
+            edit.changed,
+            beta_core::block::MAX_RELIGHT_CELLS,
+            |id, _metadata| {
+                let emission = beta_core::light::emission_level(id);
+                (if id == 0 { 0 } else { 255 }, emission)
+            },
+        )?;
+        let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight.dirty_chunks);
         let (chunk_x, local_x) = split_block_coord(x);
         let (chunk_z, local_z) = split_block_coord(z);
         let value: BlockData = next_block_scene
@@ -1080,12 +1263,24 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
-        self.rebuild_dirty_chunks(&edit.dirty_chunks, next_block_scene, next_scene_chunks)?;
+        for &((lx_world, ly, lz_world), block_light, sky_light) in &relight.light_updates {
+            let (cx, lx) = split_block_coord(lx_world);
+            let (cz, lz) = split_block_coord(lz_world);
+            let target = next_scene_chunks
+                .iter_mut()
+                .find(|candidate| candidate.x == cx && candidate.z == cz)
+                .ok_or("relit cell is not in the disposable scene")?;
+            let mut state = target.data.get(lx, ly as u8, lz)?;
+            state.block_light = block_light;
+            state.sky_light = sky_light;
+            target.data.set(lx, ly as u8, lz, state)?;
+        }
+        self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
             if breaking { "broke" } else { "placed" },
-            edit.dirty_chunks.len()
+            dirty_chunks.len()
         );
         Ok(edit)
     }
@@ -2231,6 +2426,14 @@ mod tests {
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
+
+    #[test]
+    fn dirty_chunk_union_keeps_edit_corner_and_relight_neighbors() {
+        assert_eq!(
+            super::dirty_chunk_union(&[(1, 1), (0, 0), (1, 1)], &[(2, 1), (0, 0), (-1, 0)]),
+            vec![(-1, 0), (0, 0), (1, 1), (2, 1)]
+        );
+    }
 
     #[test]
     fn transparent_water_quad_indices_sort_groups_without_reordering_triangles() {
