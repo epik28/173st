@@ -1155,7 +1155,6 @@
       "title": "Match original menu presentation implementation",
       "card": "docs/tasks/MENU-PARITY-001.md",
       "depends_on": [
-        "MENU-PARITY-001-C01",
         "WORLD-SELECT-001-C02"
       ]
     },
@@ -1168,6 +1167,55 @@
         "MENU-PARITY-001-C01",
         "MENU-PARITY-001-A01"
       ]
+    },
+    {
+      "id": "WATER-SIM-001-C01",
+      "owner": "codex",
+      "title": "Capture original water update ticks",
+      "card": "docs/tasks/WATER-SIM-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "WATER-SIM-001-A01",
+      "owner": "agy",
+      "title": "Implement native water state transitions",
+      "card": "docs/tasks/WATER-SIM-001.md",
+      "depends_on": ["WATER-SIM-001-C01"]
+    },
+    {
+      "id": "WATER-SIM-001-A02",
+      "owner": "agy",
+      "title": "Integrate water ticks into viewer simulation",
+      "card": "docs/tasks/WATER-SIM-001.md",
+      "depends_on": ["WATER-SIM-001-A01"]
+    },
+    {
+      "id": "WATER-SIM-001-C02",
+      "owner": "codex",
+      "title": "Accept native water simulation",
+      "card": "docs/tasks/WATER-SIM-001.md",
+      "depends_on": ["WATER-SIM-001-C01", "WATER-SIM-001-A01", "WATER-SIM-001-A02"]
+    },
+    {
+      "id": "WATER-MOVE-001-C01",
+      "owner": "codex",
+      "title": "Capture original player movement in water",
+      "card": "docs/tasks/WATER-MOVE-001.md",
+      "depends_on": ["MOVE-001-C03"]
+    },
+    {
+      "id": "WATER-MOVE-001-A01",
+      "owner": "agy",
+      "title": "Implement player swimming physics",
+      "card": "docs/tasks/WATER-MOVE-001.md",
+      "depends_on": ["WATER-MOVE-001-C01"]
+    },
+    {
+      "id": "WATER-MOVE-001-C02",
+      "owner": "codex",
+      "title": "Accept player movement in water",
+      "card": "docs/tasks/WATER-MOVE-001.md",
+      "depends_on": ["WATER-MOVE-001-C01", "WATER-MOVE-001-A01"]
     }
   ]
 }

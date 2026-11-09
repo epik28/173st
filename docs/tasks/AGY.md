@@ -16,6 +16,28 @@ handoff/status и commit.
 Rust/Xvfb smoke и screenshot, записать ограничения, status/handoff и commit; затем
 ожидать приёмки Codex.
 
+## WATER-SIM-001-A01/A02 — тики воды
+
+После native C01 прочитать [WATER-SIM-001](WATER-SIM-001.md). A01 реализует только
+pure bounded transition по committed fixtures; A02 подключает его к fixed 20Hz
+viewer scheduler, отмечает dirty chunks и сохраняет runtime edits только в
+disposable snapshot. Не затрагивать исходные saves или native fixtures. Очередь,
+atomic limits, loaded boundaries и порядок событий должны следовать контракту.
+
+## WATER-MOVE-001-A01 — движение игрока в воде
+
+После C01 прочитать [WATER-MOVE-001](WATER-MOVE-001.md). Добавить отдельный
+water motion режим по native tick traces; оставить dry-motion корпус неизменным.
+Не подменять block-flow ticks движением игрока и не добавлять unsupported lava.
+
+## MENU-PARITY-001-A01 — native оформление меню
+
+Взять задачу после WORLD-SELECT-001-C02. По pinned C01 кадрам перенести
+panorama/title/gui ресурсы, native geometry/font/GUI scaling и меню states.
+Ресурсы получать из локального JAR в runtime и не коммитить извлечённые assets.
+Не менять read-only save catalog/snapshot API; native GUI scale 3 conversion-row
+расхождение расследуется отдельным C01.
+
 ## JAVA-001-A01 — Java-совместимые примитивы
 
 После JAVA-001-C01 прочитать [JAVA-001](JAVA-001.md). Добавить чистый модуль

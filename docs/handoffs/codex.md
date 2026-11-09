@@ -1833,3 +1833,22 @@ the two native C01 investigations open. Local main integration follows this
 record; GitHub is still deferred to the agreed5–10 point interval. Readiness
 remains **≈36%**. Next: general light propagation/height-map and reference menu
 discrepancy, then native menu implementation and fuller survival systems.
+
+## 2026-11-09 — menu gap and water simulation contracts
+
+Recorded the user's current 720×480 main-menu screenshot as a concrete visual
+defect: flat blue background, temporary bitmap text and plain buttons instead of
+the original panorama/title/gui presentation. Updated MENU-PARITY-001 criteria
+to include both native reference profiles, empty/filled list, hover/press and
+resize. The existing GUI-scale-3 missing conversion row remains a separate open
+reference issue; it no longer blocks starting A01 on already-confirmed frames.
+
+Added WATER-SIM-001 for native water block ticks/flow/sources and bounded 20Hz
+viewer scheduling, plus WATER-MOVE-001 for the player's swimming, submersion and
+water drag. Both begin with direct original-client traces; water mesh rendering
+is not described as simulation. Queue and both role status files have pending
+entries. No engine behavior or readiness percentage changed.
+
+Validation: `python3 -m json.tool` accepted queue and both role status files;
+`git diff --check` passed. This documentation/queue preparation did not run the
+game test suite or native capture. No original assets or world saves changed.

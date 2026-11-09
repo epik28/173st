@@ -18,6 +18,23 @@ hashes и отсутствие GL draw/flush. Не вычислять expected v
 suites, полный fluid fixture, viewer screenshot и read-only invariants. После
 проверки принять в main, обновить progress/estimate и синхронизировать worktrees.
 
+## WATER-SIM-001-C01/C02 — эталон и приёмка физики блоков воды
+
+Прочитать [WATER-SIM-001](WATER-SIM-001.md). C01 снять прямыми вызовами
+оригинальных Beta 1.7.3 methods ordered tick/state traces на synthetic chunks,
+включая queue delays, loaded boundaries, sources, horizontal/downward flow и
+соседние edits. C02 добавить strict saved runner, сравнить каждый intermediate
+state/event с Rust и проверить read-only source hashes. Не вычислять ожидаемые
+результаты копией алгоритма.
+
+## WATER-MOVE-001-C01/C02 — эталон движения в воде
+
+После MOVE-001-C03 прочитать [WATER-MOVE-001](WATER-MOVE-001.md). Снять original
+player travel traces для входа/выхода, погружения, поверхности, ускорения, drag,
+jump и столкновений; зафиксировать raw state и bytecode/source provenance.
+Сверить каждый тик Rust, затем viewer controller и frame partitions. Не считать
+fluid block simulation доказательством swim physics.
+
 ## JAVA-001-C01 — Java oracle и conversion/hash corpus
 
 После MATH-001-C03 прочитать [JAVA-001](JAVA-001.md). Создать JavaOracle с
