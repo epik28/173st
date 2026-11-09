@@ -1493,3 +1493,25 @@ hold the visual claim and GitHub push until it is checked in a compositor.
 - Counts render only for stack size >1. Original `sj` font scan is captured from `font/default.png` plus `font.txt`; native digit widths are 8,8,8,8,9,9,8,9,8,8. Text anchor is `x+17-width`, `y+9`; original draw color is white. Thus count labels are in scope for A01 using the pinned font atlas. This is geometry/resource evidence, not a GL pixel capture.
 - `python3 tools/oracle/hotbar_items_audit.py ../.local/minecraft/client-b1.7.3.jar` verifies JAR/resource/class hashes, bytecode excerpts, and two exact JVM oracle outputs. `python3 -m unittest tests.python.test_hotbar_items_audit -v` → 3 PASS. No Rust, Agy status, world, or save files changed.
 - Native corpus/audit files: `tools/oracle/hotbar_items_audit.py`, `tools/oracle/src/HotbarItemsOracle.java`, `tests/fixtures/hotbar_items/audit.json`, and `tests/python/test_hotbar_items_audit.py`. A01 can implement item icons and counts using the per-ID atlas distinction and digit width evidence. No claim of rendered pixel parity is made.
+
+## INVENTORY-INTERACTION-001-C01 — native inventory click corpus
+
+The pinned Beta 1.7.3 client is exercised through `dw`/`aa` with an isolated
+native `ix` inventory and a synthetic player. No window, world, or save is
+created. `InventoryInteractionOracle` captures ordered operations and the full
+cursor plus 36-slot state after each operation. The oracle repeats the exact
+sequence twice and the audit rejects any output or pinned class/hash mutation.
+
+The corpus covers left pickup/place, right rounded split and one-item place,
+compatible merge, incompatible swap, and close-time cursor return. Shift-click
+and outside-drop remain outside the contract. Native cursor rendering is pinned
+from `bb`: 16x16 icon at mouse coordinates relative to the panel origin minus
+(8,8), atlas dispatch follows the item ID threshold 256, and the pass order is
+slot contents, cursor icon, cursor count, tooltip. Counts use the native count
+call and are shown only for stacks greater than one.
+
+`python3 tools/oracle/inventory_interaction_audit.py
+../.local/minecraft/client-b1.7.3.jar` passes with 15 states and two identical
+JVM outputs. Focused Python tests pass. The fixture and oracle are limited to
+`tools/oracle`, `tests/fixtures/inventory_interaction`, and the corresponding
+Python test; no Rust, user world, or save data was changed.
