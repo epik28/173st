@@ -1,4 +1,5 @@
-//! Read-only loader and strict protocol implementation for the fixed VIEW-001 scene.
+//! Read-only loader and strict protocol implementation for fixed scenes and
+//! bounded spawn-centered previews.
 //!
 //! The probe trusts neither paths nor archive contents. It accepts only the marked,
 //! hash-pinned five-file copy produced by the repository snapshot tool.
@@ -280,6 +281,114 @@ fn validate_preview_copy(
     Ok(files)
 }
 
+/// Validate a disposable snapshot produced by the local world chooser. Unlike
+/// the historical preview protocol above, this accepts a dynamic set of region
+/// files; strict parity tools remain pinned to `FILES`.
+fn validate_selected_world_copy(
+    dir: &Path,
+    pins: &[PreviewSourcePin],
+) -> Result<BTreeMap<String, Vec<u8>>, ProbeError> {
+    let meta = fs::symlink_metadata(dir)?;
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return Err(ProbeError::InvalidInput(
+            "selected-world snapshot must be a real directory".into(),
+        ));
+    }
+    let mut by_name = BTreeMap::new();
+    for pin in pins {
+        let valid_name = pin.name == "level.dat" || valid_region_filename(&pin.name);
+        let valid_hash = pin.sha256.len() == 64
+            && pin
+                .sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
+        if !valid_name
+            || pin.size == 0
+            || pin.size
+                > if pin.name == "level.dat" {
+                    16 * 1024 * 1024
+                } else {
+                    64 * 1024 * 1024
+                }
+            || !valid_hash
+            || by_name.insert(pin.name.as_str(), pin).is_some()
+        {
+            return Err(ProbeError::InvalidInput(
+                "selected-world source pin set is invalid".into(),
+            ));
+        }
+    }
+    if !by_name.contains_key("level.dat") || by_name.len() < 2 {
+        return Err(ProbeError::InvalidInput(
+            "selected-world snapshot requires level.dat and region files".into(),
+        ));
+    }
+    let marker_world = read_regular(&dir.join(".world-input-copy"), "world marker")?;
+    let marker_region = read_regular(&dir.join(".region-input-copy"), "region marker")?;
+    let marker_sources = read_regular(
+        &dir.join(".preview-source-hashes.tsv"),
+        "preview source pins",
+    )?;
+    if marker_world != WORLD_MARKER.as_bytes() || marker_region != REGION_MARKER.as_bytes() {
+        return Err(ProbeError::InvalidInput(
+            "selected-world marker content mismatch".into(),
+        ));
+    }
+    let manifest = pins
+        .iter()
+        .map(|pin| format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256))
+        .collect::<String>();
+    if marker_sources != manifest.as_bytes() {
+        return Err(ProbeError::InvalidInput(
+            "selected-world source manifest differs from requested pins".into(),
+        ));
+    }
+    let mut allowed: BTreeSet<String> = [
+        ".world-input-copy".to_owned(),
+        ".region-input-copy".to_owned(),
+        ".preview-source-hashes.tsv".to_owned(),
+    ]
+    .into_iter()
+    .collect();
+    let mut files = BTreeMap::new();
+    for (name, pin) in by_name {
+        allowed.insert(name.to_owned());
+        let data = read_regular(&dir.join(name), name)?;
+        if data.len() != pin.size || sha256_hex(&data) != pin.sha256 {
+            return Err(ProbeError::InvalidInput(format!(
+                "selected-world snapshot {name} size/hash mismatch"
+            )));
+        }
+        files.insert(name.to_owned(), data);
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| ProbeError::InvalidInput("non-UTF8 selected-world path".into()))?;
+        let ty = entry.file_type()?;
+        if !allowed.contains(&name) || ty.is_symlink() || !ty.is_file() {
+            return Err(ProbeError::InvalidInput(format!(
+                "unsafe or unexpected selected-world entry {name}"
+            )));
+        }
+    }
+    Ok(files)
+}
+
+fn valid_region_filename(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(".mcr") else {
+        return false;
+    };
+    let mut parts = stem.split('.');
+    matches!(
+        (parts.next(), parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some("r"), Some(x), Some(z), None, None)
+            if x.parse::<i32>().is_ok() && z.parse::<i32>().is_ok()
+    )
+}
+
 fn validate_terrain(path: &Path) -> Result<(), ProbeError> {
     let bytes = read_regular(path, "terrain atlas")?;
     if sha256_hex(&bytes) != TERRAIN_SHA256 {
@@ -361,6 +470,31 @@ fn parse_scene(path: &Path, spawn: [i32; 3]) -> Result<ParsedScene, ProbeError> 
     })
 }
 
+fn parse_spawn_window(spawn: [i32; 3]) -> Result<ParsedScene, ProbeError> {
+    let cx = spawn[0].div_euclid(16);
+    let cz = spawn[2].div_euclid(16);
+    let min_x = cx.checked_sub(2).ok_or_else(|| {
+        ProbeError::InvalidInput("spawn chunk window exceeds coordinate range".into())
+    })?;
+    let min_z = cz.checked_sub(2).ok_or_else(|| {
+        ProbeError::InvalidInput("spawn chunk window exceeds coordinate range".into())
+    })?;
+    min_x.checked_add(4).ok_or_else(|| {
+        ProbeError::InvalidInput("spawn chunk window exceeds coordinate range".into())
+    })?;
+    min_z.checked_add(4).ok_or_else(|| {
+        ProbeError::InvalidInput("spawn chunk window exceeds coordinate range".into())
+    })?;
+    let chunks = (-2..=2)
+        .flat_map(|dz| (-2..=2).map(move |dx| (cx + dx, cz + dz)))
+        .collect();
+    Ok(ParsedScene {
+        chunks,
+        min_x,
+        min_z,
+    })
+}
+
 fn load_scene(
     files: &BTreeMap<String, Vec<u8>>,
     coords: &ParsedScene,
@@ -368,7 +502,7 @@ fn load_scene(
 ) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
     let mut regions: BTreeMap<(i32, i32), RegionFile<'_>> = BTreeMap::new();
     // Keep borrowed bytes in `files`; region values only borrow that stable map.
-    for (rx, rz) in [(-1, -1), (-1, 0), (0, -1), (0, 0)] {
+    for (rx, rz) in required_region_coords(coords) {
         let name = format!("r.{rx}.{rz}.mcr");
         let bytes = files
             .get(&name)
@@ -406,6 +540,26 @@ fn load_scene(
     let scene = Scene::new(bounds, chunks, mappings.clone())
         .map_err(|e| ProbeError::Core(e.to_string()))?;
     Ok((scene, level, analysis_chunks, mappings))
+}
+
+fn required_region_coords(coords: &ParsedScene) -> BTreeSet<(i32, i32)> {
+    coords
+        .chunks
+        .iter()
+        .map(|&(x, z)| (region_coord(x), region_coord(z)))
+        .collect()
+}
+
+fn load_scene_from_selected_files(
+    files: BTreeMap<String, Vec<u8>>,
+    terrain: &Path,
+) -> Result<LoadedSceneInputs, ProbeError> {
+    validate_terrain(terrain)?;
+    let metadata = load_level_gzip(&files["level.dat"], WorldLimits::default())
+        .map_err(|e| ProbeError::Core(e.to_string()))?;
+    let parsed = parse_spawn_window(metadata.spawn)?;
+    let (scene, metadata, scene_data, mappings) = load_scene(&files, &parsed, metadata)?;
+    Ok((scene, metadata, scene_data, parsed, mappings))
 }
 
 fn probe(input: &Path, terrain: &Path, scene_file: &Path) -> Result<String, ProbeError> {
@@ -504,6 +658,18 @@ pub fn load_scene_for_preview_with_edit_data(
 ) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
     let files = validate_preview_copy(input, pins)?;
     let (scene, metadata, chunks, _, mappings) = load_scene_from_files(files, terrain, scene_file)?;
+    Ok((scene, metadata, chunks, mappings))
+}
+
+/// Load a hash-pinned selected-world snapshot without consulting the historical
+/// fixed-scene TSV. The returned scene always contains the spawn-centered 5x5.
+pub fn load_scene_for_selected_world_with_edit_data(
+    input: &Path,
+    terrain: &Path,
+    pins: &[PreviewSourcePin],
+) -> Result<(Scene, WorldMetadata, Vec<SceneChunk>, Vec<BlockMapping>), ProbeError> {
+    let files = validate_selected_world_copy(input, pins)?;
+    let (scene, metadata, chunks, _, mappings) = load_scene_from_selected_files(files, terrain)?;
     Ok((scene, metadata, chunks, mappings))
 }
 
@@ -2458,6 +2624,37 @@ mod tests {
         (dir, pins)
     }
 
+    fn make_selected_copy() -> (PathBuf, Vec<PreviewSourcePin>) {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "view-selected-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join(".world-input-copy"), WORLD_MARKER).unwrap();
+        fs::write(dir.join(".region-input-copy"), REGION_MARKER).unwrap();
+        let pins = ["level.dat", "r.12.-3.mcr", "r.13.-3.mcr"]
+            .into_iter()
+            .map(|name| {
+                let bytes = format!("selected snapshot bytes for {name}").into_bytes();
+                fs::write(dir.join(name), &bytes).unwrap();
+                PreviewSourcePin {
+                    name: name.to_owned(),
+                    size: bytes.len(),
+                    sha256: sha256_hex(&bytes),
+                }
+            })
+            .collect::<Vec<_>>();
+        let manifest = pins
+            .iter()
+            .map(|pin| format!("{}\t{}\t{}\n", pin.name, pin.size, pin.sha256))
+            .collect::<String>();
+        fs::write(dir.join(".preview-source-hashes.tsv"), manifest).unwrap();
+        (dir, pins)
+    }
+
     #[test]
     fn sha256_matches_standard_vector() {
         assert_eq!(
@@ -2491,6 +2688,56 @@ mod tests {
         fs::write(&p, "0\t0\n").unwrap();
         assert!(parse_scene(&p, [-9, 64, -5]).is_err());
         let _ = fs::remove_file(p);
+    }
+
+    #[test]
+    fn selected_spawn_window_uses_floor_division_and_checked_edges() {
+        let scene = parse_spawn_window([-1, 64, -17]).unwrap();
+        assert_eq!((scene.min_x, scene.min_z), (-3, -4));
+        assert_eq!(scene.chunks.len(), 25);
+        assert!(scene.chunks.contains(&(-3, -4)));
+        assert!(scene.chunks.contains(&(-3, 0)));
+        assert!(scene.chunks.contains(&(1, 0)));
+        let edge = parse_spawn_window([i32::MIN, 64, i32::MAX]).unwrap();
+        assert_eq!((edge.min_x, edge.min_z), (-134_217_730, 134_217_725));
+        let regions = required_region_coords(&scene);
+        assert_eq!(
+            regions,
+            BTreeSet::from([(-1, -1), (-1, 0), (0, -1), (0, 0)])
+        );
+        let positive = required_region_coords(&parse_spawn_window([600, 64, 600]).unwrap());
+        assert_eq!(positive, BTreeSet::from([(1, 1)]));
+    }
+
+    #[test]
+    fn selected_world_copy_accepts_dynamic_regions_and_rejects_unsafe_names() {
+        assert!(valid_region_filename("r.12.-3.mcr"));
+        assert!(valid_region_filename("r.-2147483648.2147483647.mcr"));
+        for invalid in [
+            "r.1.mcr",
+            "r.1.2.mcr/../level.dat",
+            "../r.1.2.mcr",
+            "r.x.2.mcr",
+            "r.1.2.mca",
+        ] {
+            assert!(!valid_region_filename(invalid), "{invalid}");
+        }
+        let (dir, pins) = make_selected_copy();
+        let files = validate_selected_world_copy(&dir, &pins).unwrap();
+        assert_eq!(files.len(), 3);
+        assert!(files.contains_key("r.12.-3.mcr"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn selected_world_copy_rejects_manifest_mismatch_and_unexpected_entries() {
+        let (dir, pins) = make_selected_copy();
+        fs::write(dir.join("extra.mcr"), b"unexpected").unwrap();
+        assert!(validate_selected_world_copy(&dir, &pins).is_err());
+        let _ = fs::remove_file(dir.join("extra.mcr"));
+        fs::write(dir.join(".preview-source-hashes.tsv"), "changed\n").unwrap();
+        assert!(validate_selected_world_copy(&dir, &pins).is_err());
+        let _ = fs::remove_dir_all(&dir);
     }
     #[test]
     fn marker_or_copy_without_all_members_fails() {
