@@ -1519,3 +1519,21 @@ claim is made.
 to the committed reference. `python3 -m unittest
 tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit
 -v` → 7 PASS. No Rust, user world, or save data changed.
+
+## INVENTORY-INTERACTION-001-C02 — acceptance
+
+Accepted on the merged snapshot after reviewing the expanded 23-row native
+fixture and Agy cursor interaction implementation. The viewer tests cover
+pickup, rounded right-click split, placement, compatible merge, incompatible
+swap, native 18×18 hitboxes at scale, closed/focus input gating, full-target
+cursor preservation, cursor atlas dispatch and count pass ordering. The native
+close operation is a world-drop through a synthetic player sink; the viewer
+uses the documented safe in-memory reinsertion adaptation and keeps the screen
+open when no capacity exists.
+
+Checks: `python3 tools/oracle/inventory_interaction_audit.py
+../.local/minecraft/client-b1.7.3.jar` PASS; focused Python audit/UI tests 7
+PASS; `cargo test --locked --offline -p beta-viewer --all-targets` PASS (17
+library and 40 viewer tests plus examples); fmt, beta-viewer clippy with
+`-D warnings`, and `git diff --check` PASS. No persistence, outside-drop,
+shift transfer, crafting, armor, item use or survival behavior is claimed.

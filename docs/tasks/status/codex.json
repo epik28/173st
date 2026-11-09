@@ -3,14 +3,23 @@
   "role": "codex",
   "tasks": {
     "INVENTORY-INTERACTION-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned and reviewed the expanded native inventory interaction corpus: 23 ordered rows across eight scenarios, including cursor rendering facts and native close-time drop sink.",
+      "checks": [
+        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar -> PASS; native capture replayed twice with 36 slots and cursor",
+        "Committed native.tsv contains 23 ordered states and audit pins source/class/output hashes; no world or save writes"
+      ]
     },
     "INVENTORY-INTERACTION-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted in-memory supported-stack mouse interaction against the expanded native fixture. Cursor pickup, rounded right split, placement, compatible merge, incompatible swap, hitboxes and cursor rendering are covered; native close drop is documented separately from the safe viewer reinsertion adaptation.",
+      "checks": [
+        "python3 tools/oracle/inventory_interaction_audit.py ../.local/minecraft/client-b1.7.3.jar -> PASS",
+        "python3 -m unittest tests.python.test_inventory_interaction_audit tests.python.test_inventory_ui_audit -v -> PASS: 7 tests",
+        "cargo test --locked --offline -p beta-viewer --all-targets -> PASS: 17 library + 40 viewer tests and examples",
+        "cargo fmt --all -- --check; cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check -> PASS",
+        "Viewer changes remain in memory; no persistence, outside-drop, shift transfer, crafting, armor, item use or survival behavior is claimed"
+      ]
     },
     "LIGHT-001-C01": {
       "state": "done",
