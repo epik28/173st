@@ -674,3 +674,38 @@ Follow-up checks: `cargo test --locked --offline -p beta-core items:: -- --nocap
 passed (6 tests); `cargo test --locked --offline -p beta-core --all-targets`
 passed (83 library tests plus all beta-core example tests); beta-core clippy with
 `-D warnings`, fmt check, and `git diff --check` passed. A02 was not started.
+
+## ITEMS-001-A02 — bounded items probe and native parity
+
+Merged the exact committed Codex C02 snapshot `9f069c081d23986bfa8cbcc1a789f2f8ec08d512`
+into agy with merge commit `7bafedd`; branches had diverged after the A01 follow-up,
+so fast-forward was not possible. Implemented
+`crates/beta-core/examples/items_probe.rs` as a bounded, deterministic TSV adapter
+over `beta_core::items`. It parses the full input before output, rejects malformed,
+duplicate, unsupported, noncanonical, over-limit, or wrong-arity scenarios, stages
+all result rows before writing stdout, and keeps diagnostics on stderr. It does
+not consult answer rows by case ID: each scenario drives the stack/inventory API.
+
+The probe emits the C02 six-column schema and ordered 36-slot values. Native item
+display names are omitted as specified by C02. For hotbar observations `-1` and
+`9`, output preserves the requested raw selection and emits `-` for the selected
+stack while leaving the internal `Inventory` selected index valid and slots
+unchanged. Unit tests compare every row and slot in the 21-row native fixture,
+and cover late malformed input, duplicate scenarios, unsupported IDs, invalid
+counts, wrong field counts, noncanonical values, and size/scenario limits with
+empty output on parse failures.
+
+Checks: `cargo test --locked --offline -p beta-core --example items_probe` → PASS
+(4 tests); `cargo test --locked --offline -p beta-core --all-targets` → PASS
+(83 library tests plus all examples); beta-core clippy with `-D warnings`, fmt
+check and `git diff --check` → PASS. `python3 tools/check.py` → PASS (195 Python
+tests, 18 opt-in skips; workspace format/check/clippy/all-target/doc checks).
+`python3 tools/parity/run.py items --strict` → PASS: all 6 scenarios / 21 ordered
+states match, zero mismatches, on clean probe revision
+`77f968e8038c0a6c59bc4acc700e8553747a5389` (`rust_dirty=false`). Saved report
+`artifacts/parity/items/run-j7vkxij2/report.json` passed
+`python3 tools/parity/items_review.py`: 8 processes verified; native output SHA-256
+`b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916`. No fixture,
+oracle, runner, contract, dependency, viewer or save files changed. GUI, crafting,
+armor, general item metadata, and persistence remain out of scope. A02 is complete;
+do not start C03 from this worktree.

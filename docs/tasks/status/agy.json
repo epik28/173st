@@ -358,9 +358,15 @@
       ]
     },
     "ITEMS-001-A02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен crates/beta-core/examples/items_probe.rs: bounded parser и staged TSV output на 21 inventory state. Все результаты вычисляются через beta_core::items; raw selection -1/9 выводится без изменения внутреннего selected index. C01 display name опущен по C02 schema.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --example items_probe → PASS: 4 tests, including exact ordered comparison of all 21 rows and all 36 slots plus atomic malformed/duplicate/unsupported/oversized rejection",
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: 83 library tests and all examples; `cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings`, fmt check, and git diff --check → PASS",
+        "python3 tools/check.py → PASS: 195 Python tests, 18 opt-in skips; workspace fmt/check/clippy/all-target/doc checks PASS",
+        "python3 tools/parity/run.py items --strict → PASS: 6 scenarios, 21 ordered states, mismatch_count=0 on clean revision 77f968e8038c0a6c59bc4acc700e8553747a5389; rust_dirty=false",
+        "python3 tools/parity/items_review.py artifacts/parity/items/run-j7vkxij2/report.json → PASS: 8 verified processes, pinned native output SHA-256 b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916"
+      ]
     }
   }
 }
