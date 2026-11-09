@@ -148,7 +148,7 @@ def window_candidates():
     for line in output.stdout.splitlines():
         if "Minecraft" not in line:
             continue
-        match = re.search(r"(0x[0-9a-fA-F]+)\s+\"([^\"]*)\"\s+(\d+)x(\d+)([+-]\d+)([+-]\d+)", line)
+        match = re.search(r"(0x[0-9a-fA-F]+)\s+\"([^\"]*)\"\s*:?(?:\s+\([^)]*\))*\s+(\d+)x(\d+)([+-]\d+)([+-]\d+)", line)
         if not match:
             continue
         window, title, width, height, x, y = match.groups()
@@ -167,7 +167,10 @@ def await_window(process, timeout_seconds, log_path):
         if candidates:
             return candidates[0]
         time.sleep(0.25)
-    raise TimeoutError(f"Minecraft window did not appear in {timeout_seconds}s; see {log_path}")
+    tree = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True, timeout=10)
+    diagnostic_path = log_path.with_suffix(".xwininfo-tree.txt")
+    diagnostic_path.write_text(tree.stdout + ("\n[stderr]\n" + tree.stderr if tree.stderr else ""), encoding="utf-8")
+    raise TimeoutError(f"Minecraft window did not appear in {timeout_seconds}s; see {log_path} and {diagnostic_path}\n{tree.stdout.strip()}")
 
 
 def actual_window(window):
@@ -254,6 +257,7 @@ def launch_profile(context, profile, output_dir, timeout_seconds):
     ]
     environment = os.environ.copy()
     environment.pop("WAYLAND_DISPLAY", None)
+    environment["ALSOFT_DRIVERS"] = "null"
     process = None
     log = log_path.open("wb")
     started = time.time()
@@ -370,6 +374,7 @@ def main():
             "xvfb_invocation_expected": "env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py --runtime artifacts/menu-parity-capture/runtime --output artifacts/menu-parity-capture/frames",
             "no_home_environment_override": True,
             "network_policy": "standard JVM HTTP and HTTPS proxies pointed at 127.0.0.1:9; java.net.useSystemProxies=false; no download or installation is performed",
+            "audio_policy": "ALSOFT_DRIVERS=null selects OpenAL Soft's null backend to avoid host audio devices",
             "world_policy": "empty saves directory only; never opens or creates a playable world",
             "captures": [],
             "capture_complete": False,
