@@ -1037,6 +1037,32 @@
         "HEALTH-001-C01",
         "HEALTH-001-A01"
       ]
+    },
+    {
+      "id": "LIGHT-UPDATE-001-C01",
+      "owner": "codex",
+      "title": "Native block edit light propagation oracle",
+      "card": "docs/tasks/LIGHT-UPDATE-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "LIGHT-UPDATE-001-A01",
+      "owner": "agy",
+      "title": "Relight in-memory scene after block edits",
+      "card": "docs/tasks/LIGHT-UPDATE-001.md",
+      "depends_on": [
+        "LIGHT-UPDATE-001-C01"
+      ]
+    },
+    {
+      "id": "LIGHT-UPDATE-001-C02",
+      "owner": "codex",
+      "title": "Accept native-compatible edit relighting",
+      "card": "docs/tasks/LIGHT-UPDATE-001.md",
+      "depends_on": [
+        "LIGHT-UPDATE-001-C01",
+        "LIGHT-UPDATE-001-A01"
+      ]
     }
   ]
 }

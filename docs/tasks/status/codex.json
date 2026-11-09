@@ -847,6 +847,16 @@
         "python3 tools/check.py → PASS: 214 Python tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc tests",
         "Viewer reads only the validated copied Player NBT. Native missing tag defaults to 10; viewer explicitly uses 20 as its safe fallback. No world writes, damage/regen simulation or screenshot parity claimed."
       ]
+    },
+    "LIGHT-UPDATE-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "LIGHT-UPDATE-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

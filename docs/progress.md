@@ -6,6 +6,8 @@ HEALTH-001 принят: HUD читает `Player.Health` из проверен�
 и рисует полные, половинные и пустые сердца по нативным UV. Значение остаётся
 read-only; damage, regen, blinking и смерть не моделируются. Native HUD audit и
 полный `tools/check.py` прошли. Оценка полной игры — около **33%**.
+Следующая очередь — bounded native-проверка block/sky light propagation после
+break/place, чтобы убрать тёмные грани после изменения блоков.
 
 INVENTORY-INTERACTION-001 принят: мышь переносит поддержанные стеки между 36
 слотами, включая split, merge, swap и удерживаемый курсорный значок. 14 native
