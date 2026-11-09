@@ -549,10 +549,17 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
 /// Alpha-blended water must be submitted back-to-front. Geometry emits each
 /// quad as two consecutive triangles, so sort whole six-vertex quads and keep
 /// their native vertex order intact.
-fn sort_fluid_quads(
+fn sort_fluid_quad_indices(
     vertices: &[beta_view::fluid::Vertex],
     camera: [f32; 3],
-) -> Vec<beta_view::fluid::Vertex> {
+) -> Result<Vec<u32>, &'static str> {
+    if !vertices.len().is_multiple_of(6) {
+        return Err("fluid mesh vertex count is not a whole number of quads");
+    }
+    let quad_count = vertices.len() / 6;
+    if vertices.len() > u32::MAX as usize {
+        return Err("fluid mesh exceeds u32 index range");
+    }
     let mut order: Vec<_> = vertices
         .chunks_exact(6)
         .enumerate()
@@ -569,9 +576,83 @@ fn sort_fluid_quads(
     order.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     let mut sorted = Vec::with_capacity(vertices.len());
     for (_, index) in order {
-        sorted.extend_from_slice(&vertices[index * 6..index * 6 + 6]);
+        let base = u32::try_from(index.checked_mul(6).ok_or("fluid index overflow")?)
+            .map_err(|_| "fluid mesh exceeds u32 index range")?;
+        sorted.extend(base..base + 6);
     }
-    sorted
+    debug_assert_eq!(sorted.len(), quad_count * 6);
+    Ok(sorted)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FluidFrameUploadBytes {
+    vertex: usize,
+    indices: usize,
+}
+
+fn fluid_frame_upload_bytes(index_count: usize) -> Option<FluidFrameUploadBytes> {
+    Some(FluidFrameUploadBytes {
+        vertex: 0,
+        indices: index_count.checked_mul(std::mem::size_of::<u32>())?,
+    })
+}
+
+fn fluid_gpu_layout(vertex_count: usize) -> Result<(usize, usize, u32), &'static str> {
+    if !vertex_count.is_multiple_of(6) {
+        return Err("fluid mesh vertex count is not a whole number of quads");
+    }
+    let vertex_bytes = vertex_count
+        .checked_mul(std::mem::size_of::<[f32; 8]>())
+        .ok_or("fluid vertex buffer size overflow")?;
+    let index_bytes = vertex_count
+        .checked_mul(std::mem::size_of::<u32>())
+        .ok_or("fluid index buffer size overflow")?;
+    let vertex_count_u32 =
+        u32::try_from(vertex_count).map_err(|_| "fluid mesh exceeds u32 draw range")?;
+    if vertex_bytes > 128 * 1024 * 1024 || index_bytes > 128 * 1024 * 1024 {
+        return Err("fluid GPU buffers exceed viewer buffer limits");
+    }
+    Ok((vertex_bytes, index_bytes, vertex_count_u32))
+}
+
+fn prepare_fluid_gpu_buffers(
+    device: &wgpu::Device,
+    vertices: &[beta_view::fluid::Vertex],
+) -> Result<(wgpu::Buffer, wgpu::Buffer, u32), Box<dyn std::error::Error>> {
+    let (vertex_bytes, index_bytes, vertex_count) = fluid_gpu_layout(vertices.len())?;
+    let packed: Vec<[f32; 8]> = vertices
+        .iter()
+        .map(|v| {
+            [
+                v.position[0],
+                v.position[1],
+                v.position[2],
+                v.uv[0],
+                v.uv[1],
+                ((v.color >> 16) & 255) as f32 / 255.0,
+                ((v.color >> 8) & 255) as f32 / 255.0,
+                (v.color & 255) as f32 / 255.0,
+            ]
+        })
+        .collect();
+    debug_assert_eq!(packed.len() * std::mem::size_of::<[f32; 8]>(), vertex_bytes);
+    let vertex_contents = if packed.is_empty() {
+        bytemuck::cast_slice(&[[0.0_f32; 8]])
+    } else {
+        bytemuck::cast_slice(&packed)
+    };
+    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("static transparent water vertices"),
+        contents: vertex_contents,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+    });
+    let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("sorted transparent water indices"),
+        size: index_bytes.max(4) as u64,
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    Ok((vertex_buffer, index_buffer, vertex_count))
 }
 
 struct App {
@@ -628,6 +709,8 @@ struct Gpu {
     chunk_meshes: BTreeMap<(i32, i32), GpuChunkMesh>,
     fluid_vertex: wgpu::Buffer,
     fluid_vertex_count: u32,
+    fluid_index: wgpu::Buffer,
+    fluid_index_count: u32,
     depth: wgpu::TextureView,
     bind: wgpu::BindGroup,
     gui_bind: wgpu::BindGroup,
@@ -857,17 +940,21 @@ impl App {
     fn rebuild_dirty_chunks(
         &mut self,
         dirty: &[(i32, i32)],
+        next_block_scene: BlockScene,
+        next_scene_chunks: Vec<SceneChunk>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut next_scene = self.scene.clone();
         for &(x, z) in dirty {
-            if let Some(chunk) = self
-                .scene_chunks
+            if let Some(chunk) = next_scene_chunks
                 .iter()
                 .find(|chunk| chunk.x == x && chunk.z == z)
             {
-                self.scene.replace_chunk(chunk.clone())?;
+                next_scene.replace_chunk(chunk.clone())?;
             }
         }
-        let scene = &self.scene;
+        let mut next_chunk_meshes = self.chunk_meshes.clone();
+        let mut next_chunk_fluid_meshes = self.chunk_fluid_meshes.clone();
+        let scene = &next_scene;
         for &(x, z) in dirty {
             let selected = [(x, z)];
             let mut climate_sampler = ClimateSampler::new(self.biome_seed);
@@ -890,87 +977,74 @@ impl App {
                 beta_core::light::emission_level,
             )?;
             if mesh.vertices.is_empty() && mesh.unsupported_blocks == 0 {
-                self.chunk_meshes.remove(&(x, z));
+                next_chunk_meshes.remove(&(x, z));
             } else {
-                self.chunk_meshes.insert((x, z), mesh);
+                next_chunk_meshes.insert((x, z), mesh);
             }
             let fluid = scene.fluid_mesh_chunks(beta_view::MeshLimits::default(), &selected)?;
             if fluid.vertices.is_empty() {
-                self.chunk_fluid_meshes.remove(&(x, z));
+                next_chunk_fluid_meshes.remove(&(x, z));
             } else {
-                self.chunk_fluid_meshes.insert((x, z), fluid);
+                next_chunk_fluid_meshes.insert((x, z), fluid);
             }
         }
+        let next_fluid_mesh = join_fluid_cache(&next_chunk_fluid_meshes);
+        self.upload_dirty_meshes(dirty, &next_chunk_meshes, &next_fluid_mesh)?;
+        self.scene = next_scene;
+        self.scene_chunks = next_scene_chunks;
+        self.block_scene = next_block_scene;
+        self.chunk_meshes = next_chunk_meshes;
+        self.chunk_fluid_meshes = next_chunk_fluid_meshes;
         (self.visible_faces, self.unsupported_blocks) = chunk_mesh_stats(&self.chunk_meshes);
-        self.fluid_mesh = join_fluid_cache(&self.chunk_fluid_meshes);
-        self.upload_dirty_meshes(dirty)?;
+        self.fluid_mesh = next_fluid_mesh;
         Ok(())
     }
 
     fn upload_dirty_meshes(
         &mut self,
         dirty: &[(i32, i32)],
+        chunk_meshes: &BTreeMap<(i32, i32), Mesh>,
+        fluid_mesh: &FluidMesh,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let chunk_updates: Vec<_> = dirty
             .iter()
-            .map(|key| (*key, self.chunk_meshes.get(key).cloned()))
+            .map(|key| (*key, chunk_meshes.get(key).cloned()))
             .collect();
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(());
         };
+        // Prepare all replacement GPU data first. Any fallible mesh/layout
+        // validation leaves the currently published GPU state untouched.
+        let mut prepared_chunks = Vec::with_capacity(chunk_updates.len());
         for (key, mesh) in chunk_updates {
-            if let Some(mesh) = mesh.filter(|mesh| !mesh.indices.is_empty()) {
-                let gpu_mesh = create_gpu_chunk_mesh(
+            let prepared = if let Some(mesh) = mesh.filter(|mesh| !mesh.indices.is_empty()) {
+                Some(create_gpu_chunk_mesh(
                     &gpu.device,
                     &mesh,
                     self.sky_subtraction,
                     self.light_dimension,
-                )?;
-                gpu.chunk_meshes.insert(key, gpu_mesh);
+                )?)
+            } else {
+                None
+            };
+            prepared_chunks.push((key, prepared));
+        }
+        let (fluid_vertex, fluid_index, fluid_vertex_count) =
+            prepare_fluid_gpu_buffers(&gpu.device, &fluid_mesh.vertices)?;
+
+        for (key, mesh) in prepared_chunks {
+            if let Some(mesh) = mesh {
+                gpu.chunk_meshes.insert(key, mesh);
             } else {
                 gpu.chunk_meshes.remove(&key);
             }
         }
-        // Editing a solid block can change a neighboring water face. The fluid
-        // pass is small and globally sorted, so refresh its one shared buffer.
-        let fluid_packed: Vec<[f32; 8]> = self
-            .fluid_mesh
-            .vertices
-            .iter()
-            .map(|vertex| {
-                [
-                    vertex.position[0],
-                    vertex.position[1],
-                    vertex.position[2],
-                    vertex.uv[0],
-                    vertex.uv[1],
-                    ((vertex.color >> 16) & 255) as f32 / 255.0,
-                    ((vertex.color >> 8) & 255) as f32 / 255.0,
-                    (vertex.color & 255) as f32 / 255.0,
-                ]
-            })
-            .collect();
-        let bytes = fluid_packed.len() * std::mem::size_of::<[f32; 8]>();
-        if bytes > 128 * 1024 * 1024 {
-            return Err("rebuilt fluid mesh exceeds viewer GPU buffer limits".into());
-        }
-        let contents = if fluid_packed.is_empty() {
-            bytemuck::cast_slice(&[[0.0_f32; 8]])
-        } else {
-            bytemuck::cast_slice(&fluid_packed)
-        };
-        if contents.len() as u64 <= gpu.fluid_vertex.size() {
-            gpu.queue.write_buffer(&gpu.fluid_vertex, 0, contents);
-        } else {
-            gpu.fluid_vertex = gpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("grown transparent water vertices"),
-                    contents,
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-        }
-        gpu.fluid_vertex_count = self.fluid_mesh.vertices.len() as u32;
+        // Assign the validated fluid buffers as one coherent set after both
+        // replacements have been created successfully.
+        gpu.fluid_vertex = fluid_vertex;
+        gpu.fluid_index = fluid_index;
+        gpu.fluid_vertex_count = fluid_vertex_count;
+        gpu.fluid_index_count = 0;
         Ok(())
     }
 
@@ -985,20 +1059,20 @@ impl App {
                     && mapping.is_renderable_cube()
             })
         };
+        let mut next_block_scene = self.block_scene.clone();
         let edit = if breaking {
-            self.block_scene.break_block(hit, &supported)?
+            next_block_scene.break_block(hit, &supported)?
         } else {
-            self.block_scene.place_block(hit, 1, 0, &supported)?
+            next_block_scene.place_block(hit, 1, 0, &supported)?
         };
         let (x, y, z) = edit.changed;
         let (chunk_x, local_x) = split_block_coord(x);
         let (chunk_z, local_z) = split_block_coord(z);
-        let value: BlockData = self
-            .block_scene
+        let value: BlockData = next_block_scene
             .block(x, y, z)?
             .ok_or("edited cell is no longer loaded")?;
-        let chunk = self
-            .scene_chunks
+        let mut next_scene_chunks = self.scene_chunks.clone();
+        let chunk = next_scene_chunks
             .iter_mut()
             .find(|chunk| chunk.x == chunk_x && chunk.z == chunk_z)
             .ok_or("edited chunk is not in the disposable scene")?;
@@ -1006,7 +1080,7 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
-        self.rebuild_dirty_chunks(&edit.dirty_chunks)?;
+        self.rebuild_dirty_chunks(&edit.dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
@@ -1476,41 +1550,8 @@ impl App {
                 );
             }
         }
-        let fluid_packed: Vec<[f32; 8]> = self
-            .fluid_mesh
-            .vertices
-            .iter()
-            .map(|v| {
-                [
-                    v.position[0],
-                    v.position[1],
-                    v.position[2],
-                    v.uv[0],
-                    v.uv[1],
-                    ((v.color >> 16) & 255) as f32 / 255.0,
-                    ((v.color >> 8) & 255) as f32 / 255.0,
-                    (v.color & 255) as f32 / 255.0,
-                ]
-            })
-            .collect();
-        let fluid_bytes = fluid_packed
-            .len()
-            .checked_mul(std::mem::size_of::<[f32; 8]>())
-            .ok_or("fluid vertex buffer size overflow")?;
-        if fluid_bytes > 128 * 1024 * 1024 {
-            return Err(
-                format!("fluid GPU vertex buffer limit exceeded ({fluid_bytes} bytes)").into(),
-            );
-        }
-        let fluid_vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("static transparent water vertices"),
-            contents: if fluid_packed.is_empty() {
-                bytemuck::cast_slice(&[[0.0_f32; 8]])
-            } else {
-                bytemuck::cast_slice(&fluid_packed)
-            },
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
+        let (fluid_vertex, fluid_index, fluid_vertex_count) =
+            prepare_fluid_gpu_buffers(&device, &self.fluid_mesh.vertices)?;
         let dep = depth(&device, w.inner_size());
         self.gpu = Some(Gpu {
             instance,
@@ -1524,7 +1565,9 @@ impl App {
             hud_shadow_pipeline,
             chunk_meshes: gpu_chunk_meshes,
             fluid_vertex,
-            fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
+            fluid_vertex_count,
+            fluid_index,
+            fluid_index_count: 0,
             depth: dep,
             bind,
             gui_bind,
@@ -1588,27 +1631,33 @@ impl App {
                 self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
             }
         }
-        if !self.fluid_mesh.vertices.is_empty() {
-            let sorted =
-                sort_fluid_quads(&self.fluid_mesh.vertices, self.camera.position.to_array());
-            let packed: Vec<[f32; 8]> = sorted
-                .iter()
-                .map(|vertex| {
-                    [
-                        vertex.position[0],
-                        vertex.position[1],
-                        vertex.position[2],
-                        vertex.uv[0],
-                        vertex.uv[1],
-                        ((vertex.color >> 16) & 255) as f32 / 255.0,
-                        ((vertex.color >> 8) & 255) as f32 / 255.0,
-                        (vertex.color & 255) as f32 / 255.0,
-                    ]
-                })
-                .collect();
-            g.queue
-                .write_buffer(&g.fluid_vertex, 0, bytemuck::cast_slice(&packed));
+        let fluid_indices = match sort_fluid_quad_indices(
+            &self.fluid_mesh.vertices,
+            self.camera.position.to_array(),
+        ) {
+            Ok(indices) => indices,
+            Err(error) => {
+                eprintln!("beta-viewer fluid sort failed: {error}");
+                Vec::new()
+            }
+        };
+        if !fluid_indices.is_empty() {
+            if let Some(upload_bytes) = fluid_frame_upload_bytes(fluid_indices.len()) {
+                let contents = bytemuck::cast_slice(&fluid_indices);
+                debug_assert_eq!(contents.len(), upload_bytes.indices);
+                debug_assert_eq!(upload_bytes.vertex, 0);
+                g.queue.write_buffer(&g.fluid_index, 0, contents);
+            } else {
+                eprintln!("beta-viewer fluid index upload size overflow");
+            }
         }
+        g.fluid_index_count = match u32::try_from(fluid_indices.len()) {
+            Ok(count) => count,
+            Err(_) => {
+                eprintln!("beta-viewer fluid index count exceeds u32 draw range");
+                0
+            }
+        };
         if let Ok(m) = self
             .camera
             .view_projection(g.config.width as f32 / g.config.height as f32)
@@ -1825,7 +1874,8 @@ impl App {
                     if g.fluid_vertex_count > 0 {
                         p.set_pipeline(&g.fluid_pipeline);
                         p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
-                        p.draw(0..g.fluid_vertex_count, 0..1);
+                        p.set_index_buffer(g.fluid_index.slice(..), wgpu::IndexFormat::Uint32);
+                        p.draw_indexed(0..g.fluid_index_count, 0, 0..1);
                     }
                     if inventory_open {
                         p.set_pipeline(&g.hud_pipeline);
@@ -2175,15 +2225,15 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, interaction_shape, local_world_manifest_path,
-        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
-        sort_fluid_quads, srgb_to_linear,
+        LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
+        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
+        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
 
     #[test]
-    fn transparent_water_quads_sort_back_to_front_without_reordering_triangles() {
+    fn transparent_water_quad_indices_sort_groups_without_reordering_triangles() {
         let quad = |x: f32| {
             let points = [[x, 0.0, 0.0], [x, 1.0, 0.0], [x, 1.0, 1.0], [x, 0.0, 1.0]];
             [0, 1, 2, 0, 2, 3].map(|index| beta_view::fluid::Vertex {
@@ -2196,14 +2246,102 @@ mod tests {
         submitted.extend(quad(1.0));
         submitted.extend(quad(2.0));
         submitted.extend(quad(3.0));
-        let sorted = sort_fluid_quads(&submitted, [0.0, 0.0, 0.0]);
-        assert_eq!(sorted.len(), submitted.len());
-        assert_eq!(sorted[0].position[0], 3.0);
-        assert_eq!(sorted[6].position[0], 2.0);
-        assert_eq!(sorted[12].position[0], 1.0);
-        assert_eq!(sorted[0].uv[0], 0.0);
-        assert_eq!(sorted[1].uv[0], 1.0);
-        assert_eq!(sorted[2].uv[0], 2.0);
+        let indices = sort_fluid_quad_indices(&submitted, [0.0, 0.0, 0.0]).unwrap();
+        assert_eq!(
+            indices,
+            (12..18).chain(6..12).chain(0..6).collect::<Vec<_>>()
+        );
+        assert_eq!(indices.len(), submitted.len());
+        assert_eq!(
+            indices.chunks_exact(6).next().unwrap(),
+            &(12..18).collect::<Vec<_>>()
+        );
+        assert_eq!(submitted[indices[0] as usize].uv[0], 0.0);
+        assert_eq!(submitted[indices[1] as usize].uv[0], 1.0);
+        assert_eq!(submitted[indices[2] as usize].uv[0], 2.0);
+    }
+
+    #[test]
+    fn transparent_water_index_order_preserves_equal_depth_submission_order() {
+        let make_quad = |x: f32| {
+            [0, 0, 0, 0, 0, 0].map(|_| beta_view::fluid::Vertex {
+                position: [x, 0.0, 0.0],
+                uv: [x, 0.0],
+                color: 0,
+            })
+        };
+        let submitted: Vec<_> = [make_quad(-2.0), make_quad(2.0), make_quad(1.0)]
+            .into_iter()
+            .flatten()
+            .collect();
+        let indices = sort_fluid_quad_indices(&submitted, [0.0, 0.0, 0.0]).unwrap();
+        assert_eq!(indices, (0..18).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn transparent_water_overlapping_depths_keep_farther_quad_first() {
+        let quad = |depths: [f32; 4]| {
+            let points = [
+                [0.0, 0.0, depths[0]],
+                [0.0, 1.0, depths[1]],
+                [1.0, 1.0, depths[2]],
+                [1.0, 0.0, depths[3]],
+            ];
+            [0, 1, 2, 0, 2, 3].map(|corner| beta_view::fluid::Vertex {
+                position: points[corner],
+                uv: [corner as f32, depths[corner]],
+                color: 0,
+            })
+        };
+        // These quads cover the same projected square and their depth ranges
+        // overlap ([4, 6] and [4.3, 5.3]). Their weighted six-vertex centers are
+        // at z=5 and z=4.8, so the first quad is unambiguously farther away.
+        let submitted: Vec<_> = [quad([4.0, 6.0, 6.0, 4.0]), quad([4.3, 5.3, 5.3, 4.3])]
+            .into_iter()
+            .flatten()
+            .collect();
+        let indices = sort_fluid_quad_indices(&submitted, [0.0; 3]).unwrap();
+        assert_eq!(indices, (0..6).chain(6..12).collect::<Vec<_>>());
+        assert_eq!(
+            indices
+                .iter()
+                .map(|&index| submitted[index as usize].position)
+                .collect::<Vec<_>>(),
+            submitted
+                .iter()
+                .map(|vertex| vertex.position)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn fluid_frame_upload_accounting_excludes_static_vertices() {
+        let bytes = fluid_frame_upload_bytes(6 * 257).unwrap();
+        assert_eq!(bytes.vertex, 0);
+        assert_eq!(bytes.indices, 6 * 257 * std::mem::size_of::<u32>());
+        assert_eq!(bytes.indices, 6 * 257 * 4);
+        assert!(fluid_frame_upload_bytes(usize::MAX).is_none());
+    }
+
+    #[test]
+    fn fluid_index_sort_rejects_incomplete_quad() {
+        let vertex = beta_view::fluid::Vertex {
+            position: [0.0; 3],
+            uv: [0.0; 2],
+            color: 0,
+        };
+        assert_eq!(
+            sort_fluid_quad_indices(&[vertex], [0.0; 3]),
+            Err("fluid mesh vertex count is not a whole number of quads")
+        );
+    }
+
+    #[test]
+    fn fluid_gpu_layout_checks_byte_sizes_and_draw_count() {
+        assert_eq!(super::fluid_gpu_layout(12).unwrap(), (384, 48, 12));
+        assert!(super::fluid_gpu_layout(1).is_err());
+        let aligned_huge = usize::MAX - usize::MAX % 6;
+        assert!(super::fluid_gpu_layout(aligned_huge).is_err());
     }
 
     #[test]

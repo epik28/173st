@@ -849,9 +849,17 @@
       ]
     },
     "FLUID-RENDER-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted indexed transparent-water rendering after reviewing the native-independent buffer path and Agy implementation. Unchanged frames upload no fluid vertices and exactly six u32 indices per quad; original within-quad order, far-to-near sorting, deterministic ties, overlapping depth ranges, checked buffer sizing, and candidate fluid/GPU publication are covered. No FPS gain or successful visual smoke is claimed.",
+      "checks": [
+        "Independent review: per-frame draw uploads index bytes only; fluid vertices are prepared on scene rebuild; sorted six-index groups preserve source triangles and submission-order ties.",
+        "Independent overlap review PASS: projected quad footprints intersect, depth intervals [4,6] and [4.3,5.3] overlap, and distinct six-vertex centers support expected far-to-near order.",
+        "cargo test --locked --offline -p beta-viewer → PASS: 17 library + 49 viewer tests + doc tests on merged main.",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS on Agy snapshot.",
+        "python3 tools/check.py → PASS: 214 Python tests (18 opt-in skipped), workspace format/check/clippy/all-target/doc/all-target checks on Agy snapshot.",
+        "Per unchanged frame: 0 fluid vertex upload bytes and 24 index bytes per quad. The previously observed 9,768-vertex scene implies 39,072 index bytes versus 312,576 prior repacked vertex bytes (8× payload reduction), arithmetic only; no FPS or timing percentile measured.",
+        "Xvfb is inconclusive: agreed timeout command exited 124 after launch; capture was black; another X server attempt failed listener binding/ownership. No visual success claim. No native water, transparency, movement, save, or world behavior changed."
+      ]
     },
     "LIGHT-UPDATE-001-C01": {
       "state": "pending",

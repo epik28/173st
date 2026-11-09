@@ -889,3 +889,63 @@ counts reuse the audited font widths, shadow and foreground passes and are
 drawn after the cursor icon, following slot contents. Tests cover mouse
 movement, both atlas groups, count visibility and UV/position geometry. The
 card is complete at A01 scope; tooltip and outside-drop remain excluded.
+
+## FLUID-RENDER-001-A01 — indexed transparent-water rendering
+
+Replaced the per-frame sorted/repacked fluid vertex payload with a static
+packed vertex buffer and a dynamic `u32` index buffer. Each frame sorts the
+same six-vertex quad centers by descending squared distance and preserves the
+previous submission-order tie break, then uploads contiguous six-index groups
+in original triangle order. Scene fluid rebuilds still update the static
+vertex buffer and ensure sufficient index capacity; scene edits remain
+in-memory viewer state.
+
+Added viewer tests for near/far ordering, complete six-index group order,
+equal-depth submission ties, incomplete quad rejection, and byte accounting.
+The frame path uses the tested accounting seam: unchanged geometry uploads zero
+fluid vertex bytes and exactly 24 index bytes per quad. The prior observed
+scene had 9,768 fluid vertices, yielding 39,072 index bytes/frame versus
+312,576 bytes/frame for the former per-frame packed vertex payload (8x fewer
+bytes by count). This is calculated transfer volume, not a new live capture.
+No p50/p95/p99 or FPS claim is made because the local run did not provide
+controlled frame-time instrumentation.
+
+Checks: `cargo test --locked --offline -p beta-viewer` passed (17 library and
+47 viewer tests plus doc tests); `cargo clippy --locked --offline -p
+beta-viewer --all-targets -- -D warnings`, `cargo fmt --all -- --check`, and
+`python3 tools/check.py` passed (214 Python tests, 18 opt-in skips, workspace
+format/check/clippy/all-target/doc/all-target tests). The requested Xvfb
+command `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked
+--offline -p beta-viewer` returned without a diagnostic; no screenshot,
+controlled timing sample, or manual interaction evidence was collected. No
+fluid geometry/material, transparency policy, movement, world, fixture, oracle,
+queue, or shared behavior was changed; the FLUID-RENDER-001 transactionality boundary was clarified in its task contract.
+
+### FLUID-RENDER-001-A01 follow-up review fixes (pending acceptance)
+
+Amended the card's transactionality boundary to require coherent fluid CPU
+mesh/cache and GPU buffer-pair publication. Edits now operate on candidate
+BlockScene/SceneChunk state and cloned CPU mesh caches; dirty chunk GPU meshes
+and both fluid GPU buffers are prepared before the candidate CPU/GPU state is
+published. Opaque chunk GPU atomicity is outside the task guarantee, though
+this path also stages those replacements before publishing them. `fluid_gpu_layout` now checks six-vertex quads, checked packed-vertex
+and u32-index byte multiplication, the 128 MiB bounds, and conversion to the
+u32 draw count before buffer preparation. Initial and rebuilt fluid buffers
+share this validation path. Added a distinct overlapping-depth sorter test.
+
+Follow-up checks: `cargo test --locked --offline -p beta-viewer` passed (17
+library + 49 binary tests + doc tests); beta-viewer clippy `-D warnings`,
+format check, and `git diff --check` passed. `python3 tools/check.py` passed
+(214 Python tests, 18 opt-in skips, workspace formatting/check/clippy/all
+unit/example/doc tests).
+
+Smoke evidence is inconclusive. The agreed command
+`env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline
+-p beta-viewer` ended with exit 124 because timeout stopped the still-running
+process; its retained output contains only compile and launch messages. A
+separate six-second Xvfb capture reported `capture=0`, `viewer_exit=143`, but
+the captured root image is black and is not evidence of visible scene output.
+Another Xvfb attempt retained server diagnostics: unable to bind listening
+sockets and `/tmp/.X11-unix` ownership prevented server startup. Artifacts are
+under `artifacts/fluid-render-smoke/`. No successful visual smoke or timing
+percentiles are claimed. Status remains pending independent acceptance.

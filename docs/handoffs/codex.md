@@ -1578,3 +1578,29 @@ Native audit and five HUD audit tests PASS. `cargo test --locked --offline
 viewer clippy `-D warnings` PASS. Full `python3 tools/check.py` PASS: 214 Python
 tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc
 tests. No health simulation, save writes or screenshot/pixel-parity claim.
+
+## FLUID-RENDER-001-C02 — acceptance
+
+Accepted Agy implementation `5df8eb6` and overlap-test correction `ceb4e23`.
+The viewer keeps packed fluid vertices static between scene rebuilds, sorts
+six-index quad groups back-to-front with stable source order on ties, and
+preserves the six source vertices within each quad. Candidate scene/fluid caches
+and the replacement fluid GPU buffer pair are prepared before publication;
+opaque-chunk GPU transactional behavior is outside this card.
+
+Independent review confirmed per-frame fluid vertex upload is zero and each
+quad uploads six `u32` indices (24 bytes). The fixture includes intersecting
+projected quads with overlapping depth ranges `[4,6]` and `[4.3,5.3]`, distinct
+center distances, and source-order assertions. Checked byte/count conversions
+and buffer bounds are covered. `cargo test --locked --offline -p beta-viewer`
+passed on merged main (17 library + 49 viewer + doc tests); Agy recorded passing
+clippy, fmt, `git diff --check`, and full `python3 tools/check.py` (214 Python
+tests, 18 opt-in skips, workspace Rust checks).
+
+For the previously observed 9,768-vertex scene, the calculated dynamic payload
+is 39,072 index bytes/frame versus 312,576 prior repacked vertex bytes (8x by
+payload count only). No FPS or percentile claim is made. Xvfb smoke was
+inconclusive: timeout after launch, black capture, and a separate X server
+listener/ownership failure. No successful visual check is claimed. Overall
+game estimate moves from about 33% to **34%**; GitHub push remains deferred
+until the next 5–10 percentage-point batch.
