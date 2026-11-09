@@ -851,3 +851,11 @@ Tests cover pickup, split/place/merge, hitbox boundaries, closed-screen gating,
 cursor return and selected-hotbar preservation. `cargo fmt`, focused viewer
 tests, clippy `-D warnings` and `git diff --check` pass; no GUI smoke or pixel
 parity claim is made.
+
+Review fix for INVENTORY-INTERACTION-001-A01: cursor restoration now requires
+`Inventory::insert` to return `Ok(true)`. A full inventory leaves the cursor
+stack intact and keeps the inventory screen reachable instead of discarding
+the stack. Close and focus-loss paths use this guarded restoration. A
+regression fills all 36 slots and verifies the held stack remains available.
+The visible held cursor icon is deliberately deferred until C01 pins its exact
+native mouse geometry and layering; no guessed rendering claim is made here.

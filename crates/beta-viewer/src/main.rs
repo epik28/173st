@@ -1837,7 +1837,7 @@ impl ApplicationHandler for App {
                 self.last = Instant::now();
                 self.mouse_delta.clear();
                 if !focused {
-                    self.inventory_screen.focus_lost(&mut self.inventory);
+                    let _ = self.inventory_screen.focus_lost(&mut self.inventory);
                     self.controls = Controls::default();
                     self.wheel_input.clear();
                     self.controller.clear_clock();
@@ -1955,10 +1955,12 @@ impl ApplicationHandler for App {
                         return;
                     }
                     if matches!(transition, inventory_screen::Transition::Closed) {
-                        self.inventory_screen.return_cursor(&mut self.inventory);
+                        let cursor_returned =
+                            self.inventory_screen.return_cursor(&mut self.inventory);
                         self.controls = Controls::default();
                         self.mouse_delta.clear();
-                        if self.inventory_resume_capture
+                        if cursor_returned
+                            && self.inventory_resume_capture
                             && let Some(w) = &self.window
                             && w.set_cursor_grab(CursorGrabMode::Locked).is_ok()
                         {

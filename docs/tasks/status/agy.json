@@ -422,7 +422,8 @@
         "cargo fmt --all; cargo test --locked --offline -p beta-viewer → PASS: 17 library + 38 viewer tests + doc tests",
         "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
         "Тесты покрывают pickup, right-click split, place/merge, native hitbox edges at scale 3, closed-screen gating, cursor return и selected hotbar preservation",
-        "Изменения только in-memory; native fixtures/oracle, save parsing, world guard, persistence и outside-drop не затронуты"
+        "Изменения только in-memory; native fixtures/oracle, save parsing, world guard, persistence и outside-drop не затронуты",
+        "Review fix: return_cursor treats only Ok(true) as success; full inventory preserves the held stack and keeps/reopens the screen. Held cursor icon intentionally awaits C01 geometry evidence and is not guessed in this commit."
       ]
     }
   }

@@ -369,13 +369,16 @@ impl InventoryScreen {
         true
     }
 
-    pub fn return_cursor(&mut self, inventory: &mut Inventory) {
+    pub fn return_cursor(&mut self, inventory: &mut Inventory) -> bool {
         if let Some(cursor) = self.cursor.take() {
             let mut incoming = Some(cursor);
-            if inventory.insert(&mut incoming).is_err() {
+            if !matches!(inventory.insert(&mut incoming), Ok(true)) {
                 self.cursor = incoming;
+                self.open = true;
+                return false;
             }
         }
+        true
     }
 
     /// Apply a physical E/Escape key event. Only focused, non-repeated key
@@ -417,7 +420,8 @@ impl InventoryScreen {
 mod tests {
     use super::{InventoryScreen, Transition};
     use super::{
-        Rect, count_vertices, hotbar_vertices, item_icon_uv, native_layout, native_vertices,
+        MAIN_SLOT_COUNT, Rect, count_vertices, hotbar_vertices, item_icon_uv, native_layout,
+        native_vertices,
     };
     use beta_core::items::{Inventory, ItemStack};
 
@@ -721,5 +725,20 @@ mod tests {
         );
         assert!(!screen.click(&mut inventory, 36, false));
         assert!(screen.click(&mut inventory, 0, false));
+    }
+
+    #[test]
+    fn full_inventory_keeps_cursor_and_reopens_screen_on_close() {
+        let mut screen = InventoryScreen::default();
+        let mut inventory = Inventory::new();
+        let full = ItemStack::new(3, 64, 0).unwrap();
+        for slot in 0..MAIN_SLOT_COUNT {
+            inventory.set_slot(slot, Some(full)).unwrap();
+        }
+        screen.open = true;
+        screen.cursor = Some(ItemStack::new(1, 5, 0).unwrap());
+        assert!(!screen.return_cursor(&mut inventory));
+        assert!(screen.is_open());
+        assert_eq!(screen.cursor.unwrap().count(), 5);
     }
 }
