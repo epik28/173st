@@ -10,7 +10,8 @@ parity baselines.
 
 - The viewer reads only the five configured level/region inputs. Before copying,
   each must be a regular non-symlink file whose size and SHA-256 match the
-  ignored machine-local `artifacts/user-world-postplay.sha256` manifest.
+  ignored machine-local `artifacts/user-world-postplay.sha256` manifest in the
+  shared workspace parent (sibling to the `main`, `codex`, and `agy` worktrees).
 - Copy inputs into a unique ignored artifacts run directory. Load and render only
   the copy. Never open or write the original save in the viewer/oracle path.
 - Validate the preview copy against its exact five-file manifest, strict names,

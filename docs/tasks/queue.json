@@ -947,6 +947,22 @@
       "depends_on": [
         "VIEW-LOCAL-001-C01"
       ]
+    },
+    {
+      "id": "PLAYER-SAVE-001-C01",
+      "owner": "codex",
+      "title": "Read supported inventory stacks from saved player NBT",
+      "card": "docs/tasks/PLAYER-SAVE-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "PLAYER-SAVE-001-C02",
+      "owner": "codex",
+      "title": "Accept read-only saved inventory integration",
+      "card": "docs/tasks/PLAYER-SAVE-001.md",
+      "depends_on": [
+        "PLAYER-SAVE-001-C01"
+      ]
     }
   ]
 }

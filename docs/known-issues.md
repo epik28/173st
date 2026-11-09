@@ -20,13 +20,15 @@
   pinned fixtures/evidence либо отдельно скопировать текущий save и пройти новый
   capture/review.
 - После явного запроса пользователя viewer получил отдельный preview baseline из
-  уже существующего ignored `artifacts/user-world-postplay.sha256`. Все пять
+  ignored workspace-level `artifacts/user-world-postplay.sha256`, общего для
+  sibling worktrees. Все пять
   файлов проходят size/SHA и non-symlink checks; приложение и native review
   работают с отдельными copies. Старые fixture hashes не заменялись. На свежем
   capture два native JVM запуска и Rust preview probe совпали побайтно (47
   mapping cases/1,513 neighbors); source hashes были теми же после чтения.
-- Графическое окно не было запущено в этой среде: `xvfb-run` показывает
-  `DISPLAY=:99`, но `xdpyinfo` не может открыть сервер. Viewer успел построить
+- В текущем запуске viewer прочитал baseline и построил сцену; графическое окно
+  не открылось, так как процессу не доступен Wayland compositor. Ранее `xvfb-run`
+  показывал `DISPLAY=:99`, но `xdpyinfo` не мог открыть сервер. Viewer построил
   25-chunk scene (334,760 opaque/9,762 water vertices); это подтверждает loader,
   но не визуальное соответствие кадра.
 

@@ -1398,3 +1398,26 @@ The coordinator made direct Rust changes in `loader.rs`, the viewer entry point,
 and a separate probe example because implementation agents were unavailable in
 this turn. This contribution is called out rather than attributed to agy. No
 game save, original JAR, atlas, or committed historical native fixture changed.
+
+## Follow-up: shared preview pin and saved inventory, 2026-11-09
+
+The first user launch in `codex/` showed `No such file`: the local pin lived under
+`main/artifacts`, while the compiled viewer looked relative to the selected
+worktree. The pin is now copied to the ignored shared sibling directory
+`/home/andrew/173st/artifacts/user-world-postplay.sha256`; `local_world_manifest_path`
+canonicalizes the worktree root before selecting that shared location. The exact
+hash contents remain outside Git. A regression test covers sibling-worktree
+resolution. Running from `main` now verifies the copy and builds all 25 chunks
+(334,760 opaque / 9,762 water vertices); this session then stops at missing
+Wayland compositor, rather than the file error. No window/pixel claim is made.
+
+PLAYER-SAVE-001 reads only the copied `WorldMetadata.player` tag. It recognizes
+Beta-style `Inventory` compound entries with byte `Slot`/`Count`, short `id` and
+`Damage`, and delegates supported ID/count/damage validation to `ItemStack`.
+Only main slots 0–35 are shown by the existing E-screen renderer; unsupported or
+invalid stacks are skipped and counted. It does not load health, selected slot,
+armor, unsupported item types, stack labels, or any mutation/persistence.
+Regression tests cover supported stacks, unsupported IDs, missing/wrong list,
+and armor slot exclusion. Viewer tests: 32 main tests plus 17 library tests; two
+saved-player cases included. Clippy and fmt pass. Full `tools/check.py` remains
+the final acceptance check before push.

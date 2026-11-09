@@ -6,6 +6,7 @@
 mod hotbar_input;
 mod hud;
 mod inventory_screen;
+mod saved_player;
 
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
@@ -123,6 +124,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
+    let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
+    if saved_inventory.unsupported_stacks > 0 {
+        eprintln!(
+            "beta-viewer: skipped {} unsupported saved inventory stack(s)",
+            saved_inventory.unsupported_stacks
+        );
+    }
     let loaded_chunks = scene.loaded_chunks();
     eprintln!(
         "viewer scene: chunks={loaded_chunks}, opaque_vertices={}, water_vertices={}",
@@ -166,7 +174,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         controller: MotionController::new(MotionState::new(safe_spawn)),
         safe_spawn,
         controls: Controls::default(),
-        inventory: Inventory::new(),
+        inventory: saved_inventory.inventory,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
@@ -278,7 +286,7 @@ fn copy_local_world()
     let prism = prism.ok_or("config requires paths.prism_instance")?;
     let source_world = std::path::PathBuf::from(prism).join("minecraft/saves/New World");
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
-    let manifest_path = root.join("artifacts/user-world-postplay.sha256");
+    let manifest_path = local_world_manifest_path(&root)?;
     let manifest_meta = fs::symlink_metadata(&manifest_path)?;
     if manifest_meta.file_type().is_symlink() || !manifest_meta.is_file() {
         return Err("local world pin manifest must be a regular non-symlink file".into());
@@ -405,6 +413,20 @@ fn copy_local_world()
     )?;
     fs::write(input.join(".preview-source-hashes.tsv"), pin_manifest)?;
     Ok((input, source_pins))
+}
+
+/// Keep the user-owned world pin outside individual Git worktrees so `main`,
+/// `codex`, and `agy` can all launch the same local preview configuration.
+fn local_world_manifest_path(
+    repository_root: &std::path::Path,
+) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let repository_root = repository_root.canonicalize()?;
+    let workspace_root = repository_root
+        .parent()
+        .ok_or("repository worktree has no shared workspace parent")?;
+    Ok(workspace_root
+        .join("artifacts")
+        .join("user-world-postplay.sha256"))
 }
 
 /// Builds tile-isolated mip levels so minification does not alias and neighboring
@@ -1693,11 +1715,25 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, interaction_shape, native_packed_vertex_color,
-        preferred_surface_format, saved_vertex_brightness, srgb_to_linear,
+        LightDimension, Vertex, build_atlas_mips, interaction_shape, local_world_manifest_path,
+        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
+        srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
+
+    #[test]
+    fn local_world_manifest_is_shared_by_sibling_worktrees() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
+        let canonical_root = root.canonicalize().unwrap();
+        assert_eq!(
+            local_world_manifest_path(&root).unwrap(),
+            canonical_root
+                .parent()
+                .unwrap()
+                .join("artifacts/user-world-postplay.sha256")
+        );
+    }
 
     #[test]
     fn targeting_uses_only_verified_full_cubes_slab_liquid_and_unknown_is_explicit() {

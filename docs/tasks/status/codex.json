@@ -758,6 +758,25 @@
         "python3 tools/parity/run.py view --strict still refuses the post-play world at the historical level.dat size/hash check; this is expected and its old native fixture remains unchanged",
         "Coordinator made narrow Rust loader/probe changes directly because no implementation agent was active; this direct contribution is recorded in docs/handoffs/codex.md"
       ]
+    },
+    "PLAYER-SAVE-001-C01": {
+      "state": "done",
+      "summary": "Added bounded read-only extraction of supported Beta Player.Inventory stacks from the validated copied level.dat NBT. Slots outside 0-35 and unsupported/invalid stacks are not represented; unsupported stacks are counted. No live save or native fixture changed.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS; saved-player parser covers valid supported stacks, empty/missing inventory, unsupported IDs, malformed tag shape and armor slot exclusion",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check → PASS",
+        "Viewer scene loader reads the current pinned copied world and reports 25 chunks / 334,760 opaque / 9,762 water vertices before GUI initialization",
+        "Player state is extracted only from the copied, validated level.dat; no save writes or expanded item support are claimed"
+      ]
+    },
+    "PLAYER-SAVE-001-C02": {
+      "state": "done",
+      "summary": "Accepted the bounded saved-inventory integration: E screen now uses existing supported-stack renderer populated from Player.Inventory rather than an always-empty model. Unsupported entries remain explicit and read-only.",
+      "checks": [
+        "Saved-player parser and viewer integration tests PASS; full workspace validation recorded in handoff",
+        "Launch from main reaches completed 25-chunk mesh build; this headless session lacks a Wayland compositor, so no frame/screenshot claim",
+        "Original copied save source hashes remain unchanged; source worktree shares the local-only pin file at workspace artifacts/user-world-postplay.sha256"
+      ]
     }
   }
 }
