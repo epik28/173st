@@ -128,6 +128,25 @@ class TaskQueueTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(output["state"], "error")
 
+    def test_duplicate_committed_status_cannot_silently_reset_completed_task(self):
+        self.git("switch", REFS["codex"])
+        path = "docs/tasks/status/codex.json"
+        original = (self.root / path).read_text()
+        duplicate = '"tasks": {"C1": {"state": "done", "summary": "accepted", "checks": ["proof"]}, '
+        (self.root / path).write_text(original.replace('"tasks": {', duplicate, 1))
+        self.git("add", path)
+        self.git("commit", "-m", "test-only duplicate status")
+        code, output = self.next("codex")
+        self.assertEqual(code, 1)
+        self.assertIn("Duplicate JSON key: C1", output["reason"])
+
+    def test_parallel_role_tasks_are_visible_without_silently_skipping_active_work(self):
+        self.mark("codex", ["C1", "C2", "C3"], state="in_progress")
+        code, output = self.next("codex")
+        self.assertEqual(code, 0)
+        self.assertEqual(output["state"], "resume")
+        self.assertEqual(output["task"]["id"], "C1")
+
 
 if __name__ == "__main__":
     unittest.main()

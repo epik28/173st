@@ -894,23 +894,26 @@
       ]
     },
     "WORLD-SELECT-001-C02": {
-      "state": "pending",
-      "summary": "Review work on codex/verification repaired the chooser presentation and selection contract, but the card remains pending until the A02 implementation is integrated from agy/development and the visible flow is verified there.",
+      "state": "done",
+      "summary": "Accepted the bounded existing-world preview flow after reviewing Agy 744898d/6876aa5 and direct coordinator renderer/loader work. Explicit selection, disabled rows, cancel/quit, safe disposable snapshots, negative/dynamic spawn windows, and real Xvfb list-to-game transitions are verified. Native menu presentation remains MENU-PARITY-001.",
       "checks": [
-        "python3 tools/oracle/world_select_audit.py → PASS; native menu/list/select/cancel/loading guard provenance pinned",
-        "python3 -m unittest tests.python.test_world_select_audit -v → PASS: 1 test",
-        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 24 library + 51 viewer tests and examples",
-        "cargo test --locked --offline -p beta-core --test light_update_fixture → PASS: 4 tests; accepted main code synchronized into the verification branch",
-        "python3 tools/check.py → PASS: 222 Python tests (18 opt-in skips), workspace fmt/check/clippy, all-target Rust and doc tests",
-        "Read-only user-world manifest verification → PASS: 6 source files match size and SHA-256; viewer smoke did not select or copy a world",
-        "Xvfb launch was inconclusive in the final run: the wrapper failed to open its X server; no screenshot or visual pass is claimed",
-        "A02 remains in_progress on agy/development at 05e8aec; no adjacent worktree or status file was modified"
+        "Agy 6876aa5 reviewed: canonical unique snapshot pin names, traversal/symlink rejection, metadata/region hash checks, fail-closed reads, compressed metadata sorting and no source writes.",
+        "python3 tools/check.py → PASS: 234 Python tests (18 opt-in skips), workspace fmt/check/clippy -D warnings, all-target Rust and doc tests; viewer has 31 library + 51 binary tests.",
+        "python3 tools/oracle/world_select_audit.py → PASS: pinned native Singleplayer/list/select/cancel provenance.",
+        "tools/viewer_smoke.py under isolated Xvfb → PASS: main/list/Cancel/main/quit exits0; explicit first valid selection opens disposable game preview in same eventloop. Coordinator inspected main, list and game screenshots in artifacts/world-select-smoke/.",
+        "Final cargo build --locked --offline -p beta-viewer and --enter-world smoke → PASS; all six original source files still match shared manifest sizes/SHA-256.",
+        "Native appearance, full client key semantics, unsupported menu actions, streaming, world creation, persistence and full simulation are not claimed; fixed spawn-centered5x5 and catalog bounds remain explicit."
       ]
     },
     "LIGHT-UPDATE-002-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "in_progress",
+      "summary": "Native material-registry and complete synthetic canopy/water snapshots establish two corrected opacity/direct-sky defects. Exact user-save screenshot reproduction, general queue/height-map propagation and paired frames remain outstanding, so the parent issue is open.",
+      "checks": [
+        "python3 tools/oracle/light_material_audit.py → PASS: two identical captures of all256 original uu.m/q/s entries, pinned JAR/source/class/bootstrap/output hashes.",
+        "python3 tools/oracle/light_material_edit_audit.py → PASS: two identical8159-row captures for three synthetic edits, with complete native pre-edit state/height exceptions and before/after samples.",
+        "Native fixture regression first failed water-place with Rust sky15 vs native12; 1c83d2c fixes raw material opacity and inclusion of current opacity in sky visibility. All19 after-light samples now match; old light_update four tests stay green.",
+        "Native leaf metadata bit8 after log removal is retained as an unimplemented lifecycle difference; no exact screenshot or full block-metadata simulation parity is claimed."
+      ]
     },
     "LIGHT-UPDATE-002-C02": {
       "state": "pending",
@@ -918,16 +921,15 @@
       "checks": []
     },
     "MENU-PARITY-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "in_progress",
+      "summary": "Pinned native menu resources/bytecode and direct qq scaling outputs are captured. Font metrics are explicitly bitmap/bytecode-derived. Four original menu/list frames at two viewports/scales were captured and visually reviewed; remaining save/input cases and paired comparison are outstanding.",
+      "checks": [
+        "python3 tools/oracle/menu_parity_audit.py → PASS: pinned GUI/locale/resource/class evidence, nine direct native scaled-resolution cases and256 derived glyph metrics.",
+        "python3 -m unittest tests.python.test_menu_parity_audit -q → PASS:4 scoped audit/mutation tests.",
+        "Native capture helper uses local Java8/LWJGL, disposable JVM user.home under ignored artifacts, local HTTP/HTTPS proxies and isolated audio; it never opens user saves. Approved Xvfb rerun exited 0; coordinator confirmed main and empty Select World at 854x480/gui1 and 1280x720/gui3. All four hashes are recorded in the C01 handoff."
+      ]
     },
     "MENU-PARITY-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
-    },
-    "WORLD-SELECT-001-C01": {
       "state": "pending",
       "summary": "",
       "checks": []

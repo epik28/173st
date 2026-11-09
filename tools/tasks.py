@@ -11,6 +11,18 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 REFS = {"codex": "refs/heads/codex/verification", "agy": "refs/heads/agy/development"}
 STATES = {"pending", "in_progress", "done", "blocked"}
+MAX_ACTIVE_PER_ROLE = 3
+
+
+def read_json(text):
+    def unique_keys(pairs):
+        document = {}
+        for key, value in pairs:
+            if key in document:
+                raise ValueError("Duplicate JSON key: " + key)
+            document[key] = value
+        return document
+    return json.loads(text, object_pairs_hook=unique_keys)
 
 
 def git(root, *arguments):
@@ -23,7 +35,7 @@ def git(root, *arguments):
 
 
 def load_queue(root):
-    document = json.loads((root / "docs/tasks/queue.json").read_text())
+    document = read_json((root / "docs/tasks/queue.json").read_text())
     if document.get("schema_version") != 1:
         raise ValueError("Unsupported queue schema")
     tasks = document["tasks"]
@@ -52,11 +64,11 @@ def load_board(root):
     snapshots = {}
     for role, reference in REFS.items():
         commit = git(root, "rev-parse", "--verify", reference + "^{commit}")
-        peer_queue = json.loads(git(root, "show", commit + ":docs/tasks/queue.json"))
+        peer_queue = read_json(git(root, "show", commit + ":docs/tasks/queue.json"))
         if peer_queue.get("schema_version") != 1 or peer_queue.get("tasks") != tasks:
             raise ValueError("Queue differs between working contract and role snapshot: " + role)
         path = "docs/tasks/status/" + role + ".json"
-        document = json.loads(git(root, "show", commit + ":" + path))
+        document = read_json(git(root, "show", commit + ":" + path))
         if document.get("schema_version") != 1 or document.get("role") != role:
             raise ValueError("Invalid status schema or owner: " + role)
         owned_ids = {task["id"] for task in tasks if task["owner"] == role}
@@ -74,8 +86,8 @@ def load_board(root):
                 raise ValueError("Completed task requires summary and checks: " + task_id)
             if entry["state"] == "blocked" and not entry["summary"].strip():
                 raise ValueError("Blocked task requires a reason: " + task_id)
-        if sum(entry["state"] == "in_progress" for entry in entries.values()) > 1:
-            raise ValueError("A role may have at most one in-progress task")
+        if sum(entry["state"] == "in_progress" for entry in entries.values()) > MAX_ACTIVE_PER_ROLE:
+            raise ValueError(f"A role may have at most {MAX_ACTIVE_PER_ROLE} in-progress tasks")
         states.update(entries)
         snapshots[role] = {"ref": reference, "commit": commit}
     return tasks, states, snapshots

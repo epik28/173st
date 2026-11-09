@@ -1726,3 +1726,44 @@ progress; corrected the obsolete claim that no edit relighting exists.
 Both follow-ups remain backlog entries, with no active queue/status changes.
 Validation: `git diff --check`, new document links and PNG hash checked.
 No engine changes or gameplay tests; estimate remains about 35%.
+
+## Parallel follow-up — WORLD-SELECT accepted; material light corrections
+
+The user's new permission allows three independent workers. They ran on
+`gpt-6-luna`/low after disclosure that the requested 5.6 model was unavailable.
+World-selection implementation used `agy/development`; shadow/menu native
+audits used their own assigned worktrees. No nested delegation was used.
+
+Reviewed Agy `744898d` and safety amendment `6876aa5` (integrated as `5e0251b`):
+catalog sorting, no auto-selection, strict pin/folder names, symlink directories,
+changed-source hashes, fail-closed reads, disposable snapshots and dynamic
+spawn-centered5x5 loading. Coordinator `tools/viewer_smoke.py` verified actual
+Xvfb main/list/cancel/quit and selected-world-to-game paths; screenshots were
+inspected and original six source files retained their manifest hashes. Xvfb's
+socket needed the approved sandbox escalation; earlier failed attempts are not
+counted as successful captures. WORLD-SELECT-C02 is accepted functionally;
+original menu appearance and exact client input behavior remain a separate task.
+
+Native material evidence from worker commits `a2941b3`, `7c4fa58`, `0a93e87`
+pins all256 original registry entries and8159 rows of complete synthetic
+pre-edit state/height exceptions plus samples. Coordinator's direct engine
+contribution `1c83d2c` adds native opacity lookup, uses it in the viewer, and
+requires the current cell to have opacity0 before assigning direct skylight.
+The native water-place regression failed with15 vs12 before that second fix;
+all19 sampled after-light states in three scenes now match, alongside the old
+four light-update tests. The exact reported user scene, general native queue,
+height-map propagation, and leaf metadata8 notifications are not accepted.
+LIGHT-UPDATE-002 therefore remains open; no percentage is added for these fixes.
+
+MENU-PARITY native numeric/resource evidence was integrated from `8c547cf`;
+native frame capture is tracked separately in its handoff. No font live-call
+claim is made for the derived metrics. The task board also rejects duplicate
+JSON keys after a merged duplicate had silently reverted WORLD-SELECT-C01 to
+pending, and now permits up to three active cards per role. Nine queue tests
+pass, including the real duplicate-status regression and parallel activity.
+
+Final combined workspace check:234 Python tests,18 opt-in skips, fmt/check/clippy,
+Rust all-target and doc tests PASS; native material/menu/world-selector audits
+also pass in their stated scopes. Read-only final viewer smoke and build pass.
+WORLD-SELECT adds about1 interface point, giving **≈36%**; GitHub push remains
+deferred to the next5–10 point batch (around40%).

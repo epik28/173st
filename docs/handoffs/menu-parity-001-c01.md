@@ -1,6 +1,6 @@
 # MENU-PARITY-001-C01 handoff
 
-Result: **partial native contract; C01 is not visually complete**. The pinned client JAR provides repeatable native `qq` scaled-resolution outputs and hash-bound GUI/font/menu bytecode and resource evidence. No original GUI window was launched or captured, so this handoff does not include the paired original frames required by the card.
+Result: **partial native contract; C01 is not complete**. The pinned client JAR provides repeatable native `qq` scaled-resolution outputs and hash-bound GUI/font/menu bytecode and resource evidence. The coordinator subsequently captured and inspected native main-menu and empty-world-list frames at both requested resolutions/scales; the final evidence is recorded below. Full paired Rust/native frames and remaining save/input cases are still outstanding.
 
 The source is the PrismLauncher local-cache Beta 1.7.3 client, SHA-256 `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`, 1,465,375 bytes. The runtime oracle invokes the actual `qq(kv,int,int)` constructor loaded from that JAR; it does not port its scaling loop. The audit hashes `Minecraft`, `fu`, `rq`, `mg`, `lg`, `da`, `ke`, `qq`, `kv`, `sj`, `nh`, `ub`, and `vb` before checking short `javap` evidence excerpts.
 
@@ -54,3 +54,22 @@ env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/orac
 The two profiles are 854×480/GUI scale 1 and 1280×720/GUI scale 3. Each process waits at most 45 seconds for the native window, records actual X window dimensions, captures the main menu, and clicks Singleplayer through XTest. A differing second frame is recorded only as a heuristic; it may differ because menu animation changes, so the coordinator must visually verify that it shows the empty world list. The manifest includes client and local library hashes, Java version, full argument vector, disposable paths/options hash, actual window dimensions, frame hashes, timeout, elapsed times, and termination/kill/exit status. It explicitly leaves the unavailable-save case uncaptured. A successful run will provide window evidence, but C01 remains partial until the empty world list is visually verified, unavailable-save state and required review are covered.
 
 The first escalated launch initialized Minecraft but timed out before candidate detection; AWT's `xwininfo -tree` line places a resource class between its title and geometry. The harness now accepts that format and saves the full tree to a `.xwininfo-tree.txt` diagnostic if detection times out again. The native process uses OpenAL Soft's `null` driver to avoid probing host audio devices. The first successful capture produced both main-menu frames, one valid empty world-list frame at 1280×720, and a second 854×480 frame that remained on the animated main menu. The cause was input positioning/focus: the smaller window could remain centered while XTest coordinates assumed the root origin, and the click had no explicit down/up dwell. The harness now always places and raises the window at `(0,0)`, sets X input focus, and holds the mouse button for 150 ms before release. This correction has not yet been exercised by another GUI capture; the existing 854×480 candidate is not an empty-world-list reference. The transition remains visually unverified at that profile, and the unavailable-save case remains uncaptured.
+
+## Coordinator capture acceptance
+
+After integrating `88fe7be` as `2e5a5b0`, the exact Xvfb command above exited 0.
+The coordinator inspected all four PNGs: both main menus and both actual empty
+Select World screens are confirmed. The earlier small-profile candidate still
+showed the main menu and was rejected; moving/focusing the window and holding
+the click for 150 ms fixed capture input. Full launch evidence and a separate
+visual review remain in ignored `artifacts/menu-parity-capture/frames/`.
+
+| Frame | SHA-256 |
+| --- | --- |
+| 854x480-gui1-main.png | `77c8d8c5c8f5c00ed957543f30380c12abc5412c8171fbe756bac3c71ad77a4f` |
+| 854x480-gui1-world-list-empty.png | `66ed213328097de4565f9ea844dbe9bf54c34a991f77f9ab5ba43bfa3964341a` |
+| 1280x720-gui3-main.png | `d133143037408caf2ca619c308ff67466c4d79e60b19a2ddee6fb17d3c535a96` |
+| 1280x720-gui3-world-list-empty.png | `816621f46c087727b187802983ff3b838c31eb025ae724ecfac5f04ae1bfd382` |
+
+Only disposable empty saves were opened. No user world, pixel-parity result,
+or complete input contract is claimed. C01 remains open for the other cases.

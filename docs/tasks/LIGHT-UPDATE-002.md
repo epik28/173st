@@ -17,6 +17,14 @@
 SHA-256 исходного PNG:
 `64fff96adb875c64df1198c94b8fe541b9da6084ed4129d93ff6661e183ceaa9`.
 
+Промежуточный результат: native registry из 256 записей и три synthetic edit
+captures с полным pre-edit состоянием закреплены в `tests/fixtures/light_material/`.
+В `1c83d2c` исправлены opacity callback (листва=1, вода=3 вместо255) и direct-sky
+attenuation (water-place даёт12 вместо15). Rust совпадает по 19 sampled light
+states; прежние LIGHT-UPDATE-001 tests проходят. Это отдельные подтверждённые
+ошибки, не полная приёмка пользовательского кадра. Native log removal также
+ставит соседней листве metadata bit8; эта lifecycle-логика здесь не реализована.
+
 Предыдущий [LIGHT-UPDATE-001](LIGHT-UPDATE-001.md) принят только для пяти
 synthetic native-сцен. Эти результаты сохраняются, но не закрывают новый дефект
 и не подтверждают правильность освещения произвольного пользовательского мира.

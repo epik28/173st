@@ -29,10 +29,11 @@ guarantee of compliance. See the official
 ## Current state
 
 The Rust workspace contains verified RNG, chunk, NBT, McRegion and read-only world
-data components. A local wgpu viewer renders a fixed 5×5 scene using the original
+data components. A local wgpu viewer renders a selected save's spawn-centered
+5×5 scene using the original
 terrain atlas, native seeded grass/foliage palettes, and fancy cutout leaf cubes.
-This is an early visual milestone; gameplay, world simulation, save writing and full
-visual parity are not implemented yet.
+The current sandbox includes limited movement, block edits and inventory controls;
+world simulation, save writing and full visual parity remain unfinished.
 
 The viewer includes a 20 Hz walking subset against confirmed solid full cubes and
 the full-cube leaves enabled for rendering;
@@ -55,6 +56,11 @@ python3 tools/prepare_assets.py
 cargo run --locked --offline -p beta-viewer
 ```
 
+Choose **Singleplayer**, select an available save, then press **Select** or Enter.
+Unavailable entries show a reason. Cancel returns to the menu. The current menu
+is temporary; original-menu presentation is tracked in MENU-PARITY-001.
+The loaded window stays bounded to 5×5 chunks; chunk streaming is not implemented.
+
 ### Controls
 
 Press Enter to capture the mouse. Move with W/A/S/D, jump with Space, sneak
@@ -72,7 +78,19 @@ stored in Git.
 
 The fixed scene includes fancy leaves and original biome grass/foliage colors.
 Flat lighting uses saved time and native brightness tables. Weather, ambient
-occlusion, light propagation and loading Nether regions remain future work.
+occlusion, general light propagation and loading Nether regions remain future
+work. Edits have bounded relighting using native opacity values; the reported
+post-edit shadow is still tracked in LIGHT-UPDATE-002.
+
+For an opt-in X11 smoke check under an isolated Xvfb display:
+
+```bash
+env -u WAYLAND_DISPLAY xvfb-run -a python3 tools/viewer_smoke.py
+```
+
+The default checks menu/list/cancel/quit. Add `--enter-world` to explicitly open
+the first enabled world's disposable preview. Captures stay in `artifacts/`;
+this checks Rust UI integration, not visual parity with the original client.
 
 ## Project notes
 
