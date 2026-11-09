@@ -907,7 +907,7 @@
     },
     "LIGHT-UPDATE-002-C01": {
       "state": "in_progress",
-      "summary": "Settled V3 separates fresh-chunk y=0 initialization from edit behavior: leaf and water scenes match, but emissive placement/removal still differs locally. Exact user-save screenshot reproduction, general queue/height-map propagation and paired frames remain outstanding; parent issue stays open.",
+      "summary": "Settled V3 separated fresh-chunk y=0 initialization; a block-light propagation fix now matches all eight synthetic edit phases across the full 9-chunk light domain. The exact user-save screenshot reproduction, height-map/metadata behavior and paired frames remain outstanding; parent issue stays open.",
       "checks": [
         "python3 tools/oracle/light_material_audit.py → PASS: two identical captures of all256 original uu.m/q/s entries, pinned JAR/source/class/bootstrap/output hashes.",
         "python3 tools/oracle/light_material_edit_audit.py → PASS: two identical8159-row captures for three synthetic edits, with complete native pre-edit state/height exceptions and before/after samples.",
@@ -915,7 +915,7 @@
         "Native leaf metadata bit8 after log removal is retained as an unimplemented lifecycle difference; no exact screenshot or full block-metadata simulation parity is claimed.",
         "V2 audit → PASS: two identical 44806-row native captures; complete reconstructed state SHA-256 and every cell/height delta verified. light_snapshot_probe → FAIL as expected: leaf-place 2107, glowstone-place 6195, glowstone-remove 3852 light mismatches; canopy/water light zero, canopy-remove metadata12. Each step starts from preceding native state.",
         "Column-opacity cache accepted from 60dd38e as c622882: complete scene/RelightResult unchanged across eight old fixture cases, and V2 mismatch report identical before/after. Release fixture medians 1237/1273/1286us → 520/533/683us; no general FPS claim.",
-        "Settled V3 oracle → PASS: two identical 1,434,350-byte native captures, SHA-256 7582860cf08809550eebe8adb4db307ad9857f58a45863a39da8e42b96399d4c; nine native full-height chunk relights settle y=0 sky before seeds/edits. Rust full-domain probe → expected FAIL for glowstone edge (4,088 placement / 3,852 removal light mismatches); canopy and water light now 0 mismatches, no y=0 noise. User screenshot repro remains unconfirmed."
+        "Settled V3 oracle → PASS: two identical 1,434,350-byte native captures, SHA-256 7582860cf08809550eebe8adb4db307ad9857f58a45863a39da8e42b96399d4c; nine native full-height chunk relights settle y=0 sky before seeds/edits. After 9ad5f4c, Rust full-domain probe reports 0 block/sky mismatches across all eight phases; 12 canopy leaf metadata differences remain outside light API. User screenshot repro and paired native/Rust frames remain unconfirmed."
       ]
     },
     "LIGHT-UPDATE-002-C02": {

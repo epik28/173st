@@ -223,3 +223,37 @@ V3 checks run by the coordinator:
 - `cargo run --locked --offline -p beta-core --example light_snapshot_probe < tests/fixtures/light_material/native_edits_settled_v1.tsv`
   — completed with the counts above; expected nonzero exit because glowstone
   placement/removal and native leaf metadata do not fully match.
+
+## Follow-up implementation and recheck
+
+Commit `9ad5f4c` separates block-light propagation from direct sky-light
+visibility and recomputes a bounded source radius so removal can clear stale
+values. Source inspection had found that the former implementation only copied
+neighbor block light inside a branch gated by `!direct_sky`; that prevented
+emission from spreading through open-sky air. It also scanned only the initial
+small region, with no expansion queue for the block-light field. This diagnosis
+explains the settled glowstone fixture's pattern, but is not proof of the exact
+user screenshot's complete cause.
+
+After the implementation, the settled V3 full-domain comparator reports zero
+block- or sky-light mismatches for all eight edit phases (canopy/log place and
+remove, glowstone place and remove, leaf place and remove, water place and
+remove). The canopy/log removal still has 12 metadata mismatches; block metadata
+is outside this light-only API. The new fixture-driven Rust test checks every
+cell for glowstone placement and removal.
+
+Coordinator verification after cherry-picking `9ad5f4c`:
+
+- `cargo test --locked --offline -p beta-core` — 87 unit tests, 1 material
+  fixture test, 5 light-update fixture tests, and doc tests passed.
+- `cargo run --quiet --locked --offline -p beta-core --example light_snapshot_probe < tests/fixtures/light_material/native_edits_settled_v1.tsv`
+  — all block/sky-light comparisons report zero mismatches across the eight edit
+  phases.
+- The implementation agent also reports `cargo fmt --all -- --check`,
+  `cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings`,
+  and `git diff --check` passed.
+
+This accepts the synthetic emissive propagation correction only. The exact
+user-world edit sequence, paired native/Rust frame, and whether this correction
+removes the screenshot's extra shadow remain unverified; C01 and end-to-end C02
+remain open.
