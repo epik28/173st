@@ -386,6 +386,11 @@
         "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → pinned HUD resources validated; safe startup stopped at pinned world source hash mismatch: level.dat. No save copy/open/write or guard bypass; visual smoke unavailable.",
         "C01 bytecode finding consumed: native ix.b(I)V clamps each nonzero event to sign, subtracts from selected index, and wraps 0..8; line deltas use one line as accumulator unit; pixel deltas use deterministic 120-pixel application threshold, not asserted as native parity because C01 does not define winit pixel conversion."
       ]
+    },
+    "INVENTORY-UI-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

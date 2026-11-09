@@ -907,6 +907,32 @@
         "HOTBAR-INPUT-001-C01",
         "HOTBAR-INPUT-001-A01"
       ]
+    },
+    {
+      "id": "INVENTORY-UI-001-C01",
+      "owner": "codex",
+      "title": "Native inventory screen audit",
+      "card": "docs/tasks/INVENTORY-UI-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "INVENTORY-UI-001-A01",
+      "owner": "agy",
+      "title": "Implement viewer inventory screen",
+      "card": "docs/tasks/INVENTORY-UI-001.md",
+      "depends_on": [
+        "INVENTORY-UI-001-C01"
+      ]
+    },
+    {
+      "id": "INVENTORY-UI-001-C02",
+      "owner": "codex",
+      "title": "Accept native inventory screen",
+      "card": "docs/tasks/INVENTORY-UI-001.md",
+      "depends_on": [
+        "INVENTORY-UI-001-C01",
+        "INVENTORY-UI-001-A01"
+      ]
     }
   ]
 }

@@ -712,6 +712,16 @@
         "Xvfb startup verified pinned HUD atlas, then stopped at unchanged safety guard because user-owned level.dat hash differs; no world read/write/copy or guard bypass",
         "Line/pixel fractional conversion is explicitly viewer adapter policy; original parity claim is limited to integer LWJGL wheel events"
       ]
+    },
+    "INVENTORY-UI-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "INVENTORY-UI-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

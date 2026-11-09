@@ -312,3 +312,14 @@ your own status/handoff. Test repeats/focus, exact key mapping, wheel fractions,
 multi-step input, wrap and selected-frame geometry. No item rendering, inventory
 screen, save write, world guard change or core modification. Run fmt/tests/clippy
 and commit A01.
+
+## INVENTORY-UI-001-A01 — native inventory viewer screen
+
+Follow [INVENTORY-UI-001](INVENTORY-UI-001.md) and wait for committed C01 evidence
+for native coordinates/resources/icon mapping. Implement E/Escape toggling, focus
+and capture handling, centered native panel, 36 slots, and icons for only supported
+`Inventory` stacks. Do not invent items or unsupported item semantics. Edit only
+viewer source/tests plus your status/handoff. Cover empty/supported stacks, native
+layout and UVs, focus/input suppression, scaling and mode transitions; run viewer
+tests, fmt, clippy and guarded startup smoke. Preserve the local-world integrity
+guard and commit A01.

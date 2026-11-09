@@ -435,3 +435,19 @@ viewer Rust. After A01 is ready, C02 reviews the exact snapshot, compares direct
 key/scroll handling with C01, runs the full checks, and attempts viewer smoke
 only if the source-world guard permits it. Record limitations and estimate only
 the accepted visible behavior.
+
+## INVENTORY-UI-001-C01 — native inventory screen audit
+
+Follow [INVENTORY-UI-001](INVENTORY-UI-001.md). Audit native E/Escape behavior,
+panel/slot coordinates and UVs, pinned `gui/inventory.png` and `gui/items.png`,
+and icon mappings for supported item IDs. Keep exact JAR/class hashes and
+obfuscated descriptors, implement fixture verifier and mutation tests. Edit only
+`tools/oracle/`, `tests/fixtures/`, `tests/python/`, and your own status/handoff.
+Do not edit viewer Rust. Verify original resources and run Python checks, commit C01.
+
+## INVENTORY-UI-001-C02 — integration and acceptance
+
+After C01/A01, review exact commits, run the audit, `tools/check.py`, relevant
+strict parity suites, and guarded viewer startup. Accept only the contract scope,
+record the changed-world guard if it blocks visual smoke, update progress/estimate/
+roadmap, and synchronize both role worktrees.
