@@ -388,9 +388,15 @@
       ]
     },
     "INVENTORY-UI-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлен render-only экран инвентаря: E открывает, Escape закрывает, фокус/захват мыши сохраняются по согласованному переходу, игровое управление подавляется. Рисуются нативная панель 176×166 и 36 main slots; четыре поддержанных ID используют проверенные item-atlas tiles. Содержимое не создаётся: текущий Inventory пуст.",
+      "checks": [
+        "cargo fmt --all -- --check → PASS",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 15 library + 29 viewer + 4 example tests; E/Escape/repeat/focus, multiple scales, 36-slot geometry anchors, atlas UVs, empty inventory and all 4 supported item IDs",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
+        "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → pinned client GUI/HUD/inventory/item resources validated in memory; startup stopped at the existing pinned-world hash guard (`level.dat` mismatch); no visual smoke or source-save access",
+        "Consumed committed native audit and resources from C01 commit 2428cfc after fast-forwarding main e9d9746; item icon coordinates checked against tests/fixtures/inventory_ui/audit.json. No native fixtures/oracle/queue/core semantics/dependencies or world hash guard changed. Item counts and interaction remain outside this slice."
+      ]
     }
   }
 }

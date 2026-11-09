@@ -7,6 +7,9 @@ use std::{error::Error, fs, io::Read, path::Path};
 
 pub const GUI_SHA256: &str = "e223bea0b5004a3b5497607c6d529daf840396526a46eff75c299364cf9dc795";
 pub const ICONS_SHA256: &str = "8b5a8cfd44b933559c36aecaa722165ad048f1e942f1eeae616554124d6dac43";
+pub const INVENTORY_SHA256: &str =
+    "53dd5bde88588215b1700aee4a7dd70a3049e7e53f914982774ebdc26d6862b0";
+pub const ITEMS_SHA256: &str = "545699e0c5f655c1e1876bb9f2fa5d93c4fd514dae3802d1cea43ae0003343f3";
 pub const CLIENT_JAR_SHA256: &str =
     "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c";
 
@@ -20,6 +23,18 @@ pub fn load_atlases(
     let gui = decode_atlas(&gui_bytes, GUI_SHA256, "gui/gui.png")?;
     let icons = decode_atlas(&icons_bytes, ICONS_SHA256, "gui/icons.png")?;
     Ok((gui, icons))
+}
+
+pub fn load_inventory_atlases(
+    client_jar: &Path,
+) -> Result<(image::RgbaImage, image::RgbaImage), Box<dyn Error>> {
+    let jar = fs::read(client_jar)?;
+    verify_hash(&jar, CLIENT_JAR_SHA256, "pinned client JAR")?;
+    let inventory_bytes = extract_zip_resource(&jar, "gui/inventory.png")?;
+    let items_bytes = extract_zip_resource(&jar, "gui/items.png")?;
+    let inventory = decode_atlas(&inventory_bytes, INVENTORY_SHA256, "gui/inventory.png")?;
+    let items = decode_atlas(&items_bytes, ITEMS_SHA256, "gui/items.png")?;
+    Ok((inventory, items))
 }
 
 fn verify_hash(bytes: &[u8], expected: &str, label: &str) -> Result<(), Box<dyn Error>> {

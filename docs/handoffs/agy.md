@@ -769,3 +769,39 @@ HUD resources from the pinned JAR then stopped at
 and no visual smoke was possible. Codex's C01 audit supplied wheel sign,
 magnitude clamp, and wrap behavior. C02 should review wheel unit conversion and
 the selection-frame geometry against the native evidence.
+
+## INVENTORY-UI-001-A01 — native inventory screen
+
+Implemented the viewer-only inventory panel and transient screen state. Focused,
+non-repeated E opens the screen; Escape closes it; repeated E is ignored while
+open. Opening releases cursor capture and closing restores it only when the
+viewer had captured the cursor before opening. Focus loss closes the panel,
+clears held controls and wheel residuals, and releases capture. While open,
+movement, flight, hotbar, wheel and block interaction input are suppressed and
+the first-person HUD is hidden.
+
+The renderer reads `gui/inventory.png` and `gui/items.png` from the pinned client
+JAR in memory, verifying the archive and resource hashes plus 256x256 atlas
+dimensions. It draws the audited centered 176x166 panel and all 36 main slots
+at native positions, then overlays only current supported item stacks using
+the audited 16x16 tiles for IDs 1, 3, 332 and 267. Item count labels and slot
+interactions are excluded. The viewer's current inventory is empty, so startup
+does not fabricate any item icons.
+
+Checks: `cargo fmt --all -- --check`; `cargo test --locked --offline
+-p beta-viewer --all-targets` passed (15 library, 29 viewer, 4 example tests);
+`cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings`;
+and `git diff --check` passed. Tests cover E/Escape/repeat/focus transitions,
+scaled native panel and slot geometry, UV bounds and mappings for all supported
+IDs, empty inventory, and supported stack rendering.
+
+Guarded smoke `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run
+--locked --offline -p beta-viewer` validated the pinned HUD, inventory and item
+resources in memory, then stopped at the existing `level.dat` source-hash guard.
+No save was opened or modified; GPU visual smoke remains unavailable with this
+local world. The layout, resource hashes and icon mapping came from committed
+C01 audit `2428cfc` and fixture `tests/fixtures/inventory_ui/audit.json`.
+Coordinator assistance provided that committed audit and synchronized main;
+no code was borrowed, no native fixture/oracle was changed, and no cost
+telemetry or provider model ID was exposed in this run. Counts, crafting,
+armor, item movement/use and persistence remain outside A01.

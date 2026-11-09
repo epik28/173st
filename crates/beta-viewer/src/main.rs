@@ -5,6 +5,7 @@
 
 mod hotbar_input;
 mod hud;
+mod inventory_screen;
 
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
@@ -59,6 +60,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let client_jar = client_jar_path()?;
     let (gui_atlas, icons_atlas) = hud::load_atlases(&client_jar)?;
+    let (inventory_atlas, items_atlas) = hud::load_inventory_atlases(&client_jar)?;
     let input = copy_local_world()?;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let scene_path = root.join("tests/fixtures/view/scene.tsv");
@@ -139,6 +141,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         atlas: image,
         gui_atlas,
         icons_atlas,
+        inventory_atlas,
+        items_atlas,
         window: None,
         gpu: None,
         camera: Camera::new(
@@ -164,6 +168,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         last: Instant::now(),
         captured: false,
         focused: true,
+        inventory_screen: inventory_screen::InventoryScreen::default(),
+        inventory_resume_capture: false,
     };
     event.run_app(&mut app)?;
     Ok(())
@@ -402,6 +408,8 @@ struct App {
     atlas: image::RgbaImage,
     gui_atlas: image::RgbaImage,
     icons_atlas: image::RgbaImage,
+    inventory_atlas: image::RgbaImage,
+    items_atlas: image::RgbaImage,
     window: Option<Arc<Window>>,
     gpu: Option<Gpu>,
     camera: Camera,
@@ -415,6 +423,8 @@ struct App {
     last: Instant,
     captured: bool,
     focused: bool,
+    inventory_screen: inventory_screen::InventoryScreen,
+    inventory_resume_capture: bool,
 }
 struct Gpu {
     instance: wgpu::Instance,
@@ -434,8 +444,12 @@ struct Gpu {
     bind: wgpu::BindGroup,
     gui_bind: wgpu::BindGroup,
     icons_bind: wgpu::BindGroup,
+    inventory_bind: wgpu::BindGroup,
+    items_bind: wgpu::BindGroup,
     hud_gui_vertex: wgpu::Buffer,
     hud_icons_vertex: wgpu::Buffer,
+    inventory_vertex: wgpu::Buffer,
+    inventory_icons_vertex: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
 }
 
@@ -1047,6 +1061,8 @@ impl App {
         };
         let gui_view = create_hud_view("Beta gui/gui.png", &self.gui_atlas);
         let icons_view = create_hud_view("Beta gui/icons.png", &self.icons_atlas);
+        let inventory_view = create_hud_view("Beta gui/inventory.png", &self.inventory_atlas);
+        let items_view = create_hud_view("Beta gui/items.png", &self.items_atlas);
         let make_hud_bind = |label, texture_view: &wgpu::TextureView| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some(label),
@@ -1069,6 +1085,8 @@ impl App {
         };
         let gui_bind = make_hud_bind("native gui atlas bind", &gui_view);
         let icons_bind = make_hud_bind("native icons atlas bind", &icons_view);
+        let inventory_bind = make_hud_bind("native inventory atlas bind", &inventory_view);
+        let items_bind = make_hud_bind("native items atlas bind", &items_view);
         let hud_gui_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hotbar screen-space vertices"),
             size: 12 * 16,
@@ -1078,6 +1096,18 @@ impl App {
         let hud_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hearts and crosshair screen-space vertices"),
             size: 126 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let inventory_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native inventory panel screen-space vertices"),
+            size: 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let inventory_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native inventory item screen-space vertices"),
+            size: 36 * 6 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -1186,8 +1216,12 @@ impl App {
             bind,
             gui_bind,
             icons_bind,
+            inventory_bind,
+            items_bind,
             hud_gui_vertex,
             hud_icons_vertex,
+            inventory_vertex,
+            inventory_icons_vertex,
             camera_buffer,
         });
         self.window = Some(w);
@@ -1200,7 +1234,7 @@ impl App {
         let now = Instant::now();
         let dt = now.duration_since(self.last);
         self.last = now;
-        if self.focused {
+        if self.focused && !self.inventory_screen.is_open() {
             self.controller.accumulate(dt);
             while self.controller.ticks_due() > 0 {
                 if self.controller.debug_flight {
@@ -1243,6 +1277,7 @@ impl App {
                 bytemuck::cast_slice(&m.to_cols_array()),
             )
         }
+        let show_hud = !self.inventory_screen.is_open();
         let (hud_gui, hud_icons) = hud::native_vertices_with_selection(
             g.config.width,
             g.config.height,
@@ -1253,6 +1288,37 @@ impl App {
             .write_buffer(&g.hud_gui_vertex, 0, bytemuck::cast_slice(&hud_gui));
         g.queue
             .write_buffer(&g.hud_icons_vertex, 0, bytemuck::cast_slice(&hud_icons));
+        let inventory_open = self.inventory_screen.is_open();
+        let inventory_icon_count = if inventory_open {
+            match inventory_screen::native_vertices(
+                &self.inventory,
+                g.config.width,
+                g.config.height,
+                hud::gui_scale(g.config.width, g.config.height),
+            ) {
+                Ok(vertices) => {
+                    g.queue.write_buffer(
+                        &g.inventory_vertex,
+                        0,
+                        bytemuck::cast_slice(&vertices.panel),
+                    );
+                    if !vertices.items.is_empty() {
+                        g.queue.write_buffer(
+                            &g.inventory_icons_vertex,
+                            0,
+                            bytemuck::cast_slice(&vertices.items),
+                        );
+                    }
+                    vertices.items.len() as u32
+                }
+                Err(error) => {
+                    eprintln!("beta-viewer inventory render rejected: {error}");
+                    0
+                }
+            }
+        } else {
+            0
+        };
         match g.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame)
             | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -1297,13 +1363,25 @@ impl App {
                         p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
                         p.draw(0..g.fluid_vertex_count, 0..1);
                     }
-                    p.set_pipeline(&g.hud_pipeline);
-                    p.set_bind_group(0, &g.gui_bind, &[]);
-                    p.set_vertex_buffer(0, g.hud_gui_vertex.slice(..));
-                    p.draw(0..12, 0..1);
-                    p.set_bind_group(0, &g.icons_bind, &[]);
-                    p.set_vertex_buffer(0, g.hud_icons_vertex.slice(..));
-                    p.draw(0..126, 0..1);
+                    if inventory_open {
+                        p.set_pipeline(&g.hud_pipeline);
+                        p.set_bind_group(0, &g.inventory_bind, &[]);
+                        p.set_vertex_buffer(0, g.inventory_vertex.slice(..));
+                        p.draw(0..6, 0..1);
+                        if inventory_icon_count > 0 {
+                            p.set_bind_group(0, &g.items_bind, &[]);
+                            p.set_vertex_buffer(0, g.inventory_icons_vertex.slice(..));
+                            p.draw(0..inventory_icon_count, 0..1);
+                        }
+                    } else if show_hud {
+                        p.set_pipeline(&g.hud_pipeline);
+                        p.set_bind_group(0, &g.gui_bind, &[]);
+                        p.set_vertex_buffer(0, g.hud_gui_vertex.slice(..));
+                        p.draw(0..12, 0..1);
+                        p.set_bind_group(0, &g.icons_bind, &[]);
+                        p.set_vertex_buffer(0, g.hud_icons_vertex.slice(..));
+                        p.draw(0..126, 0..1);
+                    }
                 }
                 g.queue.submit([e.finish()]);
                 g.queue.present(frame)
@@ -1346,6 +1424,7 @@ impl ApplicationHandler for App {
                 self.last = Instant::now();
                 self.mouse_delta.clear();
                 if !focused {
+                    self.inventory_screen.focus_lost();
                     self.controls = Controls::default();
                     self.wheel_input.clear();
                     self.controller.clear_clock();
@@ -1371,7 +1450,10 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => self.frame(),
             WindowEvent::MouseInput { state, button, .. }
-                if state == ElementState::Pressed && self.focused && self.captured =>
+                if state == ElementState::Pressed
+                    && self.focused
+                    && self.captured
+                    && !self.inventory_screen.is_open() =>
             {
                 let breaking = match button {
                     MouseButton::Left => true,
@@ -1388,7 +1470,9 @@ impl ApplicationHandler for App {
                     }
                 }
             }
-            WindowEvent::MouseWheel { delta, .. } if self.focused => {
+            WindowEvent::MouseWheel { delta, .. }
+                if self.focused && !self.inventory_screen.is_open() =>
+            {
                 let step = match delta {
                     winit::event::MouseScrollDelta::LineDelta(_, y) => {
                         self.wheel_input.line_event(f64::from(y))
@@ -1406,7 +1490,17 @@ impl ApplicationHandler for App {
                     return;
                 }
                 if let PhysicalKey::Code(code) = event.physical_key {
-                    if code == KeyCode::Escape {
+                    let pressed = event.state == ElementState::Pressed;
+                    let transition = self.inventory_screen.key_event(
+                        code == KeyCode::KeyE,
+                        code == KeyCode::Escape,
+                        pressed,
+                        event.repeat,
+                        self.focused,
+                    );
+                    if matches!(transition, inventory_screen::Transition::Opened) {
+                        self.controls = Controls::default();
+                        self.inventory_resume_capture = self.captured;
                         self.captured = false;
                         self.mouse_delta.clear();
                         if let Some(w) = &self.window {
@@ -1415,7 +1509,31 @@ impl ApplicationHandler for App {
                         }
                         return;
                     }
-                    let pressed = event.state == ElementState::Pressed;
+                    if matches!(transition, inventory_screen::Transition::Closed) {
+                        self.controls = Controls::default();
+                        self.mouse_delta.clear();
+                        if self.inventory_resume_capture
+                            && let Some(w) = &self.window
+                            && w.set_cursor_grab(CursorGrabMode::Locked).is_ok()
+                        {
+                            w.set_cursor_visible(false);
+                            self.captured = true;
+                        }
+                        self.inventory_resume_capture = false;
+                        return;
+                    }
+                    if matches!(transition, inventory_screen::Transition::ReleasedCapture) {
+                        self.captured = false;
+                        self.mouse_delta.clear();
+                        if let Some(w) = &self.window {
+                            w.set_cursor_visible(true);
+                            let _ = w.set_cursor_grab(CursorGrabMode::None);
+                        }
+                        return;
+                    }
+                    if self.inventory_screen.is_open() {
+                        return;
+                    }
                     let number = match code {
                         KeyCode::Digit1 => Some(1),
                         KeyCode::Digit2 => Some(2),
