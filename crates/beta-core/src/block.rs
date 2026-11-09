@@ -339,7 +339,7 @@ impl BlockScene {
                         })
                         .map_err(RelightError::from)?;
                     let (opacity, emission) = material(block.id, block.metadata);
-                    if opacity > 15 || emission > 15 {
+                    if emission > 15 {
                         return Err(RelightError::InvalidMaterial);
                     }
                     let new_sky = if opacity != 0 {

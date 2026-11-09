@@ -1071,7 +1071,7 @@ impl App {
             beta_core::block::MAX_RELIGHT_CELLS,
             |id, metadata| {
                 let emission = beta_core::light::emission_level(id);
-                (if id == 0 { 0 } else { 15 }, emission)
+                (if id == 0 { 0 } else { 255 }, emission)
             },
         )?;
         let (chunk_x, local_x) = split_block_coord(x);
