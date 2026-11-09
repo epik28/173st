@@ -296,6 +296,8 @@ impl BlockScene {
     /// Recomputes bounded block and sky light in the already loaded scene.
     /// The operation is pure with respect to disk and reports unloaded
     /// boundary cells explicitly.
+    /// `material` must return stable properties for each ID/metadata pair;
+    /// its call count is unspecified because column opacity is cached.
     pub fn relight<F>(
         &mut self,
         changed: (i32, i32, i32),

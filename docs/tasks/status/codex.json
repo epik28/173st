@@ -907,12 +907,14 @@
     },
     "LIGHT-UPDATE-002-C01": {
       "state": "in_progress",
-      "summary": "Native material-registry and complete synthetic canopy/water snapshots establish two corrected opacity/direct-sky defects. Exact user-save screenshot reproduction, general queue/height-map propagation and paired frames remain outstanding, so the parent issue is open.",
+      "summary": "Two opacity/direct-sky defects are corrected. Full V2 comparisons confirm canopy/water light but expose leaf-placement and emissive propagation failures. Exact user-save screenshot reproduction, queue/height-map propagation and paired frames remain outstanding; parent issue stays open.",
       "checks": [
         "python3 tools/oracle/light_material_audit.py → PASS: two identical captures of all256 original uu.m/q/s entries, pinned JAR/source/class/bootstrap/output hashes.",
         "python3 tools/oracle/light_material_edit_audit.py → PASS: two identical8159-row captures for three synthetic edits, with complete native pre-edit state/height exceptions and before/after samples.",
         "Native fixture regression first failed water-place with Rust sky15 vs native12; 1c83d2c fixes raw material opacity and inclusion of current opacity in sky visibility. All19 after-light samples now match; old light_update four tests stay green.",
-        "Native leaf metadata bit8 after log removal is retained as an unimplemented lifecycle difference; no exact screenshot or full block-metadata simulation parity is claimed."
+        "Native leaf metadata bit8 after log removal is retained as an unimplemented lifecycle difference; no exact screenshot or full block-metadata simulation parity is claimed.",
+        "V2 audit → PASS: two identical 44806-row native captures; complete reconstructed state SHA-256 and every cell/height delta verified. light_snapshot_probe → FAIL as expected: leaf-place 2107, glowstone-place 6195, glowstone-remove 3852 light mismatches; canopy/water light zero, canopy-remove metadata12. Each step starts from preceding native state.",
+        "Column-opacity cache accepted from 60dd38e as c622882: complete scene/RelightResult unchanged across eight old fixture cases, and V2 mismatch report identical before/after. Release fixture medians 1237/1273/1286us → 520/533/683us; no general FPS claim."
       ]
     },
     "LIGHT-UPDATE-002-C02": {
@@ -922,11 +924,12 @@
     },
     "MENU-PARITY-001-C01": {
       "state": "in_progress",
-      "summary": "Pinned native menu resources/bytecode and direct qq scaling outputs are captured. Font metrics are explicitly bitmap/bytecode-derived. Four original menu/list frames at two viewports/scales were captured and visually reviewed; remaining save/input cases and paired comparison are outstanding.",
+      "summary": "Pinned native menu resources, qq scaling, derived font metrics, four empty-menu/list frames and synthetic save/input captures are available. Native Return retains selection and Cancel/Escape return to main. Unexplained conversion-row omission at the larger profile and paired Rust/native presentation remain outstanding; C01 stays open.",
       "checks": [
         "python3 tools/oracle/menu_parity_audit.py → PASS: pinned GUI/locale/resource/class evidence, nine direct native scaled-resolution cases and256 derived glyph metrics.",
         "python3 -m unittest tests.python.test_menu_parity_audit -q → PASS:4 scoped audit/mutation tests.",
-        "Native capture helper uses local Java8/LWJGL, disposable JVM user.home under ignored artifacts, local HTTP/HTTPS proxies and isolated audio; it never opens user saves. Approved Xvfb rerun exited 0; coordinator confirmed main and empty Select World at 854x480/gui1 and 1280x720/gui3. All four hashes are recorded in the C01 handoff."
+        "Native capture helper uses local Java8/LWJGL, disposable JVM user.home under ignored artifacts, local HTTP/HTTPS proxies and isolated audio; it never opens user saves. Approved Xvfb rerun exited 0; coordinator confirmed main and empty Select World at 854x480/gui1 and 1280x720/gui3. All four hashes are recorded in the C01 handoff.",
+        "Synthetic native hi audit and nine focused menu tests pass. Twelve GUI frames captured; selected and Return PNGs are byte-identical at both scales, while larger-profile initial list has only two of three expected rows. Five metadata file hashes unchanged, no playable world or additional save files created. Missing conversion-row discrepancy remains unresolved."
       ]
     },
     "MENU-PARITY-001-C02": {

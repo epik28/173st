@@ -1798,3 +1798,38 @@ it is explicitly a failing diagnostic, not a passed parity suite. Some native
 glowstone differences also affect y0 beyond the submitted local scan. The
 reported user camera/edit sequence is still unavailable, so no exact screenshot
 fix is claimed. No readiness point is added for this investigation.
+
+## Expanded batch integration
+
+Accepted worker performance commit `60dd38e` as `c622882` after reviewing the
+column cache and reproducing the release benchmark. Coordinator output digests
+for all eight complete scenes/results match the corrected baseline. The V2
+full-domain mismatch table also remains byte-identical before/after caching.
+The initial benchmark missed water placement when its air target was absent
+from sparse state exceptions; coordinator caught this and required unconditional
+replacement plus native sample validation before accepting the corrected runs.
+The three fixture medians improved from1237/1273/1286us to520/533/683us. No
+general FPS, 25-chunk workload or additional readiness point is claimed.
+
+Native synthetic menu captures and `hi` metadata reader now cover conversion
+flags, corrupt-primary fallback/filtering, short-list centering, selection and
+Return/Cancel/Escape in disposable runtimes. Final Return PNGs match selected
+PNGs exactly at both scales. The larger-profile list unexpectedly omits the
+conversion row despite unchanged metadata hashes; C01 remains open for this
+reference discrepancy and final paired presentation review. No user saves or
+original assets were committed/modified.
+
+Final expanded `python3 tools/check.py`:244 Python tests,18 opt-in skips, all
+workspace fmt/check/clippy -D warnings, Rust all-target and doc tests PASS.
+The last capture-helper fix was additionally checked by all9 focused menu
+tests. Root directly reran V2 native audit (two fresh identical captures), the
+release benchmark and the full-state diagnostic (expected FAIL, not pass).
+Final `cargo build --locked --offline -p beta-viewer` and approved Xvfb
+`tools/viewer_smoke.py --enter-world` PASS; screenshot inspected and all six
+source files still matched the original save manifest before/after the run.
+
+Three workers completed and are idle with clean worktrees; coordinator keeps
+the two native C01 investigations open. Local main integration follows this
+record; GitHub is still deferred to the agreed5–10 point interval. Readiness
+remains **≈36%**. Next: general light propagation/height-map and reference menu
+discrepancy, then native menu implementation and fuller survival systems.
