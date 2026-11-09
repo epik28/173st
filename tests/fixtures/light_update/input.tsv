@@ -1,0 +1,10 @@
+# Coordinates and case definitions; each synthetic scenario starts from nine loaded all-air chunks.
+# Old/new edit metadata is explicit per case; all current operations use metadata 0.
+# Opacity/emission are read from the pinned native uu.q/uu.s registries.
+# lm.c() computes the native height map and direct sky nibble arrays before each edit.
+# Format: case name old_id old_meta new_id new_meta x y z|ordered_query_x,y,z;...
+case	remove	1	0	0	0	8	64	8|8,66,8;8,65,8;8,64,8;8,63,8;8,62,8;8,61,8;8,60,8;7,63,8;9,63,8;8,63,7;8,63,9;7,64,8;9,64,8;8,64,7;8,64,9
+case	place	0	0	1	0	8	64	8|8,66,8;8,65,8;8,64,8;8,63,8;8,62,8;8,61,8;8,60,8;7,63,8;9,63,8;8,63,7;8,63,9;7,64,8;9,64,8;8,64,7;8,64,9
+case	roof	0	0	1	0	8	127	8|8,127,8;8,126,8;8,125,8;8,124,8;8,123,8;8,122,8;8,121,8;8,120,8;8,119,8;8,118,8;7,126,8;9,126,8;8,126,7;8,126,9
+case	edge	0	0	1	0	15	64	8|15,66,8;15,65,8;15,64,8;15,63,8;15,62,8;15,61,8;15,60,8;14,63,8;16,63,8;15,63,7;15,63,9;14,64,8;16,64,8;15,64,7;15,64,9
+case	edge-x31	0	0	1	0	31	64	8|31,64,8;31,63,8;30,63,8;32,63,8
