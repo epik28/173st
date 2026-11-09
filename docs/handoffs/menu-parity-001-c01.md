@@ -49,7 +49,7 @@ Remaining C01 work: visually review the new synthetic save-list and input frames
 
 This native filtering has no direct visual equivalent to the Rust chooser's unavailable-save safety state. Rust discovery keeps malformed or incomplete entries visible with a launch reason and blocks activation; the native listing drops malformed metadata folders, while valid metadata-only worlds remain listed without checking required region files. The safe native audit therefore shows those rows as the original client would, including the conversion warning, and records that this UI differs from the Rust unavailable row by design. It does not invent a native disabled row or claim parity for missing chunks.
 
-The first synthetic GUI run showed three initial rows correctly and Cancel/Escape returned to the main menu, but its selected-row frames were not valid: the click used y=50 and missed the vertically centered rows. The harness now derives the click from `lg.d()` and records the logical and physical coordinates. Its focused regression expects row-click centers at y=190 (854×480) and y=70 logical/y=210 physical (1280×720 at GUI scale 3), and a mocked launch-path test exercises selection, Return, Cancel, reopen, and Escape at both profiles without claiming GUI evidence. The first rerun with corrected coordinates captured a selected-frame candidate before a manifest field-name error; the typo is fixed. The final live selected-row and post-Return behavior still needs coordinator visual review.
+The first synthetic GUI run showed three initial rows correctly and Cancel/Escape returned to the main menu, but its selected-row frames were not valid: the click used y=50 and missed the vertically centered rows. The harness now derives the click from `lg.d()` and records the logical and physical coordinates. Its focused regression expects row-click centers at y=190 (854×480) and y=70 logical/y=210 physical (1280×720 at GUI scale 3), and a mocked launch-path test exercises selection, Return, Cancel, reopen, and Escape at both profiles without claiming GUI evidence. A later manifest field-name error was fixed before the accepted rerun.
 
 The reusable synthetic GUI command writes to paths separate from the accepted empty-list frames and manifest:
 
@@ -57,7 +57,18 @@ The reusable synthetic GUI command writes to paths separate from the accepted em
 env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1400x900x24' python3 tools/oracle/native_menu_capture.py --runtime artifacts/menu-parity-capture/synthetic-runtime --output artifacts/menu-parity-capture/synthetic-frames --save-set synthetic
 ```
 
-For each resolution/GUI scale, it captures the initial list, selects the first sorted row, sends Return, clicks Cancel, reopens the chooser, and sends Escape. It records every frame hash and action coordinates in the manifest; it never activates Play. The coordinator must inspect these frames before they count as live behavior evidence.
+For each resolution/GUI scale, it captures the initial list, selects the first sorted row, sends Return, clicks Cancel, reopens the chooser, and sends Escape. It records every frame hash and action coordinates in the manifest; it never activates Play. Coordinator-reviewed results follow.
+
+## Coordinator review of synthetic list and input frames
+
+The coordinator visually reviewed the corrected 12-frame rerun. The pinned `rq` screen has no Enter key override; `da.g()` dispatches keydown to its base handler, which only handles Escape. In both profiles, the post-Return frame is byte-for-byte identical to the selected-row frame, including selected-row outline and enabled Play/Rename/Delete buttons. Thus Return preserves the chooser selection and does not activate Play in these captures. Cancel and Escape frames show the main menu; Escape follows `da`'s `Minecraft.a(null)` path, which substitutes `fu` when no world is active.
+
+| Profile | Initial list SHA-256 | Selected row SHA-256 | Return SHA-256 | Cancel SHA-256 | Escape SHA-256 |
+| --- | --- | --- | --- | --- | --- |
+| 854×480 / GUI 1 | `7aaa16e2edf7aee8f9cc151ec52a4b763d1ed2e65a4b177578253d0f191438f8` | `1f24e22c2855c7ead1985dbdd638d3b44e11d9c2a87292e6c554bf2b99135a90` | `1f24e22c2855c7ead1985dbdd638d3b44e11d9c2a87292e6c554bf2b99135a90` | `fb3416c3a6f58da695f01b2f3f55b52b4b59caab49afba6b5566166d818befd0` | `22b84b30606bec1b6dd61f78ba7b9803875f6b3f66c1e004d0c83a93bfc3788e` |
+| 1280×720 / GUI 3 | `745d2fa64452e8a2d4b57395e02ec7e3b4e8bba55350591e714eb0ed82975bfa` | `9f85aa5bbcaa3109215eb474172286ee51fff89987ee461205524ea75321dfe7` | `9f85aa5bbcaa3109215eb474172286ee51fff89987ee461205524ea75321dfe7` | `e494b2a26c6b276d8a8a36f266f34e7386deb9bc8c462088b1595b99cd44b845` | `d4124b74a53f1adc7660ac3449f65b1a3cbcfd93c301d17aca94402fbcb85bde` |
+
+The initial 854×480 list visibly contains Conversion, Current, and Backup, including the native “Must be converted!” warning. The 1280×720 initial and selected frames contain only Current and Backup, even though the disposable metadata inputs have the same five SHA-256 values across both launches, and the capture manifest records three fixture rows for both. The direct native `hi` reader oracle also returns all three rows. This profile-dependent discrepancy is unresolved; do not infer a stable native screen row contract across profiles from these captures. The harness never presses Play and no world is loaded. C01 remains open for this discrepancy and paired Rust/native comparison; unavailable-save behavior still has no native UI equivalent.
 
 ## Prepared safe native capture
 
