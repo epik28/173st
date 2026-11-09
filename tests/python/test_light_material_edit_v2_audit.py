@@ -53,13 +53,18 @@ class LightMaterialEditV2AuditTests(unittest.TestCase):
         text=self.data.decode('ascii')
         snapshot=next(line for line in text.splitlines() if line.startswith('snapshot\t'))
         changed=text.replace(snapshot,snapshot[:-1]+('0' if snapshot.endswith('1') else '1'),1).encode()
-        with self.assertRaisesRegex(ValueError,'incomplete case phases'):
+        with self.assertRaisesRegex(ValueError,'before snapshot digest'):
             audit.validate(changed)
         delta=next(line for line in text.splitlines() if line.startswith('delta\t'))
         fields=delta.split('\t');fields[-1]=str((int(fields[-1])+1)%16)
         changed=text.replace(delta,'\t'.join(fields),1).encode()
-        manifest=json.loads(MANIFEST.read_text())
-        self.assertNotEqual(hashlib.sha256(changed).hexdigest(),manifest['output_sha256'])
+        with self.assertRaisesRegex(ValueError,'native cell deltas'):
+            audit.validate(changed)
+        state=next(line for line in text.splitlines() if line.startswith('state\t'))
+        fields=state.split('\t');fields[6]=str((int(fields[6])+1)%256)
+        mutated=text.replace(state,'\t'.join(fields),1).encode()
+        with self.assertRaisesRegex(ValueError,'native snapshot digest'):
+            audit.validate(mutated)
 
     def test_wrong_jar_and_bounded_protocol_rejected(self):
         with self.assertRaisesRegex(ValueError,'wrong or missing pinned'):

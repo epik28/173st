@@ -117,3 +117,76 @@ Commands run:
 The oracle only reads the pinned client JAR and uses synthetic fixed input. It
 does not open saves or alter original assets. The user's exact edit/save
 reproduction and visual comparison remain outstanding.
+
+## V2 full-state native edits and coordinator comparison
+
+Commit `f0dcc3e` adds an independent V2 corpus; V1 `native_edits.tsv` remains
+unchanged. `LightMaterialEditV2Oracle` captures four synthetic scenarios with
+three ordered native phases (`before`, `after-place`, `after-remove`): the
+canopy/log sequence, a leaf opacity placement/removal, a water attenuation
+placement/removal, and glowstone emission at x=15 crossing into loaded chunk
+x=1. Every phase records a SHA-256 over all nine chunks' raw block, metadata,
+sky-light, block-light, and height arrays. Sparse `state` and `height` rows
+encode deviations from the declared all-air defaults; `delta` and `hdelta` rows
+encode complete transitions between adjacent native phases. Each `edit` row
+precedes its resulting snapshot.
+
+The V2 fixture `tests/fixtures/light_material/native_edits_v2.tsv` is 2,769,192
+bytes and 44,806 ordered rows, SHA-256
+`d12c5ba682813944647dbe3ac74e7d61235684d122cf40e8d9bc5440b78d8222`. The
+manifest `tests/fixtures/light_material/edit_v2_audit.json` records the pinned
+JAR, adapter and helper source, request, native class, bootstrap, output, and
+two identical capture hashes. The audit reconstructs each complete raw native
+snapshot and checks its digest, then verifies every cell and height delta
+against the adjacent snapshots. Mutation tests cover those links, declared
+all-air defaults, seed rows, wrong-JAR handling, and bounded protocol input.
+
+Native glowstone ID 89 at `(15,64,8)` has block light 15 and sky light 0.
+Native cells `(14,64,8)` and `(16,64,8)` each have block light 14 while their
+sky light remains 15; cells at x=13 and x=17 have block light 13. Removal
+restores the neighboring block-light samples to zero. This is synthetic native
+emission behavior only.
+
+The coordinator ran the full-state Rust comparison using the V2 fixture and
+reported the following counts. Each phase compares all 294,912 cells in the
+nine loaded chunks. The command exited 1 because it found mismatches:
+
+| Scenario and phase | Light mismatches | Block ID mismatches | Metadata mismatches |
+| --- | ---: | ---: | ---: |
+| canopy/log after-place | 0 | 0 | 0 |
+| canopy/log after-remove | 0 | 0 | 12 |
+| leaf after-place | 2,107 | 0 | 0 |
+| leaf after-remove | 0 | 0 | 0 |
+| water after-place | 0 | 0 | 0 |
+| water after-remove | 0 | 0 | 0 |
+| glowstone after-place | 6,195 | 0 | 0 |
+| glowstone after-remove | 3,852 | 0 | 0 |
+
+This comparison is reported by the coordinator; C01 did not run the Rust
+comparator. For each edit, the comparator starts from that phase's complete
+native predecessor snapshot before applying the edit, so these counts do not
+measure a cumulative Rust edit sequence. Its light counts are over block- and
+sky-light cells. It makes no height-map, metadata parity, renderer, GPU, or
+screenshot reproduction claim. The canopy metadata differences reflect native
+leaf neighbor marking outside the light-only Rust contract. The coordinator
+also reported a glowstone-removal stale-light discrepancy at `(1,64,8)` (Rust
+block light 1, native 0) and a y=0 sky-light discrepancy in the glowstone
+comparison; those details are captured in its diagnostic output, not inferred
+from the native fixture.
+
+The comparator command reported by the coordinator was:
+
+```text
+cargo run --quiet --locked --offline -p beta-core --example light_snapshot_probe < tests/fixtures/light_material/native_edits_v2.tsv > artifacts/light-full-state-comparison.tsv 2> artifacts/light-full-state-comparison.log
+```
+
+V2 checks run in C01:
+
+- `python3 tools/oracle/light_material_edit_v2_audit.py --write` — two native
+  JVM captures matched; 44,806 rows; output SHA-256 above.
+- `python3 tools/oracle/light_material_edit_v2_audit.py` — two new native
+  captures matched the frozen fixture and manifest.
+- `python3 -m unittest tests.python.test_light_material_audit tests.python.test_light_material_edit_v2_audit -v`
+  — 12 focused Python tests passed at capture commit; the added V2 integrity
+  hardening was separately checked by all 6 V2 tests.
+- `git diff --check` — passed for the V2 capture commit.

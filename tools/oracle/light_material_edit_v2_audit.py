@@ -21,6 +21,47 @@ def pinned_jar(path):
     path=path.resolve()
     if not path.is_file() or sha(path.read_bytes())!=JAR_SHA: raise ValueError('wrong or missing pinned client JAR')
     return path
+def _set_nibble(raw,index,value):
+    pos=index >> 1
+    if index & 1: raw[pos]=(raw[pos] & 0x0f) | ((value & 15) << 4)
+    else: raw[pos]=(raw[pos] & 0xf0) | (value & 15)
+
+def _native_snapshot_digest(case,phase):
+    digest=hashlib.sha256()
+    states=case['state'].get(phase,{})
+    heights=case['height'].get(phase,{})
+    for cx in (-1,0,1):
+      for cz in (-1,0,1):
+        blocks=bytearray(32768);metadata=bytearray(16384);sky=bytearray(16384);block=bytearray(16384);height=bytearray(256)
+        for y in range(1,128):
+          for lx in range(16):
+            for lz in range(16):
+              index=(lx << 11) | (lz << 7) | y
+              _set_nibble(sky,index,15)
+        for (x,y,z),(bid,meta,bl,sk) in states.items():
+          if (x >> 4)!=cx or (z >> 4)!=cz: continue
+          lx=x & 15; lz=z & 15; index=(lx << 11) | (lz << 7) | y
+          blocks[index]=bid
+          _set_nibble(metadata,index,meta);_set_nibble(block,index,bl);_set_nibble(sky,index,sk)
+        for (x,z),h in heights.items():
+          if (x >> 4)==cx and (z >> 4)==cz: height[(x & 15)*16+(z & 15)]=h & 255
+        digest.update(bytes((cx & 255,cz & 255)))
+        digest.update(blocks);digest.update(metadata);digest.update(sky);digest.update(block);digest.update(height)
+    return digest.hexdigest()
+
+def _expected_state_deltas(case,fr,to):
+    a=case['state'].get(fr,{});b=case['state'].get(to,{})
+    keys=set(a)|set(b);out={}
+    for x,y,z in keys:
+      default=(0,0,0,0 if y==0 else 15)
+      old=a.get((x,y,z),default);new=b.get((x,y,z),default)
+      if old!=new: out[(x,y,z)]=old+new
+    return out
+
+def _expected_height_deltas(case,fr,to):
+    a=case['height'].get(fr,{});b=case['height'].get(to,{})
+    return {key:(a.get(key,0),b.get(key,0)) for key in set(a)|set(b) if a.get(key,0)!=b.get(key,0)}
+
 def validate(data):
     if not data or len(data)>5_000_000 or not data.endswith(b'\n') or b'\r' in data: raise ValueError('V2 output size/line ending invalid')
     try: lines=data.decode('ascii').splitlines()
@@ -88,12 +129,23 @@ def validate(data):
     if tuple(order)!=CASES: raise ValueError('case list/order mismatch')
     expected_phases={'before','after-place','after-remove'}
     for name,c in cases.items():
-        if not c['domain'] or set(c['phases'])!=expected_phases or c['steps']!=2 or c['snap_order'][0][1]!=c['digest']: raise ValueError(f'incomplete case phases {name}')
+        if not c['domain'] or set(c['phases'])!=expected_phases or c['steps']!=2: raise ValueError(f'incomplete case phases {name}')
+        if c['snap_order'][0][1]!=c['digest']: raise ValueError(f'before snapshot digest differs from domain digest: {name}')
         if len(c['seed'])!=len(set((x,y,z) for x,y,z,*_ in c['seed'])): raise ValueError(f'duplicate seed coordinate {name}')
         if 'before' not in c['snap']: raise ValueError(f'missing state snapshot {name}')
         before_states=c['state'].get('before',{})
         for x,y,z,bid,meta in c['seed']:
             if before_states.get((x,y,z),(0,0,0,0 if y==0 else 15))[:2]!=(bid,meta): raise ValueError(f'seed differs from native before snapshot {name}')
+        for phase in c['phases']:
+            actual=_native_snapshot_digest(c,phase)
+            if actual!=c['snap'][phase]: raise ValueError(f'native snapshot digest does not match reconstructed full state: {name} {phase}')
+        for fr,to in (('before','after-place'),('after-place','after-remove')):
+            expected=_expected_state_deltas(c,fr,to)
+            actual=c['deltas'].get((fr,to),{})
+            if actual!=expected: raise ValueError(f'native cell deltas do not match adjacent complete snapshots: {name} {fr}->{to}')
+            expected_h=_expected_height_deltas(c,fr,to)
+            actual_h=c['hdeltas'].get((fr,to),{})
+            if actual_h!=expected_h: raise ValueError(f'native height deltas do not match adjacent complete snapshots: {name} {fr}->{to}')
     for name,phase,op,x,y,z,bid,meta in edit_rows:
         if (phase,op,bid) not in (('after-place','place',17),('after-place','place',18),('after-place','place',9),('after-place','place',89),('after-remove','remove',0)): raise ValueError(f'unexpected edit transition {name}')
     if len(edit_rows)!=8: raise ValueError('expected exactly eight sequential edit rows')
