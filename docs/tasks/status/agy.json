@@ -367,6 +367,11 @@
         "python3 tools/parity/run.py items --strict → PASS: 6 scenarios, 21 ordered states, mismatch_count=0 on clean revision 77f968e8038c0a6c59bc4acc700e8553747a5389; rust_dirty=false",
         "python3 tools/parity/items_review.py artifacts/parity/items/run-j7vkxij2/report.json → PASS: 8 verified processes, pinned native output SHA-256 b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916"
       ]
+    },
+    "HUD-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

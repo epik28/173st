@@ -415,3 +415,13 @@ single-field mutation. До Rust probe strict должен возвращать 
 Убедиться, что user save не читался/не записывался. Обновить progress/estimate
 только за завершённые игровые возможности; GUI пока не входит. Принять в main и
 синхронизировать idle worktrees.
+
+## HUD-001-C01/C02 — native audit and acceptance
+
+Follow [HUD-001](HUD-001.md). C01 owns only oracle/resource audit files, never
+viewer Rust. Verify exact pinned `gui/gui.png` and `gui/icons.png` resource bytes,
+dimensions and `GuiIngame` class/method provenance; retain layout/UV evidence and
+test rejection of a wrong JAR or altered evidence. Commit C01. After A01 is ready,
+C02 reviews the exact agy commit, runs the audit and full checks, and attempts a
+viewer smoke only if the source-world guard permits it. Record the limited
+render-only claims, update progress/estimate, and accept in main.

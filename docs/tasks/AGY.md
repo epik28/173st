@@ -288,3 +288,15 @@ commit A01.
 Сравнить все C01 native rows и malformed/duplicate/limit paths. Не расширять
 реестр предметов вне native-captured set. Запустить проверки, записать ограничения,
 обновить свой status/handoff и commit A02.
+
+## HUD-001-A01 — render first-person HUD overlay
+
+Follow [HUD-001](HUD-001.md). Implement only the render-only first-person
+hotbar frame/selection, full-health heart row, and crosshair using the original
+Beta GUI atlas resources and native pixel layout. Do not implement item sprites,
+inventory interaction, survival health/damage, or alter the world integrity
+guard. Keep edits inside `crates/beta-viewer/src/` and its unit tests plus your
+role status/handoff. Test UV bounds, nearest/pixel-aligned viewport layout,
+multiple aspect ratios, and that HUD is rendered after world geometry. Run fmt,
+viewer tests and clippy; report if visual startup is blocked by the changed local
+world. Commit A01.

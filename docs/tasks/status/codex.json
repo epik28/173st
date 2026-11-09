@@ -664,6 +664,16 @@
         "Reviewed bounded beta_core::items and items_probe; invalid -1/9 lookups preserve safe internal selection bounds and match native empty lookup rows; failure input stages no partial stdout",
         "Flight smoothing accepted separately: unit/frame-partition checks and full workspace checks PASS; Xvfb stopped by same level.dat hash guard, no visual smoke claim"
       ]
+    },
+    "HUD-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "HUD-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

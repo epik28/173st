@@ -859,6 +859,30 @@
         "ITEMS-001-A01",
         "ITEMS-001-A02"
       ]
+    },
+    {
+      "id": "HUD-001-C01",
+      "owner": "codex",
+      "title": "Native HUD layout and resource audit",
+      "card": "docs/tasks/HUD-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HUD-001-A01",
+      "owner": "agy",
+      "title": "Render first-person HUD overlay",
+      "card": "docs/tasks/HUD-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HUD-001-C02",
+      "owner": "codex",
+      "title": "HUD integration and acceptance",
+      "card": "docs/tasks/HUD-001.md",
+      "depends_on": [
+        "HUD-001-C01",
+        "HUD-001-A01"
+      ]
     }
   ]
 }
