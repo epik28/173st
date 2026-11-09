@@ -779,9 +779,15 @@
       ]
     },
     "HOTBAR-ITEMS-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned native bb/uq/sj audit and repeatable original-JVM corpus for hotbar item icons, atlas dispatch, count visibility and digit widths. IDs <256 use terrain.png; IDs >=256 use gui/items.png. Count labels are fully auditable/implementable from the original font atlas.",
+      "checks": [
+        "python3 tools/oracle/hotbar_items_audit.py ../.local/minecraft/client-b1.7.3.jar → PASS; two JVM captures identical, code source and JAR pinned",
+        "5 corpus rows: IDs 1/3/332/267, slots 0/4/8, counts 1/2/16; native tiles 1/2/14/66 and atlas UVs verified against INVENTORY-UI-001",
+        "Original font/default.png and font.txt hashes pinned; Java FontRenderer scan yields digit widths [8,8,8,8,9,9,8,9,8,8]; count anchor x+17-width, y+9",
+        "javap evidence proves uq render slot invokes bb icon then count after HUD; bb atlas threshold 256, 16x16 UV tile; no GL/pixel-render parity claimed",
+        "python3 -m unittest tests.python.test_hotbar_items_audit -v → 3 PASS; no viewer Rust, Agy files, or saves changed"
+      ]
     },
     "HOTBAR-ITEMS-001-C02": {
       "state": "pending",

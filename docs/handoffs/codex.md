@@ -1451,3 +1451,12 @@ The black rectangular opening remains unclassified; it may be an actual exposed,
 unlit part of the saved terrain under transparent water. Do not add a bottom face
 without a native mismatch. This candidate is synchronized to codex/agy locally;
 hold the visual claim and GitHub push until it is checked in a compositor.
+
+## HOTBAR-ITEMS-001-C01 — native hotbar item renderer audit
+
+- Codex branch synchronized through shared contract `3f44a6f`. The original JAR is pinned at SHA-256 `af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c`; inspected classes `uq`, `bb`, `sj`, `fp`, `iz`, `gm`, and supported item classes `ck`, `dm`, `qd` have hashes in `tests/fixtures/hotbar_items/audit.json`.
+- `uq.a(FZII)V` draws the hotbar slot content through `uq.a(IIIF)V`; that method skips null slots and calls `bb.a(sj,ji,iz,int,int)` for icon then `bb.b(sj,ji,iz,int,int)` for count. In the parent HUD pass this occurs after crosshair and health/armor. The audited slot origin is `width/2 - 90 + slot*20 + 2`, `height - 19` (16x16 icon), for slots 0–8.
+- `bb.a(sj,ji,int,int,int,int,int)` branches on item ID `<256`: terrain atlas; otherwise gui/items. Both use the native 16x16 tile UV from stack icon index. Native registry results: ID 1→ck tile 1, ID 3→ck tile 2, ID 332→dm tile 14, ID 267→qd tile 66. Resource and class hashes are checked by the verifier.
+- Counts render only for stack size >1. Original `sj` font scan is captured from `font/default.png` plus `font.txt`; native digit widths are 8,8,8,8,9,9,8,9,8,8. Text anchor is `x+17-width`, `y+9`; original draw color is white. Thus count labels are in scope for A01 using the pinned font atlas. This is geometry/resource evidence, not a GL pixel capture.
+- `python3 tools/oracle/hotbar_items_audit.py ../.local/minecraft/client-b1.7.3.jar` verifies JAR/resource/class hashes, bytecode excerpts, and two exact JVM oracle outputs. `python3 -m unittest tests.python.test_hotbar_items_audit -v` → 3 PASS. No Rust, Agy status, world, or save files changed.
+- Native corpus/audit files: `tools/oracle/hotbar_items_audit.py`, `tools/oracle/src/HotbarItemsOracle.java`, `tests/fixtures/hotbar_items/audit.json`, and `tests/python/test_hotbar_items_audit.py`. A01 can implement item icons and counts using the per-ID atlas distinction and digit width evidence. No claim of rendered pixel parity is made.
