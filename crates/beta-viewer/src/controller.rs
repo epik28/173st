@@ -79,6 +79,8 @@ pub struct MotionController {
     previous: MotionState,
     accumulator: Duration,
     pub debug_flight: bool,
+    flight_previous: [f64; 3],
+    flight_current: [f64; 3],
 }
 
 impl MotionController {
@@ -88,6 +90,8 @@ impl MotionController {
             previous: state,
             accumulator: Duration::ZERO,
             debug_flight: false,
+            flight_previous: state.position,
+            flight_current: state.position,
         }
     }
 
@@ -138,10 +142,35 @@ impl MotionController {
         })
     }
 
-    pub fn flight_tick(&mut self) {
+    pub fn begin_flight(&mut self, position: [f32; 3]) {
+        self.sync_flight_position(position);
+        self.debug_flight = true;
+    }
+
+    pub fn flight_tick(&mut self, position: [f32; 3]) {
         debug_assert!(self.accumulator >= TICK);
         self.previous = self.state;
+        self.flight_previous = self.flight_current;
+        self.flight_current = position.map(f64::from);
         self.accumulator -= TICK;
+    }
+
+    /// Synchronizes both render samples after a discontinuous camera change.
+    pub fn sync_flight_position(&mut self, position: [f32; 3]) {
+        let position = position.map(f64::from);
+        self.flight_previous = position;
+        self.flight_current = position;
+    }
+
+    pub fn interpolated_flight_position(&self) -> [f64; 3] {
+        let alpha = self.interpolation();
+        std::array::from_fn(|i| {
+            self.flight_previous[i] * (1.0 - alpha) + self.flight_current[i] * alpha
+        })
+    }
+
+    pub fn flight_position(&self) -> [f32; 3] {
+        self.flight_current.map(|value| value as f32)
     }
 
     pub fn clear_clock(&mut self) {
@@ -163,6 +192,9 @@ impl MotionController {
         self.state = MotionState::new(safe_spawn);
         self.previous = self.state;
         self.accumulator = Duration::ZERO;
+        self.debug_flight = false;
+        self.flight_previous = [safe_spawn[0], safe_spawn[1] + 1.62, safe_spawn[2]];
+        self.flight_current = self.flight_previous;
     }
 
     pub fn land_from_flight(&mut self, eye: [f32; 3], yaw_degrees: f32) {
@@ -174,6 +206,8 @@ impl MotionController {
         state.yaw_degrees = yaw_degrees;
         self.state = state;
         self.previous = state;
+        self.sync_flight_position(eye);
+        self.debug_flight = false;
     }
 }
 
@@ -187,6 +221,67 @@ pub fn collider_query(state: &MotionState, displacement: [f64; 3]) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flight_interpolation_is_frame_partition_independent_at_common_rates() {
+        let mut fixed_tick_positions = Vec::new();
+        for rate in [20_u128, 30, 60, 144] {
+            let mut motion = MotionController::new(MotionState::new([0.0, 0.0, 0.0]));
+            motion.begin_flight([0.0; 3]);
+            let mut previous_nanos = 0_u128;
+            let mut samples = Vec::new();
+            for frame in 1..=rate {
+                let frame_nanos = frame * 1_000_000_000 / rate;
+                motion.accumulate(Duration::from_nanos((frame_nanos - previous_nanos) as u64));
+                previous_nanos = frame_nanos;
+                while motion.ticks_due() > 0 {
+                    let mut p = motion.flight_position();
+                    p[0] += 0.5;
+                    motion.flight_tick(p);
+                }
+                samples.push(motion.interpolated_flight_position()[0]);
+            }
+            assert_eq!(motion.flight_position()[0], 10.0, "{rate} Hz fixed state");
+            assert!(
+                samples.windows(2).all(|pair| pair[1] >= pair[0]),
+                "{rate} Hz: {samples:?}"
+            );
+            if rate > 20 {
+                assert!(samples.iter().any(|sample| *sample > 0.0 && *sample < 10.0));
+            }
+            fixed_tick_positions.push(motion.flight_position());
+        }
+        assert!(
+            fixed_tick_positions
+                .windows(2)
+                .all(|pair| pair[0] == pair[1])
+        );
+    }
+
+    #[test]
+    fn flight_transitions_reset_and_focus_sync_both_samples() {
+        let mut motion = MotionController::new(MotionState::new([2.0, 3.0, 4.0]));
+        motion.begin_flight([10.0, 20.0, 30.0]);
+        assert_eq!(motion.interpolated_flight_position(), [10.0, 20.0, 30.0]);
+
+        motion.accumulate(TICK);
+        motion.flight_tick([10.5, 20.0, 30.0]);
+        motion.accumulate(Duration::from_millis(25));
+        assert_eq!(motion.interpolated_flight_position(), [10.25, 20.0, 30.0]);
+
+        motion.sync_flight_position([11.0, 21.0, 31.0]);
+        motion.clear_clock();
+        assert_eq!(motion.interpolated_flight_position(), [11.0, 21.0, 31.0]);
+
+        motion.land_from_flight([12.0, 22.0, 32.0], 45.0);
+        assert!(!motion.debug_flight);
+        assert_eq!(motion.interpolated_flight_position(), [12.0, 22.0, 32.0]);
+
+        motion.begin_flight([13.0, 23.0, 33.0]);
+        motion.reset([1.0, 2.0, 3.0]);
+        assert_eq!(motion.interpolated_flight_position(), [1.0, 3.62, 3.0]);
+        assert!(!motion.debug_flight);
+    }
 
     fn test_mapping() -> beta_view::BlockMapping {
         beta_view::BlockMapping {
