@@ -859,5 +859,13 @@ the stack. Close and focus-loss paths use this guarded restoration. A
 regression fills all 36 slots and verifies the held stack remains available.
 The visible held cursor icon is deliberately deferred until C01 pins its exact
 native mouse geometry and layering; no guessed rendering claim is made here.
-Therefore `INVENTORY-INTERACTION-001-A01` remains pending until C01 evidence
-lands and the held cursor icon/count pass is implemented and tested.
+At that snapshot `INVENTORY-INTERACTION-001-A01` remained pending until C01
+evidence landed.
+
+C01 evidence has landed. The held cursor render is now implemented: the icon
+is 16x16 at physical mouse position minus the inventory panel origin and
+`(8,8)` native GUI pixels, with ID-based terrain/items atlas dispatch. Cursor
+counts reuse the audited font widths, shadow and foreground passes and are
+drawn after the cursor icon, following slot contents. Tests cover mouse
+movement, both atlas groups, count visibility and UV/position geometry. The
+card is complete at A01 scope; tooltip and outside-drop remain excluded.

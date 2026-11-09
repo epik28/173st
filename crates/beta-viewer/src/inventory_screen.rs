@@ -1,7 +1,7 @@
 //! Focused inventory-screen state and keyboard transition rules.
 
 use super::hud::{Rect, quad_vertices};
-use beta_core::items::Inventory;
+use beta_core::items::{Inventory, ItemStack};
 
 pub const PANEL_WIDTH: f32 = 176.0;
 pub const PANEL_HEIGHT: f32 = 166.0;
@@ -254,6 +254,60 @@ pub fn hotbar_vertices(
     (terrain, items)
 }
 
+pub fn cursor_vertices(
+    cursor: Option<ItemStack>,
+    width: u32,
+    height: u32,
+    scale: u32,
+    mouse: (f32, f32),
+    inventory_origin: (f32, f32),
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>, CountVertices) {
+    let Some(stack) = cursor else {
+        return (
+            Vec::new(),
+            Vec::new(),
+            CountVertices {
+                shadow: Vec::new(),
+                foreground: Vec::new(),
+            },
+        );
+    };
+    let s = scale.max(1) as f32;
+    let rect = Rect {
+        x: mouse.0 - inventory_origin.0 - 8.0 * s,
+        y: mouse.1 - inventory_origin.1 - 8.0 * s,
+        width: 16.0 * s,
+        height: 16.0 * s,
+    };
+    let Ok(uv) = item_icon_uv(stack.id(), stack.damage()) else {
+        return (
+            Vec::new(),
+            Vec::new(),
+            CountVertices {
+                shadow: Vec::new(),
+                foreground: Vec::new(),
+            },
+        );
+    };
+    let quad = quad_vertices(rect, uv, (width, height)).to_vec();
+    let mut terrain = Vec::new();
+    let mut items = Vec::new();
+    match item_atlas(stack.id()) {
+        Ok(ItemAtlas::Terrain) => terrain.extend(quad),
+        Ok(ItemAtlas::Items) => items.extend(quad),
+        Err(_) => {}
+    }
+    let counts = if stack.count() > 1 {
+        count_quads(stack.count(), rect.x, rect.y, s, (width, height))
+    } else {
+        CountVertices {
+            shadow: Vec::new(),
+            foreground: Vec::new(),
+        }
+    };
+    (terrain, items, counts)
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InventoryScreen {
     open: bool,
@@ -271,6 +325,10 @@ pub enum Transition {
 impl InventoryScreen {
     pub const fn is_open(&self) -> bool {
         self.open
+    }
+
+    pub(crate) const fn cursor_stack(&self) -> Option<ItemStack> {
+        self.cursor
     }
 
     pub fn slot_at(&self, width: u32, height: u32, scale: u32, x: f32, y: f32) -> Option<usize> {
@@ -420,8 +478,8 @@ impl InventoryScreen {
 mod tests {
     use super::{InventoryScreen, Transition};
     use super::{
-        MAIN_SLOT_COUNT, Rect, count_vertices, hotbar_vertices, item_icon_uv, native_layout,
-        native_vertices,
+        MAIN_SLOT_COUNT, Rect, count_vertices, cursor_vertices, hotbar_vertices, item_icon_uv,
+        native_layout, native_vertices,
     };
     use beta_core::items::{Inventory, ItemStack};
 
@@ -740,5 +798,33 @@ mod tests {
         assert!(!screen.return_cursor(&mut inventory));
         assert!(screen.is_open());
         assert_eq!(screen.cursor.unwrap().count(), 5);
+    }
+
+    #[test]
+    fn cursor_render_uses_mouse_relative_origin_and_correct_atlas_and_count_pass() {
+        let (terrain, items, counts) = cursor_vertices(
+            Some(ItemStack::new(1, 2, 0).unwrap()),
+            1280,
+            720,
+            3,
+            (700.0, 500.0),
+            (600.0, 400.0),
+        );
+        assert_eq!(terrain.len(), 6);
+        assert!(items.is_empty());
+        assert_eq!(terrain[0][2], 16.0 / 256.0);
+        assert_eq!(terrain[0][0], (76.0 / 1280.0) * 2.0 - 1.0);
+        assert_eq!(counts.shadow.len(), 6);
+        assert_eq!(counts.foreground.len(), 6);
+        let (_, items, counts) = cursor_vertices(
+            Some(ItemStack::new(267, 1, 0).unwrap()),
+            1280,
+            720,
+            3,
+            (700.0, 500.0),
+            (600.0, 400.0),
+        );
+        assert_eq!(items.len(), 6);
+        assert_eq!(counts.foreground.len(), 0);
     }
 }

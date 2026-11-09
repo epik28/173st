@@ -636,6 +636,8 @@ struct Gpu {
     inventory_vertex: wgpu::Buffer,
     inventory_terrain_icons_vertex: wgpu::Buffer,
     inventory_icons_vertex: wgpu::Buffer,
+    cursor_terrain_vertex: wgpu::Buffer,
+    cursor_items_vertex: wgpu::Buffer,
     hotbar_terrain_vertex: wgpu::Buffer,
     hotbar_items_vertex: wgpu::Buffer,
     count_shadow_vertex: wgpu::Buffer,
@@ -1421,6 +1423,18 @@ impl App {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let cursor_terrain_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native inventory cursor terrain vertices"),
+            size: 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let cursor_items_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native inventory cursor item vertices"),
+            size: 6 * 16,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let hotbar_terrain_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hotbar terrain item vertices"),
             size: 9 * 6 * 16,
@@ -1519,6 +1533,8 @@ impl App {
             inventory_vertex,
             inventory_terrain_icons_vertex,
             inventory_icons_vertex,
+            cursor_terrain_vertex,
+            cursor_items_vertex,
             hotbar_terrain_vertex,
             hotbar_items_vertex,
             count_shadow_vertex,
@@ -1671,6 +1687,53 @@ impl App {
         } else {
             (0, 0)
         };
+        let (cursor_terrain_count, cursor_items_count, cursor_counts) = if inventory_open {
+            if let Some(mouse) = self.cursor_position {
+                let layout = inventory_screen::native_layout(
+                    g.config.width,
+                    g.config.height,
+                    hud::gui_scale(g.config.width, g.config.height),
+                );
+                let (terrain, items, counts) = inventory_screen::cursor_vertices(
+                    self.inventory_screen.cursor_stack(),
+                    g.config.width,
+                    g.config.height,
+                    hud::gui_scale(g.config.width, g.config.height),
+                    mouse,
+                    (layout.panel.x, layout.panel.y),
+                );
+                if !terrain.is_empty() {
+                    g.queue.write_buffer(
+                        &g.cursor_terrain_vertex,
+                        0,
+                        bytemuck::cast_slice(&terrain),
+                    );
+                }
+                if !items.is_empty() {
+                    g.queue
+                        .write_buffer(&g.cursor_items_vertex, 0, bytemuck::cast_slice(&items));
+                }
+                (terrain.len() as u32, items.len() as u32, counts)
+            } else {
+                (
+                    0,
+                    0,
+                    inventory_screen::CountVertices {
+                        shadow: Vec::new(),
+                        foreground: Vec::new(),
+                    },
+                )
+            }
+        } else {
+            (
+                0,
+                0,
+                inventory_screen::CountVertices {
+                    shadow: Vec::new(),
+                    foreground: Vec::new(),
+                },
+            )
+        };
         let count_pass = if inventory_open || show_hud {
             let counts = inventory_screen::count_vertices(
                 &self.inventory,
@@ -1679,6 +1742,23 @@ impl App {
                 hud::gui_scale(g.config.width, g.config.height),
                 inventory_open,
             );
+            if !counts.shadow.is_empty() {
+                g.queue.write_buffer(
+                    &g.count_shadow_vertex,
+                    0,
+                    bytemuck::cast_slice(&counts.shadow),
+                );
+            }
+            if !counts.foreground.is_empty() {
+                g.queue.write_buffer(
+                    &g.count_foreground_vertex,
+                    0,
+                    bytemuck::cast_slice(&counts.foreground),
+                );
+            }
+            let mut counts = counts;
+            counts.shadow.extend(cursor_counts.shadow);
+            counts.foreground.extend(cursor_counts.foreground);
             if !counts.shadow.is_empty() {
                 g.queue.write_buffer(
                     &g.count_shadow_vertex,
@@ -1757,6 +1837,16 @@ impl App {
                             p.set_bind_group(0, &g.items_bind, &[]);
                             p.set_vertex_buffer(0, g.inventory_icons_vertex.slice(..));
                             p.draw(0..inventory_icon_count, 0..1);
+                        }
+                        if cursor_terrain_count > 0 {
+                            p.set_bind_group(0, &g.bind, &[]);
+                            p.set_vertex_buffer(0, g.cursor_terrain_vertex.slice(..));
+                            p.draw(0..cursor_terrain_count, 0..1);
+                        }
+                        if cursor_items_count > 0 {
+                            p.set_bind_group(0, &g.items_bind, &[]);
+                            p.set_vertex_buffer(0, g.cursor_items_vertex.slice(..));
+                            p.draw(0..cursor_items_count, 0..1);
                         }
                         if count_pass.0 > 0 {
                             p.set_pipeline(&g.hud_shadow_pipeline);
