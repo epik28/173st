@@ -323,6 +323,16 @@ impl Inventory {
         Ok(self.slots[index as usize])
     }
 
+    /// Return the selected stack result for a raw native index without storing
+    /// that index. Like the captured native lookup, an out-of-range index has
+    /// no selected stack; the safe inventory selection remains within 0..=8.
+    pub fn selected_stack_at(&self, index: i32) -> Option<ItemStack> {
+        if !(0..HOTBAR_SLOT_COUNT as i32).contains(&index) {
+            return None;
+        }
+        self.slots[index as usize]
+    }
+
     pub fn slots(&self) -> &[Option<ItemStack>; MAIN_SLOT_COUNT] {
         &self.slots
     }
@@ -379,10 +389,11 @@ mod tests {
             .unwrap_or_else(|| panic!("missing native state {scenario}/{state}"));
         if (0..HOTBAR_SLOT_COUNT as i32).contains(selected) {
             assert_eq!(inventory.selected_hotbar(), *selected as u8);
+            assert_eq!(inventory.selected_stack(), *selected_stack);
         } else {
-            assert_eq!(*selected_stack, None);
+            assert_eq!(inventory.selected_stack_at(*selected), *selected_stack);
+            assert!(usize::from(inventory.selected_hotbar()) < HOTBAR_SLOT_COUNT);
         }
-        assert_eq!(inventory.selected_stack(), *selected_stack);
         assert_eq!(inventory.slots().as_slice(), slots.as_slice());
     }
 
@@ -480,6 +491,10 @@ mod tests {
         assert_native(&states, "hotbar_bounds", "cycle_negative", &inventory);
         inventory.cycle_hotbar(9);
         assert_native(&states, "hotbar_bounds", "cycle_wrap", &inventory);
+        assert_native(&states, "hotbar_bounds", "index_minus_one", &inventory);
+        assert_native(&states, "hotbar_bounds", "index_nine", &inventory);
+        assert_eq!(inventory.selected_stack_at(-1), None);
+        assert_eq!(inventory.selected_stack_at(9), None);
 
         inventory.select_hotbar(8).unwrap();
         assert!(inventory.select_item_id(3));

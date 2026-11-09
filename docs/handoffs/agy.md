@@ -660,3 +660,17 @@ format/check/clippy/all-target tests and doc tests. The native fixture's 21 stat
 rows were compared by the Rust unit tests; no separate ITEMS strict runner exists
 in this card. Only `crates/beta-core/src/`, this handoff, and the agy status were
 changed by A01. Next dependency is ITEMS-001-C02 before A02.
+
+Follow-up review correction: the native rows with selected indices `-1` and `9`
+were present in the fixture but were not yet exercised by `assert_native`. Added
+read-only `Inventory::selected_stack_at(index)`, which returns `None` for those
+raw native out-of-range lookups without permitting the safe inventory's stored
+selection to leave 0..=8. The fixture test now compares both invalid-index rows,
+their selected-stack results, and every ordered slot; the valid safe selection
+invariant is also asserted. This closes the fixture coverage claim for all 21
+rows without modeling an invalid stored selection.
+
+Follow-up checks: `cargo test --locked --offline -p beta-core items:: -- --nocapture`
+passed (6 tests); `cargo test --locked --offline -p beta-core --all-targets`
+passed (83 library tests plus all beta-core example tests); beta-core clippy with
+`-D warnings`, fmt check, and `git diff --check` passed. A02 was not started.

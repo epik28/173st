@@ -352,7 +352,8 @@
         "cargo test --locked --offline -p beta-core --all-targets → PASS: 83 library tests and all beta-core example tests",
         "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
         "python3 tools/check.py → PASS: 182 Python tests, 18 opt-in skips; workspace fmt/check/clippy/all-target/doc tests PASS",
-        "Six items unit tests compare every committed C01 state row and all 36 ordered slots exactly; invalid split/slot/hotbar changes preserve state, and full-inventory insertion rejection preserves both sides",
+        "Six items unit tests compare every committed C01 state row and all 36 ordered slots exactly; raw selected indices -1 and 9 now also compare through read-only selected_stack_at, returning native-compatible None without storing an invalid selected slot",
+        "Follow-up `cargo test --locked --offline -p beta-core items:: -- --nocapture` → PASS (6 tests); `cargo test --locked --offline -p beta-core --all-targets` (83 library tests and all examples), clippy -D warnings, fmt --check, and diff --check → PASS",
         "C01 fixture/audit consumed from committed codex/verification commit e2cdc49; no oracle, fixture, runner, probe, contract, dependency, or other worktree changed"
       ]
     },
