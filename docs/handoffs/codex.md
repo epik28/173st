@@ -1432,3 +1432,22 @@ so screen-space elements overlay the world without depth occlusion. Viewer tests
 fmt and clippy pass after this change. A fresh Xvfb screenshot was unavailable:
 the local X server again could not be opened, so GPU frame execution should be
 confirmed from the user's compositor. No save or source hash changed.
+
+## WATER-VISUAL-001 — alpha quad ordering, 2026-11-09
+
+The user's shoreline image shows broad, unevenly dark overlapping water regions
+and a nearly black rectangular opening. The geometry remains pinned to the
+existing native fixture; no water vertices, UVs, colors or face visibility were
+changed. Confirmed renderer cause for the overlapping layers: blended quads were
+submitted in scene traversal order while depth writes were disabled. The viewer
+now sorts each six-vertex water quad far-to-near from the current camera on every
+frame, writes the ordered buffer with `COPY_DST`, and preserves the native two-
+triangle order within each quad. A unit regression verifies distance ordering
+and vertex order. `cargo fmt`, 33 beta-viewer main tests, 17 library tests,
+clippy `-D warnings`, and `python3 tools/parity/run.py fluid --strict` pass.
+
+Xvfb could not open its X server, so the screenshot was not visually repeated.
+The black rectangular opening remains unclassified; it may be an actual exposed,
+unlit part of the saved terrain under transparent water. Do not add a bottom face
+without a native mismatch. This candidate is synchronized to codex/agy locally;
+hold the visual claim and GitHub push until it is checked in a compositor.

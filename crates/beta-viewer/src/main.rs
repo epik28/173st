@@ -474,6 +474,34 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
     levels
 }
 
+/// Alpha-blended water must be submitted back-to-front. Geometry emits each
+/// quad as two consecutive triangles, so sort whole six-vertex quads and keep
+/// their native vertex order intact.
+fn sort_fluid_quads(
+    vertices: &[beta_view::fluid::Vertex],
+    camera: [f32; 3],
+) -> Vec<beta_view::fluid::Vertex> {
+    let mut order: Vec<_> = vertices
+        .chunks_exact(6)
+        .enumerate()
+        .map(|(index, quad)| {
+            let center = std::array::from_fn::<_, 3, _>(|axis| {
+                quad.iter().map(|vertex| vertex.position[axis]).sum::<f32>() / 6.0
+            });
+            let distance = (0..3)
+                .map(|axis| (center[axis] - camera[axis]).powi(2))
+                .sum::<f32>();
+            (distance, index)
+        })
+        .collect();
+    order.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    let mut sorted = Vec::with_capacity(vertices.len());
+    for (_, index) in order {
+        sorted.extend_from_slice(&vertices[index * 6..index * 6 + 6]);
+    }
+    sorted
+}
+
 struct App {
     mesh: Mesh,
     fluid_mesh: FluidMesh,
@@ -791,7 +819,7 @@ impl App {
                 } else {
                     bytemuck::cast_slice(&fluid_packed)
                 },
-                usage: wgpu::BufferUsages::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
         gpu.fluid_vertex_count = self.fluid_mesh.vertices.len() as u32;
         Ok(())
@@ -1286,7 +1314,7 @@ impl App {
             } else {
                 bytemuck::cast_slice(&fluid_packed)
             },
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let dep = depth(&device, w.inner_size());
         self.gpu = Some(Gpu {
@@ -1357,6 +1385,27 @@ impl App {
                     glam::Vec3::new(p[0] as f32, p[1] as f32 + 1.62, p[2] as f32);
                 self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
             }
+        }
+        if !self.fluid_mesh.vertices.is_empty() {
+            let sorted =
+                sort_fluid_quads(&self.fluid_mesh.vertices, self.camera.position.to_array());
+            let packed: Vec<[f32; 8]> = sorted
+                .iter()
+                .map(|vertex| {
+                    [
+                        vertex.position[0],
+                        vertex.position[1],
+                        vertex.position[2],
+                        vertex.uv[0],
+                        vertex.uv[1],
+                        ((vertex.color >> 16) & 255) as f32 / 255.0,
+                        ((vertex.color >> 8) & 255) as f32 / 255.0,
+                        (vertex.color & 255) as f32 / 255.0,
+                    ]
+                })
+                .collect();
+            g.queue
+                .write_buffer(&g.fluid_vertex, 0, bytemuck::cast_slice(&packed));
         }
         if let Ok(m) = self
             .camera
@@ -1725,10 +1774,34 @@ mod tests {
     use super::{
         LightDimension, Vertex, build_atlas_mips, interaction_shape, local_world_manifest_path,
         native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
-        srgb_to_linear,
+        sort_fluid_quads, srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
+
+    #[test]
+    fn transparent_water_quads_sort_back_to_front_without_reordering_triangles() {
+        let quad = |x: f32| {
+            let points = [[x, 0.0, 0.0], [x, 1.0, 0.0], [x, 1.0, 1.0], [x, 0.0, 1.0]];
+            [0, 1, 2, 0, 2, 3].map(|index| beta_view::fluid::Vertex {
+                position: points[index],
+                uv: [index as f32, 0.0],
+                color: index as u32,
+            })
+        };
+        let mut submitted = Vec::new();
+        submitted.extend(quad(1.0));
+        submitted.extend(quad(2.0));
+        submitted.extend(quad(3.0));
+        let sorted = sort_fluid_quads(&submitted, [0.0, 0.0, 0.0]);
+        assert_eq!(sorted.len(), submitted.len());
+        assert_eq!(sorted[0].position[0], 3.0);
+        assert_eq!(sorted[6].position[0], 2.0);
+        assert_eq!(sorted[12].position[0], 1.0);
+        assert_eq!(sorted[0].uv[0], 0.0);
+        assert_eq!(sorted[1].uv[0], 1.0);
+        assert_eq!(sorted[2].uv[0], 2.0);
+    }
 
     #[test]
     fn local_world_manifest_is_shared_by_sibling_worktrees() {
