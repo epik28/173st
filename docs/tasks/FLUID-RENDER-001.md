@@ -14,7 +14,7 @@ colors, blend state, depth policy, or native pixel-parity claims.
   the original six vertices; do not copy/repack vertex payloads each frame.
 - Build/update the static fluid vertex buffer only when the scene fluid mesh is
   rebuilt. Keep index data bounded by the scene vertex count and use checked
-  conversions for GPU index ranges.
+  conversions for GPU index ranges and byte sizes.
 - On frames with unchanged scene fluid geometry, the fluid vertex upload count
   is zero. The per-frame index upload must be exactly 4 bytes per index and
   remain proportional to quad count; for six vertices per quad this is at most
