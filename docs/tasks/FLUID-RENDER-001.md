@@ -22,12 +22,11 @@ colors, blend state, depth policy, or native pixel-parity claims.
 - Preserve draw output structure: every source quad's six vertices stay in that
   quad's original order, and the sorted quad sequence matches the existing
   sorter for deterministic fixtures.
-- Keep the fluid GPU buffer pair transactional: prepare and validate both the
-  packed fluid vertex data and index capacity before publishing either buffer
-  handle/count. This task does not make the broader block-scene edit, chunk
-  cache, or opaque chunk GPU update pipeline transactional; those remain a
-  separate viewer-edit concern. Rebuild fluid vertex data only on an accepted
-  scene rebuild.
+- Keep the fluid mesh cache and GPU buffer pair transactional: prepare candidate
+  scene/fluid cache state and validate both packed fluid vertex data and index
+  capacity before publishing the new fluid cache or either buffer handle/count.
+  Opaque chunk GPU publication is outside this guarantee. Rebuild fluid vertex
+  data only on an accepted scene rebuild.
 - Do not change fixed-step movement, catch-up policy, water simulation,
   transparency rules, source-world data, or save files in this task.
 
