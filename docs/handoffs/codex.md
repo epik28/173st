@@ -1313,3 +1313,27 @@ Xvfb viewer остановил pinned-world guard, поэтому новый в�
 - Следующий шаг: A01 может реализовать только render-only HUD по исходному
   контракту; C02 проверит код, порядок рисования и возможный visual smoke после
   получения Agy snapshot. Новые Rust изменения этой карточкой не принимались.
+
+## HUD-001-C02 — integration and acceptance
+
+- Принят Agy A01 commit `a84a4c6cfc0ec4b49b94cdf91951566734fec449` и handoff
+  `87968d1122029547cd0a5318e1b8afd047b0a69d`; integrated main snapshot
+  `53e765b51e5ff017da457a62a7faee8f41a37464`.
+- Review подтвердил screen-space HUD без depth, нарисованный после opaque и fluid
+  pass; native logical dimensions/ceil division, integer anchors, 182×22 frame,
+  24×22 selection, crosshair, ten background/full heart pairs. Никакие item,
+  inventory interaction, survival health или damage не заявлены.
+- Rust loader проверяет полный JAR SHA-256, извлекает только точные atlas entries
+  ограниченным ZIP reader на `flate2`, затем проверяет resource hashes, PNG
+  format/dimensions. Текстуры остаются в памяти, новые PNG не добавлены.
+- Проверки интеграции: `python3 tools/check.py` → PASS (200 Python tests, 18
+  opt-in skips; fmt, workspace check, clippy `-D warnings`, all-target/doc tests);
+  `python3 tools/oracle/hud_audit.py` → PASS; `cargo test --locked --offline
+  -p beta-viewer --all-targets` → PASS (15 library + 15 binary tests and viewer
+  examples); `git diff --check` → PASS.
+- Xvfb smoke reaches resource extraction and verifies atlases, then exits at the
+  pre-existing integrity guard: `pinned world source hash mismatch: level.dat`.
+  No changed Prism world was copied/opened or retagged; no new screenshot or
+  pixel-parity claim is made.
+- HUD adds roughly one point to graphics/UI: total estimate ≈25%. Push remains
+  deferred until the user-requested 30% threshold.

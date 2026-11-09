@@ -678,9 +678,16 @@
       ]
     },
     "HUD-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Принят HUD-001-A01 на agy snapshot 87968d1 после отдельного native audit C01. В viewer добавлен render-only hotbar frame/selection, crosshair и 10 полных hearts; exact GUI resources извлекаются в память из pinned JAR. Полный workspace check прошёл; визуальная проверка заблокирована integrity guard изменённого пользовательского level.dat.",
+      "checks": [
+        "python3 tools/check.py → PASS на объединённой ревизии 53e765b: 200 Python tests (18 opt-in skips), fmt, workspace check/clippy -D warnings, all-target/doc tests",
+        "python3 tools/oracle/hud_audit.py → PASS: pinned JAR/resource/class hashes, dimensions и uq.a(FZII)V layout/UV evidence",
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 15 library + 15 binary tests and viewer examples, включая bounded stored/deflated ZIP extraction и pixel-aligned scaled-resolution layout",
+        "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → extracted GUI assets hash-verified; startup stopped before opening/copying world at pinned-world guard: level.dat SHA mismatch",
+        "Scope is render-only: no item sprites, inventory controls, actual health state, damage, gameplay parity or screenshot pixel parity; no source world/resource was modified",
+        "git diff --check → PASS"
+      ]
     }
   }
 }

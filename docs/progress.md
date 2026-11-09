@@ -40,7 +40,14 @@ ITEMS-001 принят как первый ограниченный слой и�
 до копирования в артефакты/передачи native adapter. Эталоны не перепривязывались,
 мир не изменялся.
 
-Оценка готовности **полной игры — около 24%** после ITEMS-001.
+HUD-001 принят: viewer рисует нативную рамку и выделение hotbar, 10 полных сердец
+и прицел отдельным screen-space pass после мира. GUI-атласы извлекаются в память
+из SHA-pinned клиентского JAR и проверяются по resource hashes; item sprites,
+интерактивный инвентарь и настоящее здоровье не реализованы. `tools/check.py`
+прошёл на объединённой ревизии. Xvfb smoke загрузил атласы, но остановился на
+защите изменённого `level.dat`, поэтому новый скриншот не получен.
+
+Оценка готовности **полной игры — около 25%** после HUD-001.
 Замечание о кроне остаётся открытым; визуальная проверка сглаживания полёта
 отложена до доступной закреплённой сцены. См. [known-issues.md](known-issues.md).
 Методика и веса: [completion-estimate.md](completion-estimate.md).
@@ -51,12 +58,12 @@ bounded viewer break/place и полная пересборка сцены; edit
 См. подробности в [completion-estimate.md](completion-estimate.md).
 
 FLIGHT-SMOOTH-001 и ITEMS-001 приняты в `a0b12bb`. Inventory пока data-only:
-в viewer ещё нет hotbar/inventory GUI и health HUD; это следующие видимые этапы.
+в viewer ещё нет item sprites, inventory screen/controls или survival health state.
 Оценка остаётся приблизительной и не означает полноту игрового цикла.
 
 - **RNG-001, RNG-002, CHUNK-001, NBT-001, REGION-001, WORLD-LOAD-001,
   VIEW-001, MATH-001, JAVA-001, GAME-ORACLE-001, MOVE-001, COLOR/LEAF/LIGHT,
-  FLUID-001, BLOCK-001, FLIGHT-SMOOTH-001 и ITEMS-001 приняты**.
+  FLUID-001, BLOCK-001, FLIGHT-SMOOTH-001, ITEMS-001 и HUD-001 приняты**.
   Проверенная ревизия REGION — `1e076324e992412d396a15da72f808facb00632f`;
   коммит приёмки содержит запись C03 и переносится в `main` fast-forward.
 - RNG-001: 96 результатов Java API nextInt.

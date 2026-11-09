@@ -55,7 +55,9 @@
 ## Очерёдность игровых функций
 
 `ITEMS-001` закрыл только native-backed data API: 36 слотов и hotbar с четырьмя
-проверенными item IDs. Следующие отдельные этапы — видимый hotbar/inventory GUI,
-перенос предметов мышью, pickup/drop, затем health HUD и survival state. Для
+проверенными item IDs. `HUD-001` добавил только пустой render-only hotbar, full
+health icons и crosshair. Следующие отдельные этапы — item sprites, управление
+hotbar/inventory GUI, перенос предметов мышью, pickup/drop, затем health simulation
+и survival state. Для
 каждого нужны собственные native observations и контракты; нынешний viewer не
 имеет полного игрового цикла.
