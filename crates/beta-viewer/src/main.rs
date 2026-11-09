@@ -1088,6 +1088,18 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
+        for &((lx_world, ly, lz_world), block_light, sky_light) in &relight.light_updates {
+            let (cx, lx) = split_block_coord(lx_world);
+            let (cz, lz) = split_block_coord(lz_world);
+            let target = next_scene_chunks
+                .iter_mut()
+                .find(|candidate| candidate.x == cx && candidate.z == cz)
+                .ok_or("relit cell is not in the disposable scene")?;
+            let mut state = target.data.get(lx, ly as u8, lz)?;
+            state.block_light = block_light;
+            state.sky_light = sky_light;
+            target.data.set(lx, ly as u8, lz, state)?;
+        }
         self.rebuild_dirty_chunks(&relight.dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(

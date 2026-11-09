@@ -961,5 +961,8 @@ opaque/fluid meshes. Queue-limit failure is atomic.
 
 Checks: `cargo fmt --all`; `cargo test --locked --offline -p beta-core --lib`
 (86 passed); `cargo test --locked --offline -p beta-viewer --lib` (17 passed).
-Native C01 fixture/oracle and world guards were unchanged. Emissive transitions
-and persistence remain outside this package.
+Native C01 fixture/oracle and world guards were unchanged. The package remains
+pending acceptance: full five-case native fixture parity and bounded edge
+propagation still need correction. Emissive transitions and persistence remain
+outside this package. Follow-up fixed viewer synchronization so every relit
+cell updates candidate `scene_chunks`, rather than only the edited cell.

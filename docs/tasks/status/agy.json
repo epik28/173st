@@ -445,8 +445,8 @@
       ]
     },
     "LIGHT-UPDATE-001-A01": {
-      "state": "done",
-      "summary": "Добавлен bounded in-memory BlockScene relight с frozen C01 API, material callback, atomic queue/material/coordinate errors, sorted light updates, dirty chunks и unloaded boundary cells. Viewer stages relit BlockScene вместе с scene_chunks и mesh caches до публикации.",
+      "state": "in_progress",
+      "summary": "Черновая bounded relight реализация с frozen C01 API; acceptance pending native fixture parity and bounded edge propagation review.",
       "checks": [
         "cargo test --locked --offline -p beta-core --lib → PASS: 86 тестов, включая atomic queue-limit relight regression",
         "cargo test --locked --offline -p beta-viewer --lib → PASS: 17 тестов",
