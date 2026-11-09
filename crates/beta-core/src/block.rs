@@ -315,79 +315,79 @@ impl BlockScene {
         let mut updates = Vec::new();
         let mut unloaded = Vec::new();
         let mut visited = 0usize;
-        let keys: Vec<_> = self.chunks.keys().copied().collect();
-        for (cx, cz) in keys {
-            for lx in 0..16u8 {
-                for y in 0..128u8 {
-                    for lz in 0..16u8 {
-                        let x = cx * 16 + i32::from(lx);
-                        let z = cz * 16 + i32::from(lz);
-                        visited += 1;
-                        if visited > max_visited_cells {
-                            return Err(RelightError::QueueLimitExceeded {
-                                limit: max_visited_cells,
-                            });
+        for x in changed.0.saturating_sub(1)..=changed.0.saturating_add(1) {
+            for y in 0..=changed.1 as u8 {
+                for z in changed.2.saturating_sub(1)..=changed.2.saturating_add(1) {
+                    let (cx, lx) = split_block_coord(x);
+                    let (cz, lz) = split_block_coord(z);
+                    if !self.bounds.contains(cx, cz) || !self.chunks.contains_key(&(cx, cz)) {
+                        continue;
+                    }
+                    visited += 1;
+                    if visited > max_visited_cells {
+                        return Err(RelightError::QueueLimitExceeded {
+                            limit: max_visited_cells,
+                        });
+                    }
+                    let block = self
+                        .block(x, i32::from(y), z)
+                        .map_err(RelightError::from)?
+                        .ok_or(BlockError::TargetUnloaded {
+                            x,
+                            y: i32::from(y),
+                            z,
+                        })
+                        .map_err(RelightError::from)?;
+                    let (opacity, emission) = material(block.id, block.metadata);
+                    if opacity > 15 || emission > 15 {
+                        return Err(RelightError::InvalidMaterial);
+                    }
+                    let new_sky = if opacity != 0 {
+                        0
+                    } else if y == 0 {
+                        0
+                    } else if y == 127 {
+                        15
+                    } else {
+                        let mut blocked_above = false;
+                        for sy in (u16::from(y) + 1)..128 {
+                            if self
+                                .block(x, i32::from(sy), z)
+                                .map_err(RelightError::from)?
+                                .is_some_and(|b| material(b.id, b.metadata).0 != 0)
+                            {
+                                blocked_above = true;
+                                break;
+                            }
                         }
-                        let block = self
-                            .block(x, i32::from(y), z)
-                            .map_err(RelightError::from)?
-                            .ok_or(BlockError::TargetUnloaded {
-                                x,
-                                y: i32::from(y),
-                                z,
-                            })
-                            .map_err(RelightError::from)?;
-                        let (opacity, emission) = material(block.id, block.metadata);
-                        if opacity > 15 || emission > 15 {
-                            return Err(RelightError::InvalidMaterial);
-                        }
-                        let new_sky = if opacity != 0 {
-                            0
-                        } else if y == 0 {
-                            0
-                        } else if y == 127 {
+                        if !blocked_above {
                             15
                         } else {
-                            let mut blocked_above = false;
-                            for sy in (u16::from(y) + 1)..128 {
-                                if self
-                                    .block(x, i32::from(sy), z)
+                            let mut best = 0u8;
+                            let mut missing = false;
+                            for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                                if let Some(n) = self
+                                    .block(x + dx, i32::from(y), z + dz)
                                     .map_err(RelightError::from)?
-                                    .is_some_and(|b| material(b.id, b.metadata).0 != 0)
                                 {
-                                    blocked_above = true;
-                                    break;
+                                    best = best.max(n.sky_light.saturating_sub(1));
+                                } else {
+                                    unloaded.push((x + dx, i32::from(y), z + dz));
+                                    missing = true;
                                 }
                             }
-                            if !blocked_above {
-                                15
-                            } else {
-                                let mut best = 0u8;
-                                let mut missing = false;
-                                for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                                    if let Some(n) = self
-                                        .block(x + dx, i32::from(y), z + dz)
-                                        .map_err(RelightError::from)?
-                                    {
-                                        best = best.max(n.sky_light.saturating_sub(1));
-                                    } else {
-                                        unloaded.push((x + dx, i32::from(y), z + dz));
-                                        missing = true;
-                                    }
-                                }
-                                if missing { 0 } else { best }
-                            }
-                        };
-                        if new_sky != block.sky_light {
-                            updates.push(((x, i32::from(y), z), block.block_light, new_sky));
-                            let mut v = block;
-                            v.sky_light = new_sky;
-                            next.chunks
-                                .get_mut(&(cx, cz))
-                                .unwrap()
-                                .set(lx, y, lz, v)
-                                .map_err(|e| RelightError::Scene(e.into()))?;
+                            if missing { 0 } else { best }
                         }
+                    };
+                    if new_sky != block.sky_light {
+                        updates.push(((x, i32::from(y), z), block.block_light, new_sky));
+                        let mut v = block;
+                        v.sky_light = new_sky;
+                        next.chunks
+                            .get_mut(&(cx, cz))
+                            .unwrap()
+                            .set(lx, y, lz, v)
+                            .map_err(|e| RelightError::Scene(e.into()))?;
                     }
                 }
             }
