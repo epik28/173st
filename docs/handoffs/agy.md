@@ -605,3 +605,29 @@ Follow-up verification: `cargo test --locked --offline -p beta-core` → PASS
   after startup; this environment did not automate mouse clicks, so viewer
   interaction was not manually exercised here. No oracle, fixture, runner, queue,
   shared contract or dependency files changed.
+
+## FLIGHT-SMOOTH-001-A01 — debug-flight render interpolation
+
+Kept debug-flight movement on fixed 50 ms ticks and added a separate previous/current
+flight camera position to `MotionController`. Each simulation tick starts from the
+last fixed position, advances with the existing camera movement and speed, and stores
+the new fixed state. Rendering interpolates those positions with the existing
+accumulator fraction. This prevents interpolation from feeding back into movement;
+yaw and pitch still update immediately from mouse events. Entering/leaving flight,
+reset, and focus loss synchronize the render history to the current camera.
+
+Added controller tests that simulate one second split into 20, 30, 60, and 144 Hz
+frames, assert the same fixed state and monotonic samples, and cover enter, land,
+reset, and focus-loss synchronization. Changed only
+`crates/beta-viewer/src/controller.rs`, `crates/beta-viewer/src/main.rs`, this
+handoff, and `docs/tasks/status/agy.json`.
+
+Verification: `cargo test --locked --offline -p beta-viewer` passed (15 library and
+6 binary tests); `cargo check --workspace --locked --offline` and
+`cargo clippy --workspace --all-targets --locked --offline -- -D warnings` passed.
+`python3 tools/check.py` passed all 180 Python tests (18 opt-in skips), workspace
+format/check/clippy/all-target tests and doc tests. The requested Xvfb smoke was
+attempted with `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked
+--offline -p beta-viewer`, but the viewer exited before rendering because the local
+`level.dat` does not match its pinned source hash. No movement, physics, fixture,
+oracle, queue, or shared contract was changed. No other agents were used.

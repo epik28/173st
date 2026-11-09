@@ -1043,6 +1043,8 @@ impl App {
             self.controller.accumulate(dt);
             while self.controller.ticks_due() > 0 {
                 if self.controller.debug_flight {
+                    self.camera.position =
+                        glam::Vec3::from_array(self.controller.flight_position());
                     let _ = self.camera.move_local(
                         u8::from(self.controls.forward) as f32
                             - u8::from(self.controls.backward) as f32,
@@ -1051,7 +1053,7 @@ impl App {
                         8.0,
                         0.05,
                     );
-                    self.controller.flight_tick();
+                    self.controller.flight_tick(self.camera.position.to_array());
                 } else {
                     if let Err(error) = self.controller.tick(&self.scene, self.controls) {
                         eprintln!("beta-viewer motion query failed: {error}");
@@ -1060,7 +1062,10 @@ impl App {
                     }
                 }
             }
-            if !self.controller.debug_flight {
+            if self.controller.debug_flight {
+                let p = self.controller.interpolated_flight_position();
+                self.camera.position = glam::Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32);
+            } else {
                 let p = self.controller.interpolated_position();
                 self.camera.position =
                     glam::Vec3::new(p[0] as f32, p[1] as f32 + 1.62, p[2] as f32);
@@ -1165,6 +1170,8 @@ impl ApplicationHandler for App {
                 if !focused {
                     self.controls = Controls::default();
                     self.controller.clear_clock();
+                    self.controller
+                        .sync_flight_position(self.camera.position.to_array());
                     self.captured = false;
                     if let Some(w) = &self.window {
                         w.set_cursor_visible(true);
@@ -1234,7 +1241,8 @@ impl ApplicationHandler for App {
                                 -self.camera.yaw.to_degrees(),
                             );
                         } else {
-                            self.controller.debug_flight = true;
+                            self.controller
+                                .begin_flight(self.camera.position.to_array());
                         }
                     }
                     if pressed && !event.repeat && code == KeyCode::KeyR {
