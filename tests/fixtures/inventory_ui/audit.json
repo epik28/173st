@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "version": "Minecraft Beta 1.7.3 client",
+    "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+    "jar_size": 1465375,
+    "jar_source": "PrismLauncher local cache; verified against local Prism metadata",
+    "resources": {
+      "gui/inventory.png": {
+        "sha256": "53dd5bde88588215b1700aee4a7dd70a3049e7e53f914982774ebdc26d6862b0",
+        "bytes": 2761,
+        "width": 256,
+        "height": 256
+      },
+      "gui/items.png": {
+        "sha256": "545699e0c5f655c1e1876bb9f2fa5d93c4fd514dae3802d1cea43ae0003343f3",
+        "bytes": 21381,
+        "width": 256,
+        "height": 256
+      }
+    },
+    "classes": {
+      "net.minecraft.client.Minecraft": "db99df969e5f30d01ad4424a4d63d3b1f4a11832055dd291e65d476cfa4c38b3",
+      "kv": "fd62ebcc36e2f2a1428cb41b2f1f8ebd86fee9855ec1b7f7055ba307d6577102",
+      "qb": "4c1524aeb93b82f91517c5ed5a3dcce02c1b110a9d65b3db7089cfc8a37cd7aa",
+      "ue": "b7ca251056b4c59ade5c419517de8e1a217b6c9651d4521f6fa500c6b1655570",
+      "id": "934c3e5664d2113ab02b57ff73560bac66ff65fd5620f3754db69cffbe72792c",
+      "da": "55349b76fb6119d1ea841fb3488b19b387a32abae0b2ce94b5e11706cc4b6890",
+      "aa": "8de8d32824f6ebc4cec9b0aca886cc0c3569cefeb77e22e8f94ef39d27b86cb3",
+      "gp": "1c5ab56b12dc83efc81c2fb058bc28bff1b10e64e4435ba1a31f3e3ce756d7c3",
+      "iz": "3e8a07bf8c43729c8367bab454af876e698505620f230e012432c04e3828d6d6",
+      "gm": "f9d971a83efa0c6399f1fc4bc0bc06c6a6249908afc6b46f5889a49365c190c7",
+      "uu": "caeaf354357d66fc168c7f03bf62bb6c6a1fe459e9be6b537d4d5d1efabd0845",
+      "ck": "fe3d757cd56ac42ef8e0c0aaecf5fc7878406fe66db88ecf8061456f50cdd2eb",
+      "dm": "c62e04938cf3b6d54ebf1de986fabc6f8fe366e74e3cb70bc1c4a053370c5f89",
+      "qd": "5721cdbdbf6f52606e7710df443cb19a573318cd5fd1913aecb40933e9119f56",
+      "gs": "52e2d97748d9a306703e018822fece7d0ef9ca8ddf3448a1d0e568f2fbe29202"
+    },
+    "native_methods": {
+      "inventory_key_dispatch": {
+        "class": "net.minecraft.client.Minecraft",
+        "name": "k",
+        "descriptor": "()V",
+        "mapped_name": "Minecraft.runTick",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "default_inventory_binding_constructor": {
+        "class": "kv",
+        "name": "<init>",
+        "descriptor": "(Lnet/minecraft/client/Minecraft;Ljava/io/File;)V",
+        "mapped_name": "GameSettings.<init>",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "inventory_screen_constructor": {
+        "class": "ue",
+        "name": "<init>",
+        "descriptor": "(Lgs;)V",
+        "mapped_name": "GuiInventory.<init>",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "inventory_panel_draw": {
+        "class": "ue",
+        "name": "a",
+        "descriptor": "(F)V",
+        "mapped_name": "GuiInventory.drawGuiContainerBackgroundLayer(float)",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "container_dimensions": {
+        "class": "id",
+        "name": "<init>",
+        "descriptor": "(Ldw;)V",
+        "mapped_name": "GuiContainer.<init>",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "player_container_slots": {
+        "class": "aa",
+        "name": "<init>",
+        "descriptor": "(Lix;Z)V",
+        "mapped_name": "ContainerPlayer.<init>",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "slot_icon_draw": {
+        "class": "id",
+        "name": "a",
+        "descriptor": "(Lgp;)V",
+        "mapped_name": "GuiContainer.drawSlotInventory(Slot)",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      },
+      "stack_item_lookup": {
+        "class": "iz",
+        "name": "a",
+        "descriptor": "()Lgm;",
+        "mapped_name": "ItemStack.getItem()",
+        "mapping_basis": "MCP Beta 1.7.3 name; pinned obfuscated class and descriptor are authoritative"
+      }
+    }
+  },
+  "behavior": {
+    "open": "On key-down, when no GUI screen is active, Minecraft compares the event key with the configured key.inventory binding and opens ue (GuiInventory); the default binding is E/keycode 18.",
+    "close": "While a GUI screen is active, key events go to that screen. Base da.a(char,int) closes on Escape/keycode 1 and restores mouse capture. E is not a close key in the native inventory screen.",
+    "key_repeat": "No repeat-specific filter in Minecraft.k(); GUI dispatch prevents a repeated E event from reopening/toggling while a screen is active.",
+    "inventory_panel": {
+      "size": [
+        176,
+        166
+      ],
+      "origin": [
+        "(scaled_width-176)/2",
+        "(scaled_height-166)/2"
+      ],
+      "uv_origin": [
+        0,
+        0
+      ],
+      "uv_size": [
+        176,
+        166
+      ],
+      "atlas_size": [
+        256,
+        256
+      ]
+    },
+    "main_slots": {
+      "slot_count": 36,
+      "coordinate_space": "screen coordinates relative to centered inventory panel origin",
+      "slot_size": [
+        16,
+        16
+      ],
+      "pitch": [
+        18,
+        18
+      ],
+      "inventory_rows": {
+        "rows": 3,
+        "columns": 9,
+        "first": [
+          8,
+          84
+        ],
+        "row_pitch": 18,
+        "column_pitch": 18
+      },
+      "hotbar": {
+        "slots": 9,
+        "first": [
+          8,
+          142
+        ],
+        "column_pitch": 18
+      },
+      "positions": [
+        [
+          8,
+          84
+        ],
+        [
+          26,
+          84
+        ],
+        [
+          44,
+          84
+        ],
+        [
+          62,
+          84
+        ],
+        [
+          80,
+          84
+        ],
+        [
+          98,
+          84
+        ],
+        [
+          116,
+          84
+        ],
+        [
+          134,
+          84
+        ],
+        [
+          152,
+          84
+        ],
+        [
+          8,
+          102
+        ],
+        [
+          26,
+          102
+        ],
+        [
+          44,
+          102
+        ],
+        [
+          62,
+          102
+        ],
+        [
+          80,
+          102
+        ],
+        [
+          98,
+          102
+        ],
+        [
+          116,
+          102
+        ],
+        [
+          134,
+          102
+        ],
+        [
+          152,
+          102
+        ],
+        [
+          8,
+          120
+        ],
+        [
+          26,
+          120
+        ],
+        [
+          44,
+          120
+        ],
+        [
+          62,
+          120
+        ],
+        [
+          80,
+          120
+        ],
+        [
+          98,
+          120
+        ],
+        [
+          116,
+          120
+        ],
+        [
+          134,
+          120
+        ],
+        [
+          152,
+          120
+        ],
+        [
+          8,
+          142
+        ],
+        [
+          26,
+          142
+        ],
+        [
+          44,
+          142
+        ],
+        [
+          62,
+          142
+        ],
+        [
+          80,
+          142
+        ],
+        [
+          98,
+          142
+        ],
+        [
+          116,
+          142
+        ],
+        [
+          134,
+          142
+        ],
+        [
+          152,
+          142
+        ]
+      ]
+    },
+    "item_icons": {
+      "atlas": "/gui/items.png",
+      "tile_size": [
+        16,
+        16
+      ],
+      "mapping": {
+        "1": {
+          "native_item_class": "ck",
+          "tile_index": 1,
+          "uv_origin": [
+            16,
+            0
+          ]
+        },
+        "3": {
+          "native_item_class": "ck",
+          "tile_index": 2,
+          "uv_origin": [
+            32,
+            0
+          ]
+        },
+        "332": {
+          "native_item_class": "dm",
+          "tile_index": 14,
+          "uv_origin": [
+            224,
+            0
+          ]
+        },
+        "267": {
+          "native_item_class": "qd",
+          "tile_index": 66,
+          "uv_origin": [
+            32,
+            64
+          ]
+        }
+      }
+    }
+  },
+  "bytecode_evidence": {
+    "open_screen": "777: aload_0\n     778: new           #181                // class ue\n     781: dup\n     782: aload_0\n     783: getfield      #306                // Field h:Ldc;\n     786: invokespecial #647                // Method ue.\"<init>\":(Lgs;)V\n     789: invokevirtual #529                // Method a:(Lda;)V",
+    "default_e_binding": "ldc           #36                 // String key.inventory\n     148: bipush        18\n     150: invokespecial #199                // Method qb.\"<init>\":(Ljava/lang/String;I)V",
+    "escape_closes_and_grabs_mouse": "protected void a(char, int);\n    descriptor: (CI)V\n    Code:\n       0: iload_2\n       1: iconst_1\n       2: if_icmpne     20\n       5: aload_0\n       6: getfield      #27                 // Field b:Lnet/minecraft/client/Minecraft;\n       9: aconst_null\n      10: invokevirtual #61                 // Method net/minecraft/client/Minecraft.a:(Lda;)V\n      13: aload_0\n      14: getfield      #27                 // Field b:Lnet/minecraft/client/Minecraft;\n      17: invokevirtual #62                 // Method net/minecraft/client/Minecraft.g:()V",
+    "panel_dimensions": "0: aload_0\n       1: invokespecial #54                 // Method da.\"<init>\":()V\n       4: aload_0\n       5: sipush        176\n       8: putfield      #37                 // Field a:I\n      11: aload_0\n      12: sipush        166\n      15: putfield      #42                 // Field i:I",
+    "panel_center_and_uv_draw": "31: aload_0\n      32: getfield      #43                 // Field c:I\n      35: aload_0\n      36: getfield      #41                 // Field a:I\n      39: isub\n      40: iconst_2\n      41: idiv",
+    "panel_uv_origin": "56: aload_0\n      57: iload_3\n      58: iload         4\n      60: iconst_0\n      61: iconst_0\n      62: aload_0\n      63: getfield      #41                 // Field a:I\n      66: aload_0\n      67: getfield      #48                 // Field i:I\n      70: invokevirtual #71                 // Method b:(IIIIII)V",
+    "inventory_slot_grid": "197: aload_0\n     198: new           #3                  // class gp\n     201: dup\n     202: aload_1\n     203: iload         4\n     205: iload_3\n     206: iconst_1\n     207: iadd\n     208: bipush         9\n     210: imul\n     211: iadd\n     212: bipush         8\n     214: iload         4\n     216: bipush        18\n     218: imul\n     219: iadd\n     220: bipush        84\n     222: iload_3\n     223: bipush        18\n     225: imul\n     226: iadd",
+    "hotbar_slot_row": "245: iconst_0\n     246: istore_3\n     247: iload_3\n     248: bipush        9\n     250: if_icmpge     282\n     253: aload_0\n     254: new           #3                 // class gp\n     257: dup\n     258: aload_1\n     259: iload_3\n     260: bipush        8\n     262: iload_3\n     263: bipush        18\n     265: imul\n     266: iadd\n     267: sipush        142",
+    "native_item_atlas_sampling": "60: aload_0\n      61: iload_2\n      62: iload_3\n      63: iload         5\n      65: bipush        16\n      67: irem\n      68: bipush        16\n      70: imul\n      71: iload         5\n      73: bipush        16\n      75: idiv\n      76: bipush        16\n      78: imul\n      79: bipush        16\n      81: bipush        16\n      83: invokevirtual #69                // Method b:(IIIIII)V",
+    "gui_texture": "ldc           #10                 // String /gui/inventory.png",
+    "items_texture": "ldc           #7                  // String /gui/items.png",
+    "native_item_stack_icon_index": "16: aload         4\n      18: ifnonnull     93\n      21: aload_1\n      22: invokevirtual #63                // Method gp.e:()I\n      25: istore        5"
+  },
+  "runtime_oracle": {
+    "source": "tools/oracle/src/InventoryUiOracle.java",
+    "method": "original iz(int,int,int), iz.a(), and gm.bh field after Class.forName(uu)",
+    "expected_icon_rows": [
+      [
+        1,
+        "ck",
+        1
+      ],
+      [
+        3,
+        "ck",
+        2
+      ],
+      [
+        332,
+        "dm",
+        14
+      ],
+      [
+        267,
+        "qd",
+        66
+      ]
+    ]
+  }
+}
