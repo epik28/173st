@@ -1066,6 +1066,14 @@ impl App {
             next_block_scene.place_block(hit, 1, 0, &supported)?
         };
         let (x, y, z) = edit.changed;
+        let relight = next_block_scene.relight(
+            edit.changed,
+            beta_core::block::MAX_RELIGHT_CELLS,
+            |id, metadata| {
+                let emission = beta_core::light::emission_level(id);
+                (if id == 0 { 0 } else { 15 }, emission)
+            },
+        )?;
         let (chunk_x, local_x) = split_block_coord(x);
         let (chunk_z, local_z) = split_block_coord(z);
         let value: BlockData = next_block_scene
@@ -1080,12 +1088,12 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
-        self.rebuild_dirty_chunks(&edit.dirty_chunks, next_block_scene, next_scene_chunks)?;
+        self.rebuild_dirty_chunks(&relight.dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.aimed_hit = None;
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
             if breaking { "broke" } else { "placed" },
-            edit.dirty_chunks.len()
+            relight.dirty_chunks.len()
         );
         Ok(edit)
     }

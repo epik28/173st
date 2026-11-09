@@ -13,6 +13,8 @@ use crate::{
 pub const BLOCK_REACH: f64 = 5.0;
 pub const MAX_SCENE_CHUNKS: u8 = 5;
 pub const MAX_RAY_STEPS: usize = 32;
+/// Maximum number of cells inspected by one bounded relight operation.
+pub const MAX_RELIGHT_CELLS: usize = 3 * 3 * 128 * 256;
 
 /// Resolves states whose exact native interaction shape has been verified.
 /// Returning `false` keeps a non-air state explicit as an unsupported target.
@@ -212,6 +214,34 @@ pub struct BlockEdit {
     pub revision: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelightResult {
+    pub changed: (i32, i32, i32),
+    pub light_updates: Vec<((i32, i32, i32), u8, u8)>,
+    pub dirty_chunks: Vec<(i32, i32)>,
+    pub unloaded_neighbors: Vec<(i32, i32, i32)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelightError {
+    InvalidQueueLimit,
+    QueueLimitExceeded { limit: usize },
+    InvalidCoordinate,
+    InvalidMaterial,
+    Scene(BlockError),
+}
+impl fmt::Display for RelightError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl Error for RelightError {}
+impl From<BlockError> for RelightError {
+    fn from(e: BlockError) -> Self {
+        Self::Scene(e)
+    }
+}
+
 /// Owned bounded scene, containing only chunks which have actually been loaded.
 #[derive(Debug, Clone)]
 pub struct BlockScene {
@@ -261,6 +291,119 @@ impl BlockScene {
     #[must_use]
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// Recomputes the native-observed six-cardinal sky-light update in the
+    /// already loaded scene. The operation is pure with respect to disk and
+    /// reports unloaded boundary cells explicitly.
+    pub fn relight<F>(
+        &mut self,
+        changed: (i32, i32, i32),
+        max_visited_cells: usize,
+        material: F,
+    ) -> Result<RelightResult, RelightError>
+    where
+        F: Fn(u8, u8) -> (u8, u8),
+    {
+        if !(1..=MAX_RELIGHT_CELLS).contains(&max_visited_cells) {
+            return Err(RelightError::InvalidQueueLimit);
+        }
+        if !(0..128).contains(&changed.1) {
+            return Err(RelightError::InvalidCoordinate);
+        }
+        let mut next = self.clone();
+        let mut updates = Vec::new();
+        let mut unloaded = Vec::new();
+        let mut visited = 0usize;
+        let keys: Vec<_> = self.chunks.keys().copied().collect();
+        for (cx, cz) in keys {
+            for lx in 0..16u8 {
+                for y in 0..128u8 {
+                    for lz in 0..16u8 {
+                        let x = cx * 16 + i32::from(lx);
+                        let z = cz * 16 + i32::from(lz);
+                        visited += 1;
+                        if visited > max_visited_cells {
+                            return Err(RelightError::QueueLimitExceeded {
+                                limit: max_visited_cells,
+                            });
+                        }
+                        let block = self
+                            .block(x, i32::from(y), z)
+                            .map_err(RelightError::from)?
+                            .ok_or(BlockError::TargetUnloaded {
+                                x,
+                                y: i32::from(y),
+                                z,
+                            })
+                            .map_err(RelightError::from)?;
+                        let (opacity, emission) = material(block.id, block.metadata);
+                        if opacity > 15 || emission > 15 {
+                            return Err(RelightError::InvalidMaterial);
+                        }
+                        let new_sky = if opacity != 0 {
+                            0
+                        } else if y == 0 {
+                            0
+                        } else if y == 127 {
+                            15
+                        } else {
+                            let mut blocked_above = false;
+                            for sy in (u16::from(y) + 1)..128 {
+                                if self
+                                    .block(x, i32::from(sy), z)
+                                    .map_err(RelightError::from)?
+                                    .is_some_and(|b| material(b.id, b.metadata).0 != 0)
+                                {
+                                    blocked_above = true;
+                                    break;
+                                }
+                            }
+                            if !blocked_above {
+                                15
+                            } else {
+                                let mut best = 0u8;
+                                for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                                    if let Some(n) = self
+                                        .block(x + dx, i32::from(y), z + dz)
+                                        .map_err(RelightError::from)?
+                                    {
+                                        best = best.max(n.sky_light.saturating_sub(1));
+                                    } else {
+                                        unloaded.push((x + dx, i32::from(y), z + dz));
+                                    }
+                                }
+                                best
+                            }
+                        };
+                        if new_sky != block.sky_light {
+                            updates.push(((x, i32::from(y), z), block.block_light, new_sky));
+                            let mut v = block;
+                            v.sky_light = new_sky;
+                            next.chunks
+                                .get_mut(&(cx, cz))
+                                .unwrap()
+                                .set(lx, y, lz, v)
+                                .map_err(|e| RelightError::Scene(e.into()))?;
+                        }
+                    }
+                }
+            }
+        }
+        unloaded.sort_unstable();
+        unloaded.dedup();
+        let mut dirty = vec![(changed.0 >> 4, changed.2 >> 4)];
+        dirty.extend(updates.iter().map(|((x, _, z), _, _)| (x >> 4, z >> 4)));
+        dirty.sort_unstable();
+        dirty.dedup();
+        *self = next;
+        updates.sort_by_key(|(p, _, _)| *p);
+        Ok(RelightResult {
+            changed,
+            light_updates: updates,
+            dirty_chunks: dirty,
+            unloaded_neighbors: unloaded,
+        })
     }
 
     pub fn block(&self, x: i32, y: i32, z: i32) -> Result<Option<BlockData>, BlockError> {
@@ -1254,5 +1397,29 @@ mod tests {
             ),
             Err(BlockError::InvalidRay)
         );
+    }
+
+    #[test]
+    fn relight_queue_limit_is_atomic_and_reports_sorted_dirty_state() {
+        let bounds = BlockSceneBounds::new(0, 0, 1, 1).unwrap();
+        let mut world = scene(
+            bounds,
+            vec![BlockSceneChunk {
+                x: 0,
+                z: 0,
+                data: ChunkData::new(),
+            }],
+        );
+        let before = world.clone();
+        assert_eq!(
+            world.relight((0, 64, 0), 1, |id, _| (if id == 0 { 0 } else { 15 }, 0)),
+            Err(RelightError::QueueLimitExceeded { limit: 1 })
+        );
+        assert_eq!(world.revision(), before.revision());
+        assert_eq!(world.block(0, 64, 0), before.block(0, 64, 0));
+        assert!(matches!(
+            world.relight((0, 64, 0), 0, |_, _| (0, 0)),
+            Err(RelightError::InvalidQueueLimit)
+        ));
     }
 }

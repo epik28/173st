@@ -949,3 +949,17 @@ Another Xvfb attempt retained server diagnostics: unable to bind listening
 sockets and `/tmp/.X11-unix` ownership prevented server startup. Artifacts are
 under `artifacts/fluid-render-smoke/`. No successful visual smoke or timing
 percentiles are claimed. Status remains pending independent acceptance.
+
+### LIGHT-UPDATE-001-A01
+
+Implemented bounded in-memory relighting using the frozen API from Codex
+commit `f29c2b4`: `relight(changed, max_visited_cells, material)`. Candidate
+scene state is validated before publication; the result reports sorted light
+updates, dirty chunks, and unloaded boundary cells. Viewer interaction now
+relights the candidate before synchronizing scene chunks and rebuilding CPU
+opaque/fluid meshes. Queue-limit failure is atomic.
+
+Checks: `cargo fmt --all`; `cargo test --locked --offline -p beta-core --lib`
+(86 passed); `cargo test --locked --offline -p beta-viewer --lib` (17 passed).
+Native C01 fixture/oracle and world guards were unchanged. Emissive transitions
+and persistence remain outside this package.
