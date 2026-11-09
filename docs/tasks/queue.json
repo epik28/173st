@@ -2,6 +2,32 @@
   "schema_version": 1,
   "tasks": [
     {
+      "id": "HOTBAR-ITEMS-001-C01",
+      "owner": "codex",
+      "title": "Native hotbar item draw audit",
+      "card": "docs/tasks/HOTBAR-ITEMS-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "HOTBAR-ITEMS-001-A01",
+      "owner": "agy",
+      "title": "Render saved item stacks in the hotbar",
+      "card": "docs/tasks/HOTBAR-ITEMS-001.md",
+      "depends_on": [
+        "HOTBAR-ITEMS-001-C01"
+      ]
+    },
+    {
+      "id": "HOTBAR-ITEMS-001-C02",
+      "owner": "codex",
+      "title": "Accept hotbar stack rendering",
+      "card": "docs/tasks/HOTBAR-ITEMS-001.md",
+      "depends_on": [
+        "HOTBAR-ITEMS-001-C01",
+        "HOTBAR-ITEMS-001-A01"
+      ]
+    },
+    {
       "id": "FLUID-001-C01",
       "owner": "codex",
       "title": "Native water geometry oracle",

@@ -777,6 +777,16 @@
         "Launch from main reaches completed 25-chunk mesh build; this headless session lacks a Wayland compositor, so no frame/screenshot claim",
         "Original copied save source hashes remain unchanged; source worktree shares the local-only pin file at workspace artifacts/user-world-postplay.sha256"
       ]
+    },
+    "HOTBAR-ITEMS-001-C01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
+    },
+    "HOTBAR-ITEMS-001-C02": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

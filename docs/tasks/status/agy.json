@@ -397,6 +397,11 @@
         "env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked --offline -p beta-viewer → pinned client GUI/HUD/inventory/item resources validated in memory; startup stopped at the existing pinned-world hash guard (`level.dat` mismatch); no visual smoke or source-save access",
         "Consumed committed native audit and resources from C01 commit 2428cfc after fast-forwarding main e9d9746; item icon coordinates checked against tests/fixtures/inventory_ui/audit.json. No native fixtures/oracle/queue/core semantics/dependencies or world hash guard changed. Item counts and interaction remain outside this slice."
       ]
+    },
+    "HOTBAR-ITEMS-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }
