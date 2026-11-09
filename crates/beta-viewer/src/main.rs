@@ -517,11 +517,49 @@ fn copy_local_world()
 fn choose_world(
     entries: &[beta_viewer::world_select::WorldEntry],
 ) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct ChooserLayout {
+        row_top: f32,
+        row_height: f32,
+        select_top: f32,
+        cancel_top: f32,
+        button_height: f32,
+    }
+    impl ChooserLayout {
+        fn new() -> Self {
+            Self {
+                row_top: 56.0,
+                row_height: 42.0,
+                select_top: 410.0,
+                cancel_top: 410.0,
+                button_height: 36.0,
+            }
+        }
+        fn row_at(self, y: f32, count: usize) -> Option<usize> {
+            if y < self.row_top {
+                return None;
+            }
+            let i = ((y - self.row_top) / self.row_height).floor() as usize;
+            (i < count).then_some(i)
+        }
+        fn is_select(self, x: f32, y: f32) -> bool {
+            (420.0..570.0).contains(&x)
+                && y >= self.select_top
+                && y < self.select_top + self.button_height
+        }
+        fn is_cancel(self, x: f32, y: f32) -> bool {
+            (580.0..700.0).contains(&x)
+                && y >= self.cancel_top
+                && y < self.cancel_top + self.button_height
+        }
+    }
     struct Chooser {
         entries: Vec<beta_viewer::world_select::WorldEntry>,
         state: beta_viewer::world_select::ChooserState,
         window: Option<Window>,
         result: Option<Option<usize>>,
+        cursor: (f32, f32),
+        layout: ChooserLayout,
     }
     impl ApplicationHandler for Chooser {
         fn resumed(&mut self, event: &ActiveEventLoop) {
@@ -534,17 +572,35 @@ fn choose_world(
             let window = event.create_window(attrs).expect("chooser window");
             self.window = Some(window);
             self.state.select_first_valid(&self.entries);
-            self.refresh_title();
+            if let Some(window) = &self.window {
+                window.set_title("Beta 1.7.3 — Singleplayer");
+            }
         }
         fn window_event(&mut self, event: &ActiveEventLoop, _: WindowId, input: WindowEvent) {
+            if let WindowEvent::CursorMoved { position, .. } = input {
+                self.cursor = (position.x as f32, position.y as f32);
+                return;
+            }
             if let WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
             } = input
             {
-                if let Some(index) = self.state.activate(&self.entries) {
-                    self.result = Some(Some(index));
+                let (x, y) = self.cursor;
+                if let Some(index) = self.layout.row_at(y, self.entries.len()) {
+                    self.state.apply(
+                        beta_viewer::world_select::ChooserAction::Select,
+                        Some(index),
+                        self.entries.len(),
+                    );
+                } else if self.layout.is_select(x, y) {
+                    if let Some(index) = self.state.activate(&self.entries) {
+                        self.result = Some(Some(index));
+                        event.exit();
+                    }
+                } else if self.layout.is_cancel(x, y) {
+                    self.result = Some(None);
                     event.exit();
                 }
                 return;
@@ -581,27 +637,7 @@ fn choose_world(
     }
     impl Chooser {
         fn refresh_title(&self) {
-            let selected = self.state.selected;
-            let rows = self
-                .entries
-                .iter()
-                .enumerate()
-                .map(|(i, world)| {
-                    let marker = if Some(i) == selected { ">" } else { " " };
-                    match &world.launch_reason {
-                        Some(reason) => {
-                            format!("{marker} {} [disabled: {reason}]", world.display_name)
-                        }
-                        None => format!("{marker} {}", world.display_name),
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(" | ");
-            if let Some(window) = &self.window {
-                window.set_title(&format!(
-                    "Singleplayer — {rows} — Enter: Select, Esc: Cancel"
-                ));
-            }
+            let _ = self.state.selected;
         }
     }
     let event_loop = EventLoop::new()?;
@@ -610,6 +646,8 @@ fn choose_world(
         state: Default::default(),
         window: None,
         result: None,
+        cursor: (0.0, 0.0),
+        layout: ChooserLayout::new(),
     };
     event_loop.run_app(&mut app)?;
     Ok(app.result.flatten())
