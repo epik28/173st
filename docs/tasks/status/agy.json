@@ -454,6 +454,11 @@
         "python3 tools/check.py → PASS: workspace checks, tests, clippy, format and docs",
         "Source-world hashes, native fixtures and oracle files unchanged"
       ]
+    },
+    "WORLD-SELECT-001-A01": {
+      "state": "pending",
+      "summary": "",
+      "checks": []
     }
   }
 }

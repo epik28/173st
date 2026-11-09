@@ -1079,6 +1079,32 @@
         "LIGHT-UPDATE-001-C01",
         "LIGHT-UPDATE-001-A01"
       ]
+    },
+    {
+      "id": "WORLD-SELECT-001-C01",
+      "owner": "codex",
+      "title": "Audit native main menu and existing world selection",
+      "card": "docs/tasks/WORLD-SELECT-001.md",
+      "depends_on": []
+    },
+    {
+      "id": "WORLD-SELECT-001-A01",
+      "owner": "agy",
+      "title": "Add a read-only existing-world chooser",
+      "card": "docs/tasks/WORLD-SELECT-001.md",
+      "depends_on": [
+        "WORLD-SELECT-001-C01"
+      ]
+    },
+    {
+      "id": "WORLD-SELECT-001-C02",
+      "owner": "codex",
+      "title": "Accept selected-world preview flow",
+      "card": "docs/tasks/WORLD-SELECT-001.md",
+      "depends_on": [
+        "WORLD-SELECT-001-C01",
+        "WORLD-SELECT-001-A01"
+      ]
     }
   ]
 }
