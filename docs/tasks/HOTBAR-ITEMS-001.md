@@ -16,8 +16,9 @@ but no items even when the saved player has supported hotbar stacks.
   synthesize stacks or map unsupported items to a similar sprite.
 - Place icons inside the nine native hotbar slots, retaining nearest sampling,
   pixel alignment, atlas alpha and correct viewport scaling. Preserve native
-  HUD layering: hotbar frame, item sprites, selected-slot frame, then health and
-  crosshair according to the original draw sequence established by C01.
+  HUD layering: hotbar frame, selected-slot frame, crosshair, health/armor rows,
+  then item sprites and count text, as established by C01. Keep existing viewer
+  geometry ordering for everything outside this new item pass.
 - Display stack counts only if the original font resource and native count
   layout can be audited and implemented without a new dependency or guessed
   glyph map. Otherwise this package is icon-only and records counts as a later
