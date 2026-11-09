@@ -549,10 +549,17 @@ fn build_atlas_mips(base: &image::RgbaImage) -> Vec<image::RgbaImage> {
 /// Alpha-blended water must be submitted back-to-front. Geometry emits each
 /// quad as two consecutive triangles, so sort whole six-vertex quads and keep
 /// their native vertex order intact.
-fn sort_fluid_quads(
+fn sort_fluid_quad_indices(
     vertices: &[beta_view::fluid::Vertex],
     camera: [f32; 3],
-) -> Vec<beta_view::fluid::Vertex> {
+) -> Result<Vec<u32>, &'static str> {
+    if !vertices.len().is_multiple_of(6) {
+        return Err("fluid mesh vertex count is not a whole number of quads");
+    }
+    let quad_count = vertices.len() / 6;
+    if vertices.len() > u32::MAX as usize {
+        return Err("fluid mesh exceeds u32 index range");
+    }
     let mut order: Vec<_> = vertices
         .chunks_exact(6)
         .enumerate()
@@ -569,9 +576,25 @@ fn sort_fluid_quads(
     order.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     let mut sorted = Vec::with_capacity(vertices.len());
     for (_, index) in order {
-        sorted.extend_from_slice(&vertices[index * 6..index * 6 + 6]);
+        let base = u32::try_from(index.checked_mul(6).ok_or("fluid index overflow")?)
+            .map_err(|_| "fluid mesh exceeds u32 index range")?;
+        sorted.extend(base..base + 6);
     }
-    sorted
+    debug_assert_eq!(sorted.len(), quad_count * 6);
+    Ok(sorted)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FluidFrameUploadBytes {
+    vertex: usize,
+    indices: usize,
+}
+
+fn fluid_frame_upload_bytes(index_count: usize) -> Option<FluidFrameUploadBytes> {
+    Some(FluidFrameUploadBytes {
+        vertex: 0,
+        indices: index_count.checked_mul(std::mem::size_of::<u32>())?,
+    })
 }
 
 struct App {
@@ -628,6 +651,8 @@ struct Gpu {
     chunk_meshes: BTreeMap<(i32, i32), GpuChunkMesh>,
     fluid_vertex: wgpu::Buffer,
     fluid_vertex_count: u32,
+    fluid_index: wgpu::Buffer,
+    fluid_index_count: u32,
     depth: wgpu::TextureView,
     bind: wgpu::BindGroup,
     gui_bind: wgpu::BindGroup,
@@ -971,6 +996,21 @@ impl App {
                 });
         }
         gpu.fluid_vertex_count = self.fluid_mesh.vertices.len() as u32;
+        let index_bytes = self
+            .fluid_mesh
+            .vertices
+            .len()
+            .checked_mul(std::mem::size_of::<u32>())
+            .ok_or("fluid index buffer size overflow")?;
+        if index_bytes as u64 > gpu.fluid_index.size() {
+            gpu.fluid_index = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("grown transparent water indices"),
+                size: index_bytes.max(4) as u64,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        }
+        gpu.fluid_index_count = 0;
         Ok(())
     }
 
@@ -1511,6 +1551,19 @@ impl App {
             },
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
+        let fluid_index_capacity = self
+            .fluid_mesh
+            .vertices
+            .len()
+            .checked_mul(std::mem::size_of::<u32>())
+            .ok_or("fluid index buffer size overflow")?
+            .max(4);
+        let fluid_index = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("sorted transparent water indices"),
+            size: fluid_index_capacity as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let dep = depth(&device, w.inner_size());
         self.gpu = Some(Gpu {
             instance,
@@ -1525,6 +1578,8 @@ impl App {
             chunk_meshes: gpu_chunk_meshes,
             fluid_vertex,
             fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
+            fluid_index,
+            fluid_index_count: 0,
             depth: dep,
             bind,
             gui_bind,
@@ -1588,27 +1643,27 @@ impl App {
                 self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
             }
         }
-        if !self.fluid_mesh.vertices.is_empty() {
-            let sorted =
-                sort_fluid_quads(&self.fluid_mesh.vertices, self.camera.position.to_array());
-            let packed: Vec<[f32; 8]> = sorted
-                .iter()
-                .map(|vertex| {
-                    [
-                        vertex.position[0],
-                        vertex.position[1],
-                        vertex.position[2],
-                        vertex.uv[0],
-                        vertex.uv[1],
-                        ((vertex.color >> 16) & 255) as f32 / 255.0,
-                        ((vertex.color >> 8) & 255) as f32 / 255.0,
-                        (vertex.color & 255) as f32 / 255.0,
-                    ]
-                })
-                .collect();
-            g.queue
-                .write_buffer(&g.fluid_vertex, 0, bytemuck::cast_slice(&packed));
+        let fluid_indices = match sort_fluid_quad_indices(
+            &self.fluid_mesh.vertices,
+            self.camera.position.to_array(),
+        ) {
+            Ok(indices) => indices,
+            Err(error) => {
+                eprintln!("beta-viewer fluid sort failed: {error}");
+                Vec::new()
+            }
+        };
+        if !fluid_indices.is_empty() {
+            if let Some(upload_bytes) = fluid_frame_upload_bytes(fluid_indices.len()) {
+                let contents = bytemuck::cast_slice(&fluid_indices);
+                debug_assert_eq!(contents.len(), upload_bytes.indices);
+                debug_assert_eq!(upload_bytes.vertex, 0);
+                g.queue.write_buffer(&g.fluid_index, 0, contents);
+            } else {
+                eprintln!("beta-viewer fluid index upload size overflow");
+            }
         }
+        g.fluid_index_count = fluid_indices.len() as u32;
         if let Ok(m) = self
             .camera
             .view_projection(g.config.width as f32 / g.config.height as f32)
@@ -1825,7 +1880,8 @@ impl App {
                     if g.fluid_vertex_count > 0 {
                         p.set_pipeline(&g.fluid_pipeline);
                         p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
-                        p.draw(0..g.fluid_vertex_count, 0..1);
+                        p.set_index_buffer(g.fluid_index.slice(..), wgpu::IndexFormat::Uint32);
+                        p.draw_indexed(0..g.fluid_index_count, 0, 0..1);
                     }
                     if inventory_open {
                         p.set_pipeline(&g.hud_pipeline);
@@ -2175,15 +2231,15 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, interaction_shape, local_world_manifest_path,
-        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
-        sort_fluid_quads, srgb_to_linear,
+        LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
+        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
+        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear,
     };
     use beta_core::block::RayShape;
     use beta_view::{BlockMapping, BlockStateKey};
 
     #[test]
-    fn transparent_water_quads_sort_back_to_front_without_reordering_triangles() {
+    fn transparent_water_quad_indices_sort_groups_without_reordering_triangles() {
         let quad = |x: f32| {
             let points = [[x, 0.0, 0.0], [x, 1.0, 0.0], [x, 1.0, 1.0], [x, 0.0, 1.0]];
             [0, 1, 2, 0, 2, 3].map(|index| beta_view::fluid::Vertex {
@@ -2196,14 +2252,58 @@ mod tests {
         submitted.extend(quad(1.0));
         submitted.extend(quad(2.0));
         submitted.extend(quad(3.0));
-        let sorted = sort_fluid_quads(&submitted, [0.0, 0.0, 0.0]);
-        assert_eq!(sorted.len(), submitted.len());
-        assert_eq!(sorted[0].position[0], 3.0);
-        assert_eq!(sorted[6].position[0], 2.0);
-        assert_eq!(sorted[12].position[0], 1.0);
-        assert_eq!(sorted[0].uv[0], 0.0);
-        assert_eq!(sorted[1].uv[0], 1.0);
-        assert_eq!(sorted[2].uv[0], 2.0);
+        let indices = sort_fluid_quad_indices(&submitted, [0.0, 0.0, 0.0]).unwrap();
+        assert_eq!(
+            indices,
+            (12..18).chain(6..12).chain(0..6).collect::<Vec<_>>()
+        );
+        assert_eq!(indices.len(), submitted.len());
+        assert_eq!(
+            indices.chunks_exact(6).next().unwrap(),
+            &(12..18).collect::<Vec<_>>()
+        );
+        assert_eq!(submitted[indices[0] as usize].uv[0], 0.0);
+        assert_eq!(submitted[indices[1] as usize].uv[0], 1.0);
+        assert_eq!(submitted[indices[2] as usize].uv[0], 2.0);
+    }
+
+    #[test]
+    fn transparent_water_index_order_preserves_equal_depth_submission_order() {
+        let make_quad = |x: f32| {
+            [0, 0, 0, 0, 0, 0].map(|_| beta_view::fluid::Vertex {
+                position: [x, 0.0, 0.0],
+                uv: [x, 0.0],
+                color: 0,
+            })
+        };
+        let submitted: Vec<_> = [make_quad(-2.0), make_quad(2.0), make_quad(1.0)]
+            .into_iter()
+            .flatten()
+            .collect();
+        let indices = sort_fluid_quad_indices(&submitted, [0.0, 0.0, 0.0]).unwrap();
+        assert_eq!(indices, (0..18).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn fluid_frame_upload_accounting_excludes_static_vertices() {
+        let bytes = fluid_frame_upload_bytes(6 * 257).unwrap();
+        assert_eq!(bytes.vertex, 0);
+        assert_eq!(bytes.indices, 6 * 257 * std::mem::size_of::<u32>());
+        assert_eq!(bytes.indices, 6 * 257 * 4);
+        assert!(fluid_frame_upload_bytes(usize::MAX).is_none());
+    }
+
+    #[test]
+    fn fluid_index_sort_rejects_incomplete_quad() {
+        let vertex = beta_view::fluid::Vertex {
+            position: [0.0; 3],
+            uv: [0.0; 2],
+            color: 0,
+        };
+        assert_eq!(
+            sort_fluid_quad_indices(&[vertex], [0.0; 3]),
+            Err("fluid mesh vertex count is not a whole number of quads")
+        );
     }
 
     #[test]

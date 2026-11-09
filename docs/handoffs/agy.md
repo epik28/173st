@@ -889,3 +889,34 @@ counts reuse the audited font widths, shadow and foreground passes and are
 drawn after the cursor icon, following slot contents. Tests cover mouse
 movement, both atlas groups, count visibility and UV/position geometry. The
 card is complete at A01 scope; tooltip and outside-drop remain excluded.
+
+## FLUID-RENDER-001-A01 — indexed transparent-water rendering
+
+Replaced the per-frame sorted/repacked fluid vertex payload with a static
+packed vertex buffer and a dynamic `u32` index buffer. Each frame sorts the
+same six-vertex quad centers by descending squared distance and preserves the
+previous submission-order tie break, then uploads contiguous six-index groups
+in original triangle order. Scene fluid rebuilds still update the static
+vertex buffer and ensure sufficient index capacity; scene edits remain
+in-memory viewer state.
+
+Added viewer tests for near/far ordering, complete six-index group order,
+equal-depth submission ties, incomplete quad rejection, and byte accounting.
+The frame path uses the tested accounting seam: unchanged geometry uploads zero
+fluid vertex bytes and exactly 24 index bytes per quad. The prior observed
+scene had 9,768 fluid vertices, yielding 39,072 index bytes/frame versus
+312,576 bytes/frame for the former per-frame packed vertex payload (8x fewer
+bytes by count). This is calculated transfer volume, not a new live capture.
+No p50/p95/p99 or FPS claim is made because the local run did not provide
+controlled frame-time instrumentation.
+
+Checks: `cargo test --locked --offline -p beta-viewer` passed (17 library and
+47 viewer tests plus doc tests); `cargo clippy --locked --offline -p
+beta-viewer --all-targets -- -D warnings`, `cargo fmt --all -- --check`, and
+`python3 tools/check.py` passed (214 Python tests, 18 opt-in skips, workspace
+format/check/clippy/all-target/doc/all-target tests). The requested Xvfb
+command `env -u WAYLAND_DISPLAY xvfb-run -a timeout 10s cargo run --locked
+--offline -p beta-viewer` returned without a diagnostic; no screenshot,
+controlled timing sample, or manual interaction evidence was collected. No
+fluid geometry/material, transparency policy, movement, world, fixture, oracle,
+queue, or shared contract was changed.

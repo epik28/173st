@@ -433,9 +433,15 @@
       ]
     },
     "FLUID-RENDER-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Fluid vertex data is static between scene rebuilds; frames sort whole six-index quad groups by the existing back-to-front distance and submission-order tie rule. Tests pin order, ties, malformed geometry rejection, and zero per-frame vertex bytes with exactly 24 index bytes per quad.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer → PASS: 17 library + 47 viewer tests + doc tests",
+        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check → PASS",
+        "python3 tools/check.py → PASS: 214 Python tests (18 skipped), workspace fmt/check/clippy/all-target/doc/all-target tests",
+        "Per-frame transfer accounting: 0 vertex bytes and 6 u32 indices (24 bytes) per quad. For the previously observed 9,768-vertex scene, calculated dynamic index transfer is 39,072 bytes/frame versus 312,576 bytes/frame of repacked vertex payload before (8x reduction); this is arithmetic from counts, not a new live capture.",
+        "No p50/p95/p99 or FPS claim: local viewer startup did not provide controlled frame timing instrumentation. Xvfb startup command completed without emitted diagnostic; no screenshot/manual interaction was recorded."
+      ]
     },
     "LIGHT-UPDATE-001-A01": {
       "state": "pending",
