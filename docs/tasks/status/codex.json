@@ -642,9 +642,15 @@
       ]
     },
     "ITEMS-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Added strict native ItemStack/main-inventory runner and retained report verifier. C01 native rows compare after removing only display names; all typed stack identity/count/damage/verified-limit fields, selection, results, 36 slots, order and row count remain exact. C01 selected lookup observations -1 and 9 are preserved with empty selected result and unchanged slots; internal inventory bounds are not widened.",
+      "checks": [
+        "python3 -m unittest tests.python.test_items_runner tests.python.test_items_corpus -v → 15 PASS",
+        "python3 tools/check.py → PASS; full Python and locked offline Rust workspace fmt/check/clippy/all-target/doc checks",
+        "python3 tools/parity/run.py items --strict → not_implemented, expected strict exit 1 because items_probe source is absent; native C01 JVM captures completed twice",
+        "python3 tools/parity/items_review.py artifacts/parity/items/run-gjfal230/report.json → PASS; 6 scenarios, 21 ordered rows, 4 successful Java processes; native output SHA-256 b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916",
+        "Mutations/error coverage: missing/extra/reordered/duplicate states, malformed types/framing, stack count/limit/id/damage, slot count/selection, absent/wrong JAR, missing executable/timeout, report artifact/hash/path tampering"
+      ]
     },
     "ITEMS-001-C03": {
       "state": "pending",

@@ -1211,3 +1211,33 @@ of this card. Next step: C02 strict runner, after this C01 commit is reviewed.
 - Xvfb smoke запускался, но viewer правильно остановил чтение мира из-за несовпадения pinned `level.dat`. Локальное сохранение не изменялось. Визуальная проверка сглаживания на этой копии мира не подтверждена.
 - Изменение ограничено отображением debug-flight: fixed 20 Hz state и controls сохранены, translation интерполируется; native flight parity не заявляется.
 - Готовность остаётся около 23%: это качество представления уже имеющегося режима, не новая игровая подсистема.
+
+## ITEMS-001-C02 — strict inventory runner, 2026-11-09
+
+Added `tools/parity/items_run.py`, `items_review.py`, `items` dispatch in
+`tools/parity/run.py`, and strict comparator/report mutation tests. Probe protocol
+for A02: 21 LF-terminated state rows with six TSV columns:
+`scenario, step, result, selected, selected_stack, slots`. Result is `none` or
+ordered typed `key=value` fields. Stack tokens are
+`id,count,damage,verified_limit`; slots contains exactly 36 tokens separated by
+`|`. The C01 native display name alone is normalized away because the bounded
+Rust model deliberately has no catalog/name lookup. Every remaining stack value,
+selection, result, scenario/step order and row count compares exactly. Native
+`index_minus_one` and `index_nine` observations are retained as selected values
+-1/9 with empty lookup and unchanged slot state; probe output mirrors these
+observations without widening internal selection bounds.
+
+`python3 -m unittest tests.python.test_items_runner tests.python.test_items_corpus -v`
+→ 15 PASS. `python3 tools/check.py` → PASS for the full Python suite and locked
+offline Rust fmt/check/clippy/all-target/doc checks. The native strict runner
+captured the original JAR twice and retained
+`artifacts/parity/items/run-gjfal230/report.json`; strict status is correctly
+`not_implemented` (strict exit 1) until A02 supplies `items_probe`.
+`python3 tools/parity/items_review.py artifacts/parity/items/run-gjfal230/report.json`
+→ PASS, six scenarios / 21 rows / four Java processes, output SHA-256
+`b4c6befa3deaa740f90eaef2e79c8a9a53f5b48eb76fe4cdbc21565604af4916`.
+Tests cover output mutations, order/count/type/limit errors, malformed framing,
+slot and selection invariants, missing/wrong JAR, process failure/timeout, and
+retained artifact/hash/path tampering. No Rust, fixture, oracle, or user save was
+changed. Next: A01/A02 implementation; C03 not started. Model: gpt-6-luna low;
+no delegated agent or direct Rust engine edits.
