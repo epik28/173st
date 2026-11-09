@@ -423,9 +423,14 @@
       ]
     },
     "HEALTH-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Добавлено read-only извлечение Player.Health как signed Short с fallback 20 и clamp 0..20; HUD сохраняет нативные 10 фоновых ячеек и выводит full/half/empty heart UV по сохранённому значению. Reset R не меняет saved health.",
+      "checks": [
+        "cargo test --locked --offline -p beta-viewer → PASS: 17 library + 43 viewer tests + doc tests",
+        "cargo fmt --all; cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
+        "Тесты покрывают missing/malformed Player.Health, signed Short clamp, 0/1/2/3/19/20, all GUI scales и ordered raw UV background/full/half/empty heart vertices",
+        "Изменения ограничены crates/beta-viewer/src/{saved_player.rs,hud.rs,main.rs}, status и handoff; world remains read-only and no health simulation/save writes were added"
+      ]
     }
   }
 }

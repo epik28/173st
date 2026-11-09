@@ -11,6 +11,19 @@ pub struct SavedInventory {
     pub unsupported_stacks: usize,
 }
 
+/// Return the saved Beta health in half-heart units. Invalid or missing values
+/// use the native viewer fallback of twenty, while valid values are bounded to
+/// the ten-heart display.
+pub fn health_from_player(player: Option<&Tag>) -> i16 {
+    let Some(Tag::Compound(fields)) = player else {
+        return 20;
+    };
+    match field(fields, "Health") {
+        Some(Tag::Short(health)) => (*health).clamp(0, 20),
+        _ => 20,
+    }
+}
+
 pub fn inventory_from_player(player: Option<&Tag>) -> SavedInventory {
     let mut inventory = Inventory::new();
     let mut unsupported_stacks = 0;
@@ -119,5 +132,38 @@ mod tests {
             inventory_from_player(Some(&player)).inventory,
             Inventory::new()
         );
+    }
+
+    #[test]
+    fn health_defaults_for_missing_or_malformed_player_data() {
+        assert_eq!(health_from_player(None), 20);
+        assert_eq!(health_from_player(Some(&Tag::String("bad".into()))), 20);
+        assert_eq!(health_from_player(Some(&Tag::Compound(vec![]))), 20);
+        assert_eq!(
+            health_from_player(Some(&Tag::Compound(vec![("Health".into(), Tag::Byte(3))]))),
+            20
+        );
+    }
+
+    #[test]
+    fn health_clamps_signed_short_to_display_range() {
+        for (raw, expected) in [
+            (-1, 0),
+            (0, 0),
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (19, 19),
+            (20, 20),
+            (21, 20),
+        ] {
+            assert_eq!(
+                health_from_player(Some(&Tag::Compound(vec![(
+                    "Health".into(),
+                    Tag::Short(raw)
+                )]))),
+                expected
+            );
+        }
     }
 }

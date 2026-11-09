@@ -421,6 +421,7 @@ pub fn native_vertices_with_selection(
     height: u32,
     scale: u32,
     selected_slot: u8,
+    health: i16,
 ) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
     let layout = layout_with_selection(width, height, scale, selected_slot);
     let mut gui = Vec::with_capacity(12);
@@ -445,21 +446,40 @@ pub fn native_vertices_with_selection(
         (width, height),
     ));
     let mut icons = Vec::with_capacity(126);
-    for heart in layout.hearts {
+    for (i, heart) in layout.hearts.into_iter().enumerate() {
         let bg = Rect {
             x: 16.0,
             y: 0.0,
             width: 9.0,
             height: 9.0,
         };
+        let heart_uv = if health >= 2 * i as i16 + 2 {
+            Rect {
+                x: 52.0,
+                y: 0.0,
+                width: 9.0,
+                height: 9.0,
+            }
+        } else if health == 2 * i as i16 + 1 {
+            Rect {
+                x: 61.0,
+                y: 0.0,
+                width: 9.0,
+                height: 9.0,
+            }
+        } else {
+            bg
+        };
         let full = Rect {
-            x: 52.0,
+            x: heart_uv.x,
             y: 0.0,
             width: 9.0,
             height: 9.0,
         };
         icons.extend(quad_vertices(heart, bg, (width, height)));
-        icons.extend(quad_vertices(heart, full, (width, height)));
+        if health > 2 * i as i16 {
+            icons.extend(quad_vertices(heart, full, (width, height)));
+        }
     }
     icons.extend(quad_vertices(
         layout.crosshair,
@@ -565,7 +585,7 @@ mod tests {
 
     #[test]
     fn native_sprite_batches_use_pinned_atlas_bounds_and_empty_hotbar() {
-        let (gui, icons) = native_vertices_with_selection(1280, 720, 2, 0);
+        let (gui, icons) = native_vertices_with_selection(1280, 720, 2, 0, 20);
         assert_eq!(gui.len(), 12);
         assert_eq!(icons.len(), 126);
         assert!(
@@ -580,5 +600,22 @@ mod tests {
         // The final quad is the centered 16x16 crosshair.
         assert_eq!(&icons[120][2..], &[0.0, 0.0]);
         assert_eq!(&icons[122][2..], &[16.0 / 256.0, 16.0 / 256.0]);
+    }
+
+    #[test]
+    fn heart_states_keep_native_order_and_uvs_at_each_gui_scale() {
+        for scale in [1, 2, 3, 4] {
+            let (_, icons) = native_vertices_with_selection(1280, 720, scale, 0, 3);
+            // Background is emitted for every slot; full, half, or no overlay
+            // follows it, then the crosshair remains the final quad.
+            assert_eq!(icons.len(), 6 * (10 + 2) + 6);
+            assert_eq!(&icons[0][2..], &[16.0 / 256.0, 0.0]);
+            assert_eq!(&icons[6][2..], &[52.0 / 256.0, 0.0]);
+            assert_eq!(&icons[12][2..], &[16.0 / 256.0, 0.0]);
+            assert_eq!(&icons[18][2..], &[61.0 / 256.0, 0.0]);
+            assert_eq!(&icons[24][2..], &[16.0 / 256.0, 0.0]);
+            assert_eq!(&icons[30][2..], &[16.0 / 256.0, 0.0]);
+            assert_eq!(&icons[icons.len() - 6][2..], &[0.0, 0.0]);
+        }
     }
 }

@@ -41,7 +41,7 @@ use winit::{
 use beta_viewer::loader;
 
 const TERRAIN_HASH: &str = "9e32336c83732193a20d0f942ae8aa1186ae01231245b5e83659ce6e9d3511cf";
-const HUD_NOTICE: &str = "HUD: saved hotbar items, fixed 20/20 display (no survival state)";
+const HUD_NOTICE: &str = "HUD: saved hotbar items and saved health (no survival state)";
 fn main() {
     if let Err(e) = run() {
         eprintln!("beta-viewer: {e}");
@@ -116,6 +116,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
+    let saved_health = saved_player::health_from_player(metadata.player.as_ref());
     if saved_inventory.unsupported_stacks > 0 {
         eprintln!(
             "beta-viewer: skipped {} unsupported saved inventory stack(s)",
@@ -170,6 +171,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         safe_spawn,
         controls: Controls::default(),
         inventory: saved_inventory.inventory,
+        saved_health,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
@@ -602,6 +604,7 @@ struct App {
     safe_spawn: [f64; 3],
     controls: Controls,
     inventory: Inventory,
+    saved_health: i16,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
     mouse_delta: MouseDeltaAccumulator,
@@ -1622,6 +1625,7 @@ impl App {
             g.config.height,
             hud::gui_scale(g.config.width, g.config.height),
             self.inventory.selected_hotbar(),
+            self.saved_health,
         );
         g.queue
             .write_buffer(&g.hud_gui_vertex, 0, bytemuck::cast_slice(&hud_gui));

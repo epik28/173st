@@ -862,6 +862,26 @@ native mouse geometry and layering; no guessed rendering claim is made here.
 At that snapshot `INVENTORY-INTERACTION-001-A01` remained pending until C01
 evidence landed.
 
+## HEALTH-001-A01
+
+Implemented saved health display in the native HUD. `Player.Health` is read
+from the already validated copied level metadata as a signed NBT Short;
+missing, malformed, or wrong-type fields use 20, and values clamp to 0..20.
+The app stores this value at startup, draws all ten native background heart
+cells, and adds full `(52,0,9,9)` or half `(61,0,9,9)` overlays according to
+half-heart units. Empty cells remain background only. `R` still resets only
+the player to the saved safe spawn, so health is unchanged and no save/world
+write or survival simulation was introduced.
+
+Changed `crates/beta-viewer/src/saved_player.rs`, `hud.rs`, and `main.rs`, plus
+the agy status. Tests cover missing/malformed values, signed Short clamping,
+0/1/2/3/19/20, all GUI scales, and ordered raw UV vertices.
+
+Checks: `cargo test --locked --offline -p beta-viewer` (17 library + 43 viewer
+tests + doc tests) passed; `cargo fmt --all`, clippy with `-D warnings`, and
+`git diff --check` passed. Model ID: gpt-5.6-luna low. No agents,
+dependencies, fixtures, oracle, Python tests, or shared contracts changed.
+
 C01 evidence has landed. The held cursor render is now implemented: the icon
 is 16x16 at physical mouse position minus the inventory panel origin and
 `(8,8)` native GUI pixels, with ID-based terrain/items atlas dispatch. Cursor
