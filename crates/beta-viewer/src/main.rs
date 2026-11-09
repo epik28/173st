@@ -87,7 +87,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     scene.enable_fancy_leaves();
     let (chunk_meshes, chunk_fluid_meshes) =
         build_chunk_mesh_cache(&scene, &color_maps, metadata.seed)?;
-    let mesh = join_mesh_cache(&chunk_meshes)?;
+    let (visible_faces, unsupported_blocks) = chunk_mesh_stats(&chunk_meshes);
     let fluid_mesh = join_fluid_cache(&chunk_fluid_meshes);
     let light_dimension = match metadata.dimension {
         0 => LightDimension::Overworld,
@@ -124,12 +124,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let loaded_chunks = scene.loaded_chunks();
     eprintln!(
         "viewer scene: chunks={loaded_chunks}, opaque_vertices={}, water_vertices={}",
-        mesh.vertices.len(),
+        chunk_mesh_vertex_count(&chunk_meshes),
         fluid_mesh.vertices.len()
     );
     let event = EventLoop::new()?;
     let mut app = App {
-        mesh,
+        visible_faces,
+        unsupported_blocks,
         fluid_mesh,
         chunk_meshes,
         chunk_fluid_meshes,
@@ -249,27 +250,17 @@ fn client_jar_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     Ok(root)
 }
 
-fn append_mesh(target: &mut Mesh, source: Mesh) -> Result<(), Box<dyn std::error::Error>> {
-    let offset = u32::try_from(target.vertices.len()).map_err(|_| "mesh index overflow")?;
-    target.vertices.extend(source.vertices);
-    target.indices.extend(
-        source
-            .indices
-            .into_iter()
-            .map(|index| index.checked_add(offset).ok_or("mesh index overflow"))
-            .collect::<Result<Vec<_>, _>>()?,
-    );
-    target.visible_faces += source.visible_faces;
-    target.unsupported_blocks += source.unsupported_blocks;
-    Ok(())
+fn chunk_mesh_stats(cache: &ChunkMeshCache) -> (usize, usize) {
+    cache.values().fold((0, 0), |(faces, unsupported), mesh| {
+        (
+            faces + mesh.visible_faces,
+            unsupported + mesh.unsupported_blocks,
+        )
+    })
 }
 
-fn join_mesh_cache(cache: &BTreeMap<(i32, i32), Mesh>) -> Result<Mesh, Box<dyn std::error::Error>> {
-    let mut mesh = Mesh::default();
-    for (_, chunk_mesh) in ordered_chunk_meshes(cache) {
-        append_mesh(&mut mesh, chunk_mesh.clone())?;
-    }
-    Ok(mesh)
+fn chunk_mesh_vertex_count(cache: &ChunkMeshCache) -> usize {
+    cache.values().map(|mesh| mesh.vertices.len()).sum()
 }
 
 fn join_fluid_cache(cache: &BTreeMap<(i32, i32), FluidMesh>) -> FluidMesh {
@@ -579,7 +570,8 @@ fn sort_fluid_quads(
 }
 
 struct App {
-    mesh: Mesh,
+    visible_faces: usize,
+    unsupported_blocks: usize,
     fluid_mesh: FluidMesh,
     chunk_meshes: ChunkMeshCache,
     chunk_fluid_meshes: ChunkFluidMeshCache,
@@ -624,9 +616,7 @@ struct Gpu {
     pipeline: wgpu::RenderPipeline,
     fluid_pipeline: wgpu::RenderPipeline,
     hud_pipeline: wgpu::RenderPipeline,
-    vertex: wgpu::Buffer,
-    index: wgpu::Buffer,
-    index_count: u32,
+    chunk_meshes: BTreeMap<(i32, i32), GpuChunkMesh>,
     fluid_vertex: wgpu::Buffer,
     fluid_vertex_count: u32,
     depth: wgpu::TextureView,
@@ -640,6 +630,12 @@ struct Gpu {
     inventory_vertex: wgpu::Buffer,
     inventory_icons_vertex: wgpu::Buffer,
     camera_buffer: wgpu::Buffer,
+}
+
+struct GpuChunkMesh {
+    vertex: wgpu::Buffer,
+    index: wgpu::Buffer,
+    index_count: u32,
 }
 
 fn preferred_surface_format(formats: &[wgpu::TextureFormat]) -> Option<wgpu::TextureFormat> {
@@ -681,6 +677,67 @@ fn native_packed_vertex_color(vertex: &Vertex, brightness: f32) -> [f32; 3] {
         };
         let packed = (encoded * 255.0).trunc().clamp(0.0, 255.0) as u8;
         f32::from(packed) / 255.0
+    })
+}
+
+fn pack_opaque_mesh(
+    mesh: &Mesh,
+    sky_subtraction: u8,
+    dimension: LightDimension,
+) -> Result<Vec<[f32; 8]>, Box<dyn std::error::Error>> {
+    mesh.vertices
+        .iter()
+        .map(|vertex| {
+            let brightness = saved_vertex_brightness(vertex, sky_subtraction, dimension)?;
+            let color = native_packed_vertex_color(vertex, brightness);
+            Ok([
+                vertex.position[0],
+                vertex.position[1],
+                vertex.position[2],
+                vertex.uv[0],
+                vertex.uv[1],
+                color[0],
+                color[1],
+                color[2],
+            ])
+        })
+        .collect()
+}
+
+fn create_gpu_chunk_mesh(
+    device: &wgpu::Device,
+    mesh: &Mesh,
+    sky_subtraction: u8,
+    dimension: LightDimension,
+) -> Result<GpuChunkMesh, Box<dyn std::error::Error>> {
+    let packed = pack_opaque_mesh(mesh, sky_subtraction, dimension)?;
+    let packed_bytes = packed.len() * std::mem::size_of::<[f32; 8]>();
+    let index_bytes = mesh.indices.len() * std::mem::size_of::<u32>();
+    if packed_bytes > 128 * 1024 * 1024 || index_bytes > 64 * 1024 * 1024 {
+        return Err("chunk mesh exceeds viewer GPU buffer limits".into());
+    }
+    let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("chunk opaque mesh vertices"),
+        contents: if packed.is_empty() {
+            bytemuck::cast_slice(&[[0.0_f32; 8]])
+        } else {
+            bytemuck::cast_slice(&packed)
+        },
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+    });
+    let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("chunk opaque mesh indices"),
+        contents: if mesh.indices.is_empty() {
+            bytemuck::cast_slice(&[0_u32])
+        } else {
+            bytemuck::cast_slice(&mesh.indices)
+        },
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+    });
+    Ok(GpuChunkMesh {
+        vertex,
+        index,
+        index_count: mesh.indices.len() as u32,
     })
 }
 
@@ -827,33 +884,38 @@ impl App {
                 self.chunk_fluid_meshes.insert((x, z), fluid);
             }
         }
-        self.mesh = join_mesh_cache(&self.chunk_meshes)?;
+        (self.visible_faces, self.unsupported_blocks) = chunk_mesh_stats(&self.chunk_meshes);
         self.fluid_mesh = join_fluid_cache(&self.chunk_fluid_meshes);
-        self.upload_mesh_buffers()?;
+        self.upload_dirty_meshes(dirty)?;
         Ok(())
     }
 
-    fn upload_mesh_buffers(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let packed: Vec<[f32; 8]> = self
-            .mesh
-            .vertices
+    fn upload_dirty_meshes(
+        &mut self,
+        dirty: &[(i32, i32)],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let chunk_updates: Vec<_> = dirty
             .iter()
-            .map(|vertex| {
-                let brightness =
-                    saved_vertex_brightness(vertex, self.sky_subtraction, self.light_dimension)?;
-                let color = native_packed_vertex_color(vertex, brightness);
-                Ok::<_, beta_core::light::LightError>([
-                    vertex.position[0],
-                    vertex.position[1],
-                    vertex.position[2],
-                    vertex.uv[0],
-                    vertex.uv[1],
-                    color[0],
-                    color[1],
-                    color[2],
-                ])
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|key| (*key, self.chunk_meshes.get(key).cloned()))
+            .collect();
+        let Some(gpu) = self.gpu.as_mut() else {
+            return Ok(());
+        };
+        for (key, mesh) in chunk_updates {
+            if let Some(mesh) = mesh.filter(|mesh| !mesh.indices.is_empty()) {
+                let gpu_mesh = create_gpu_chunk_mesh(
+                    &gpu.device,
+                    &mesh,
+                    self.sky_subtraction,
+                    self.light_dimension,
+                )?;
+                gpu.chunk_meshes.insert(key, gpu_mesh);
+            } else {
+                gpu.chunk_meshes.remove(&key);
+            }
+        }
+        // Editing a solid block can change a neighboring water face. The fluid
+        // pass is small and globally sorted, so refresh its one shared buffer.
         let fluid_packed: Vec<[f32; 8]> = self
             .fluid_mesh
             .vertices
@@ -871,65 +933,23 @@ impl App {
                 ]
             })
             .collect();
-        let indices = if self.mesh.indices.is_empty() {
-            vec![0_u32]
-        } else {
-            self.mesh.indices.clone()
-        };
-        let packed_bytes = packed.len() * std::mem::size_of::<[f32; 8]>();
-        let index_bytes = indices.len() * std::mem::size_of::<u32>();
-        let fluid_bytes = fluid_packed.len() * std::mem::size_of::<[f32; 8]>();
-        if packed_bytes > 128 * 1024 * 1024
-            || index_bytes > 64 * 1024 * 1024
-            || fluid_bytes > 128 * 1024 * 1024
-        {
-            return Err("rebuilt mesh exceeds viewer GPU buffer limits".into());
+        let bytes = fluid_packed.len() * std::mem::size_of::<[f32; 8]>();
+        if bytes > 128 * 1024 * 1024 {
+            return Err("rebuilt fluid mesh exceeds viewer GPU buffer limits".into());
         }
-        let Some(gpu) = self.gpu.as_mut() else {
-            return Ok(());
-        };
-        let packed_contents = if packed.is_empty() {
-            bytemuck::cast_slice(&[[0.0_f32; 8]])
-        } else {
-            bytemuck::cast_slice(&packed)
-        };
-        if packed_contents.len() as u64 <= gpu.vertex.size() {
-            gpu.queue.write_buffer(&gpu.vertex, 0, packed_contents);
-        } else {
-            gpu.vertex = gpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("grown scene mesh"),
-                    contents: packed_contents,
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-        }
-        let index_contents = bytemuck::cast_slice(&indices);
-        if index_contents.len() as u64 <= gpu.index.size() {
-            gpu.queue.write_buffer(&gpu.index, 0, index_contents);
-        } else {
-            gpu.index = gpu
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("grown scene indices"),
-                    contents: index_contents,
-                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                });
-        }
-        gpu.index_count = self.mesh.indices.len() as u32;
-        let fluid_contents = if fluid_packed.is_empty() {
+        let contents = if fluid_packed.is_empty() {
             bytemuck::cast_slice(&[[0.0_f32; 8]])
         } else {
             bytemuck::cast_slice(&fluid_packed)
         };
-        if fluid_contents.len() as u64 <= gpu.fluid_vertex.size() {
-            gpu.queue.write_buffer(&gpu.fluid_vertex, 0, fluid_contents);
+        if contents.len() as u64 <= gpu.fluid_vertex.size() {
+            gpu.queue.write_buffer(&gpu.fluid_vertex, 0, contents);
         } else {
             gpu.fluid_vertex = gpu
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("grown water vertices"),
-                    contents: fluid_contents,
+                    label: Some("grown transparent water vertices"),
+                    contents,
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 });
         }
@@ -990,7 +1010,7 @@ impl App {
         w.set_title(&format!(
             "Beta 1.7.3 sandbox — WASD/Space/Shift | F flight, R reset, Enter mouse | LMB break, RMB place | {} | chunks {}, faces {}, water vertices {}, unsupported {}",
             HUD_NOTICE,
-            self.loaded_chunks, self.mesh.visible_faces, self.fluid_mesh.vertices.len(), self.mesh.unsupported_blocks
+            self.loaded_chunks, self.visible_faces, self.fluid_mesh.vertices.len(), self.unsupported_blocks
         ));
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
             Box::new(el.owned_display_handle()),
@@ -1342,57 +1362,20 @@ impl App {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let packed: Vec<[f32; 8]> = if self.mesh.vertices.is_empty() {
-            vec![[0.0; 8]]
-        } else {
-            self.mesh
-                .vertices
-                .iter()
-                .map(|v| {
-                    let brightness =
-                        saved_vertex_brightness(v, self.sky_subtraction, self.light_dimension)?;
-                    let color = native_packed_vertex_color(v, brightness);
-                    Ok::<_, beta_core::light::LightError>([
-                        v.position[0],
-                        v.position[1],
-                        v.position[2],
-                        v.uv[0],
-                        v.uv[1],
-                        color[0],
-                        color[1],
-                        color[2],
-                    ])
-                })
-                .collect::<Result<Vec<_>, _>>()?
-        };
-        let vertex_bytes = packed
-            .len()
-            .checked_mul(std::mem::size_of::<[f32; 8]>())
-            .ok_or("vertex buffer size overflow")?;
-        let index_bytes = self
-            .mesh
-            .indices
-            .len()
-            .checked_mul(std::mem::size_of::<u32>())
-            .ok_or("index buffer size overflow")?;
-        if vertex_bytes > 128 * 1024 * 1024 || index_bytes > 64 * 1024 * 1024 {
-            return Err(format!("GPU mesh resource limit exceeded (vertices {vertex_bytes} bytes, indices {index_bytes} bytes)").into());
+        let mut gpu_chunk_meshes = BTreeMap::new();
+        for (&key, mesh) in &self.chunk_meshes {
+            if !mesh.indices.is_empty() {
+                gpu_chunk_meshes.insert(
+                    key,
+                    create_gpu_chunk_mesh(
+                        &device,
+                        mesh,
+                        self.sky_subtraction,
+                        self.light_dimension,
+                    )?,
+                );
+            }
         }
-        let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("static scene mesh"),
-            contents: bytemuck::cast_slice(&packed),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
-        let indices = if self.mesh.indices.is_empty() {
-            vec![0_u32]
-        } else {
-            self.mesh.indices.clone()
-        };
-        let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("static scene indices"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-        });
         let fluid_packed: Vec<[f32; 8]> = self
             .fluid_mesh
             .vertices
@@ -1438,9 +1421,7 @@ impl App {
             pipeline,
             fluid_pipeline,
             hud_pipeline,
-            vertex,
-            index,
-            index_count: self.mesh.indices.len() as u32,
+            chunk_meshes: gpu_chunk_meshes,
             fluid_vertex,
             fluid_vertex_count: self.fluid_mesh.vertices.len() as u32,
             depth: dep,
@@ -1607,9 +1588,11 @@ impl App {
                     });
                     p.set_pipeline(&g.pipeline);
                     p.set_bind_group(0, &g.bind, &[]);
-                    p.set_vertex_buffer(0, g.vertex.slice(..));
-                    p.set_index_buffer(g.index.slice(..), wgpu::IndexFormat::Uint32);
-                    p.draw_indexed(0..g.index_count, 0, 0..1);
+                    for chunk in g.chunk_meshes.values() {
+                        p.set_vertex_buffer(0, chunk.vertex.slice(..));
+                        p.set_index_buffer(chunk.index.slice(..), wgpu::IndexFormat::Uint32);
+                        p.draw_indexed(0..chunk.index_count, 0, 0..1);
+                    }
                     if g.fluid_vertex_count > 0 {
                         p.set_pipeline(&g.fluid_pipeline);
                         p.set_vertex_buffer(0, g.fluid_vertex.slice(..));
@@ -1829,6 +1812,7 @@ impl ApplicationHandler for App {
                         }
                     }
                     if pressed && !event.repeat && code == KeyCode::KeyR {
+                        eprintln!("viewer: reset key R pressed; returning to safe spawn");
                         self.controller.debug_flight = false;
                         self.controller.reset(self.safe_spawn);
                         self.camera.position = glam::Vec3::new(

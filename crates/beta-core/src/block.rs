@@ -1174,6 +1174,34 @@ mod tests {
     }
 
     #[test]
+    fn three_sequential_breaks_keep_each_in_memory_edit_and_advance_revision() {
+        let mut world = scene(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk {
+                x: 0,
+                z: 0,
+                data: chunk_with(&[(2, 10, 2, 1, 0), (3, 10, 2, 1, 0), (4, 10, 2, 1, 0)]),
+            }],
+        );
+        for (revision, x) in [(1, 2), (2, 3), (3, 4)] {
+            let hit = BlockHit {
+                x,
+                y: 10,
+                z: 2,
+                face: 1,
+                position: Vec3::new(f64::from(x) + 0.5, 11.0, 2.5),
+                kind: BlockHitKind::FullCube,
+                id: 1,
+                metadata: 0,
+            };
+            let edit = world.break_block(hit, &|_, _| true).unwrap();
+            assert_eq!(edit.revision, revision);
+            assert_eq!(world.block(x, 10, 2).unwrap().unwrap().id, 0);
+        }
+        assert_eq!(world.revision(), 3);
+    }
+
+    #[test]
     fn placement_rejects_unloaded_and_stale_hits_without_partial_mutation() {
         let data = chunk_with(&[(15, 10, 8, 1, 0)]);
         let mut world = scene(
