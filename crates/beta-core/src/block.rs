@@ -3,7 +3,11 @@
 //! This module owns no file I/O and does not persist edits. Callers provide the
 //! native-confirmed set of block states that use full-cube ray geometry.
 
-use std::{collections::BTreeMap, error::Error, fmt};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    error::Error,
+    fmt,
+};
 
 use crate::{
     chunk::{BlockData, ChunkData, ChunkError, split_block_coord},
@@ -128,6 +132,7 @@ pub enum BlockError {
     StaleHit,
     TargetOccupied,
     TargetUnloaded { x: i32, y: i32, z: i32 },
+    DuplicateBlockUpdate { x: i32, y: i32, z: i32 },
     RevisionExhausted,
     Chunk(ChunkError),
 }
@@ -158,6 +163,12 @@ impl fmt::Display for BlockError {
             Self::TargetOccupied => write!(f, "placement target is occupied"),
             Self::TargetUnloaded { x, y, z } => {
                 write!(f, "placement target ({x}, {y}, {z}) is not loaded")
+            }
+            Self::DuplicateBlockUpdate { x, y, z } => {
+                write!(
+                    f,
+                    "block-state batch contains duplicate coordinate ({x}, {y}, {z})"
+                )
             }
             Self::RevisionExhausted => write!(f, "block scene revision counter is exhausted"),
             Self::Chunk(error) => write!(f, "chunk access: {error}"),
@@ -663,6 +674,54 @@ impl BlockScene {
             return Ok(None);
         };
         Ok(Some(chunk.get(lx, y as u8, lz)?))
+    }
+
+    /// Applies a deterministic batch of already-validated runtime block states
+    /// as one atomic scene revision. A failed coordinate/chunk update leaves
+    /// this scene unchanged.
+    pub fn apply_block_states(
+        &mut self,
+        updates: &[((i32, i32, i32), BlockData)],
+    ) -> Result<Option<BlockEdit>, BlockError> {
+        if updates.is_empty() {
+            return Ok(None);
+        }
+        let revision = self
+            .revision
+            .checked_add(1)
+            .ok_or(BlockError::RevisionExhausted)?;
+        let mut staged = self.clone();
+        let mut changed = Vec::new();
+        let mut dirty_chunks = Vec::new();
+        let mut seen = BTreeSet::new();
+        for &((x, y, z), value) in updates {
+            if !seen.insert((x, y, z)) {
+                return Err(BlockError::DuplicateBlockUpdate { x, y, z });
+            }
+            let current = staged
+                .block(x, y, z)?
+                .ok_or(BlockError::TargetUnloaded { x, y, z })?;
+            if current == value {
+                continue;
+            }
+            staged.revision = self.revision;
+            let edit = staged.set_block(x, y, z, value)?;
+            changed.push((x, y, z));
+            dirty_chunks.extend(edit.dirty_chunks);
+        }
+        if changed.is_empty() {
+            return Ok(None);
+        }
+        dirty_chunks.sort_unstable();
+        dirty_chunks.dedup();
+        staged.revision = revision;
+        *self = staged;
+        Ok(Some(BlockEdit {
+            changed: changed[0],
+            additional_changed: changed.into_iter().skip(1).collect(),
+            dirty_chunks,
+            revision,
+        }))
     }
 
     /// Traces a normalized direction for the native controller's five-block reach.
@@ -1601,6 +1660,52 @@ mod tests {
         assert_eq!(edit.revision, 1);
         assert_eq!(place_world.block(16, 10, 8).unwrap().unwrap().id, 2);
         assert_eq!(edit.dirty_chunks, vec![(0, 0), (1, 0)]);
+    }
+
+    #[test]
+    fn runtime_block_state_batches_are_atomic_and_advance_one_revision() {
+        let mut world = scene(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk {
+                x: 0,
+                z: 0,
+                data: chunk_with(&[(1, 10, 1, 1, 0)]),
+            }],
+        );
+        let first = BlockData {
+            id: 8,
+            metadata: 0,
+            block_light: 2,
+            sky_light: 3,
+        };
+        let second = BlockData {
+            id: 9,
+            metadata: 1,
+            block_light: 0,
+            sky_light: 0,
+        };
+        assert_eq!(
+            world.apply_block_states(&[((1, 10, 1), first), ((16, 10, 1), second),]),
+            Err(BlockError::TargetUnloaded { x: 16, y: 10, z: 1 })
+        );
+        assert_eq!(world.revision(), 0);
+        assert_eq!(world.block(1, 10, 1).unwrap().unwrap().id, 1);
+        assert_eq!(
+            world.apply_block_states(&[((1, 10, 1), first), ((1, 10, 1), second)]),
+            Err(BlockError::DuplicateBlockUpdate { x: 1, y: 10, z: 1 })
+        );
+        assert_eq!(world.revision(), 0);
+
+        let edit = world
+            .apply_block_states(&[((1, 10, 1), first), ((2, 10, 1), second)])
+            .unwrap()
+            .unwrap();
+        assert_eq!(edit.changed, (1, 10, 1));
+        assert_eq!(edit.additional_changed, vec![(2, 10, 1)]);
+        assert_eq!(edit.revision, 1);
+        assert_eq!(world.revision(), 1);
+        assert_eq!(world.block(1, 10, 1).unwrap(), Some(first));
+        assert_eq!(world.block(2, 10, 1).unwrap(), Some(second));
     }
 
     #[test]

@@ -24,7 +24,7 @@ use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Me
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
-use beta_viewer::water_runtime::WaterRuntime;
+use beta_viewer::water_runtime::{CapturedSeedAction, WaterRuntime};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -1361,6 +1361,58 @@ fn dirty_chunk_union(edit: &[(i32, i32)], relight: &[(i32, i32)]) -> Vec<(i32, i
     result
 }
 
+fn captured_seed_action_for_edit(
+    before: &BlockScene,
+    after: &BlockScene,
+    breaking: bool,
+    hit_id: u8,
+    edit: &BlockEdit,
+) -> Option<CapturedSeedAction> {
+    if !edit.additional_changed.is_empty() {
+        return None;
+    }
+    let (x, y, z) = edit.changed;
+    if breaking
+        && hit_id == 1
+        && before
+            .block(x, y, z)
+            .ok()
+            .flatten()
+            .is_some_and(|b| b.id == 1)
+    {
+        let water_y = y.checked_add(1)?;
+        return before
+            .block(x, water_y, z)
+            .ok()
+            .flatten()
+            .filter(|water| water.id == 9 && water.metadata == 0)
+            .map(|_| CapturedSeedAction::RemoveSourceSupportAndNotify(edit.changed));
+    }
+    if !breaking
+        && before
+            .block(x, y, z)
+            .ok()
+            .flatten()
+            .is_some_and(|block| block.id == 0)
+        && after
+            .block(x, y, z)
+            .ok()
+            .flatten()
+            .is_some_and(|block| block.id == 1 && block.metadata == 0)
+    {
+        let water_x = x.checked_sub(1)?;
+        let support_y = y.checked_sub(1)?;
+        let water = before.block(water_x, y, z).ok().flatten()?;
+        let support = before.block(water_x, support_y, z).ok().flatten()?;
+        if water.id == 9 && water.metadata == 0 && support.id == 1 {
+            return Some(CapturedSeedAction::PlaceAdjacentSolidAndNotify(
+                edit.changed,
+            ));
+        }
+    }
+    None
+}
+
 fn sync_edited_blocks(
     block_scene: &BlockScene,
     scene_chunks: &mut [SceneChunk],
@@ -1437,6 +1489,60 @@ impl App {
                 (position, cell)
             })
             .collect()
+    }
+
+    fn water_seed_cells(
+        &self,
+        action: CapturedSeedAction,
+    ) -> Result<BTreeMap<WaterPos, WaterCell>, beta_core::water::WaterError> {
+        let positions = match action {
+            CapturedSeedAction::PlaceFlowing(position) => vec![position],
+            CapturedSeedAction::PlaceAdjacentSolidAndNotify(position) => {
+                let water = (
+                    position
+                        .0
+                        .checked_sub(1)
+                        .ok_or(beta_core::water::WaterError::CoordinateOverflow)?,
+                    position.1,
+                    position.2,
+                );
+                let support = (
+                    water.0,
+                    water
+                        .1
+                        .checked_sub(1)
+                        .ok_or(beta_core::water::WaterError::CoordinateOverflow)?,
+                    water.2,
+                );
+                vec![position, water, support]
+            }
+            CapturedSeedAction::RemoveSourceSupportAndNotify(position) => {
+                vec![
+                    position,
+                    (
+                        position.0,
+                        position
+                            .1
+                            .checked_add(1)
+                            .ok_or(beta_core::water::WaterError::CoordinateOverflow)?,
+                        position.2,
+                    ),
+                ]
+            }
+        };
+        Ok(positions
+            .into_iter()
+            .map(|position @ (x, y, z)| {
+                let cell = match self.block_scene.block(x, y, z) {
+                    Ok(Some(block)) => WaterCell::Loaded(beta_core::water::WaterBlock {
+                        id: block.id,
+                        metadata: block.metadata,
+                    }),
+                    Ok(None) | Err(_) => WaterCell::Unloaded,
+                };
+                (position, cell)
+            })
+            .collect())
     }
 
     fn tick_water(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -1765,7 +1871,7 @@ impl App {
             relight_dirty_chunks.extend(relight.dirty_chunks);
             relight_updates.extend(relight.light_updates);
         }
-        let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight_dirty_chunks);
+        let mut dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight_dirty_chunks);
         let mut next_scene_chunks = self.scene_chunks.clone();
         let changed_cells: Vec<_> = std::iter::once(edit.changed)
             .chain(edit.additional_changed.iter().copied())
@@ -1783,12 +1889,85 @@ impl App {
             state.sky_light = sky_light;
             target.data.set(lx, ly as u8, lz, state)?;
         }
+        let mut next_water_runtime = self.water_runtime.clone();
+        let mut water_seed_event_count = 0;
+        let seed_action = captured_seed_action_for_edit(
+            &self.block_scene,
+            &next_block_scene,
+            breaking,
+            hit.id,
+            &edit,
+        );
+        if let Some(action) = seed_action {
+            let seed_input = self.water_seed_cells(action)?;
+            let seed = next_water_runtime.apply_captured_seed(seed_input, action)?;
+            water_seed_event_count = seed.events.len();
+            if !seed.events.is_empty() {
+                eprintln!("beta-viewer water seed transcript: {:?}", seed.events);
+            }
+            let mut updates = Vec::new();
+            for (position @ (sx, sy, sz), after) in &seed.cells {
+                let WaterCell::Loaded(after) = after else {
+                    continue;
+                };
+                let current = next_block_scene
+                    .block(*sx, *sy, *sz)?
+                    .ok_or("captured water edit targeted an unloaded cell")?;
+                if (current.id, current.metadata) != (after.id, after.metadata) {
+                    let mut state = current;
+                    state.id = after.id;
+                    state.metadata = after.metadata;
+                    updates.push((*position, state));
+                }
+            }
+            if let Some(seed_edit) = next_block_scene.apply_block_states(&updates)? {
+                let seed_changed: Vec<_> = std::iter::once(seed_edit.changed)
+                    .chain(seed_edit.additional_changed.iter().copied())
+                    .collect();
+                sync_edited_blocks(&next_block_scene, &mut next_scene_chunks, &seed_changed)?;
+                let mut seed_relight_dirty = Vec::new();
+                for &changed in &seed_changed {
+                    let relight = next_block_scene.relight(
+                        changed,
+                        beta_core::block::MAX_RELIGHT_CELLS,
+                        |id, _metadata| {
+                            (
+                                beta_core::light::opacity_level(id),
+                                beta_core::light::emission_level(id),
+                            )
+                        },
+                    )?;
+                    seed_relight_dirty.extend(relight.dirty_chunks);
+                    for &((wx, wy, wz), block_light, sky_light) in &relight.light_updates {
+                        let (cx, lx) = split_block_coord(wx);
+                        let (cz, lz) = split_block_coord(wz);
+                        let target = next_scene_chunks
+                            .iter_mut()
+                            .find(|candidate| candidate.x == cx && candidate.z == cz)
+                            .ok_or("water relight targeted a chunk outside the loaded scene")?;
+                        let mut state = target.data.get(lx, wy as u8, lz)?;
+                        state.block_light = block_light;
+                        state.sky_light = sky_light;
+                        target.data.set(lx, wy as u8, lz, state)?;
+                    }
+                }
+                dirty_chunks.extend(seed_edit.dirty_chunks);
+                dirty_chunks.extend(seed_relight_dirty);
+                dirty_chunks.sort_unstable();
+                dirty_chunks.dedup();
+                // Relighting may alter the just-edited cells as well as their
+                // neighbors; mirror candidate light values before meshing.
+                sync_edited_blocks(&next_block_scene, &mut next_scene_chunks, &seed_changed)?;
+            }
+        }
         self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
+        self.water_runtime = next_water_runtime;
         self.aimed_hit = None;
         self.target_status = format!(
-            "{} block at ({x},{y},{z}); rebuilt {} dirty chunks",
+            "{} block at ({x},{y},{z}); rebuilt {} dirty chunks; water events {}",
             if breaking { "broke" } else { "placed" },
-            dirty_chunks.len()
+            dirty_chunks.len(),
+            water_seed_event_count
         );
         Ok(edit)
     }
@@ -2938,15 +3117,198 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
-        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
-        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear, sync_edited_blocks,
+        LightDimension, Vertex, build_atlas_mips, captured_seed_action_for_edit,
+        fluid_frame_upload_bytes, interaction_shape, local_world_manifest_path,
+        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
+        sort_fluid_quad_indices, srgb_to_linear, sync_edited_blocks,
     };
     use beta_core::{
-        block::{BlockScene, BlockSceneBounds, BlockSceneChunk, RayShape},
+        block::{BlockEdit, BlockScene, BlockSceneBounds, BlockSceneChunk, RayShape},
         chunk::{BlockData, ChunkData},
     };
     use beta_view::{BlockMapping, BlockStateKey, SceneChunk};
+    use beta_viewer::water_runtime::{CapturedSeedAction, WaterRuntime};
+
+    fn block_scene_with(states: &[(i32, i32, i32, u8)]) -> BlockScene {
+        let mut data = ChunkData::new();
+        for &(x, y, z, id) in states {
+            data.set(
+                x as u8,
+                y as u8,
+                z as u8,
+                BlockData {
+                    id,
+                    ..BlockData::default()
+                },
+            )
+            .unwrap();
+        }
+        BlockScene::new(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk { x: 0, z: 0, data }],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn block_edit_seed_hook_runs_only_the_two_captured_neighbor_orientations() {
+        let before_place = block_scene_with(&[(0, 63, 0, 1), (0, 64, 0, 9)]);
+        let mut after_place = before_place.clone();
+        let place_edit = after_place
+            .apply_block_states(&[(
+                (1, 64, 0),
+                BlockData {
+                    id: 1,
+                    ..BlockData::default()
+                },
+            )])
+            .unwrap()
+            .unwrap();
+        let action =
+            captured_seed_action_for_edit(&before_place, &after_place, false, 1, &place_edit);
+        assert_eq!(
+            action,
+            Some(CapturedSeedAction::PlaceAdjacentSolidAndNotify((1, 64, 0)))
+        );
+        let mut runtime = WaterRuntime::default();
+        let seed = runtime
+            .apply_captured_seed(
+                std::collections::BTreeMap::from([
+                    (
+                        (1, 64, 0),
+                        beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: 0,
+                            metadata: 0,
+                        }),
+                    ),
+                    (
+                        (0, 64, 0),
+                        beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: 9,
+                            metadata: 0,
+                        }),
+                    ),
+                    (
+                        (0, 63, 0),
+                        beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: 1,
+                            metadata: 0,
+                        }),
+                    ),
+                ]),
+                action.unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            seed.cells[&(0, 64, 0)],
+            beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                id: 8,
+                metadata: 0
+            })
+        );
+        assert_eq!(runtime.queue().len(), 1);
+
+        // The opposite horizontal face is not in the frozen corpus and must
+        // not be assigned the captured east-neighbor operation.
+        let opposite = block_scene_with(&[(2, 63, 0, 1), (2, 64, 0, 9)]);
+        let mut opposite_after = opposite.clone();
+        let opposite_edit = opposite_after
+            .apply_block_states(&[(
+                (1, 64, 0),
+                BlockData {
+                    id: 1,
+                    ..BlockData::default()
+                },
+            )])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            captured_seed_action_for_edit(&opposite, &opposite_after, false, 1, &opposite_edit),
+            None
+        );
+
+        let before_break = block_scene_with(&[(0, 63, 0, 1), (0, 64, 0, 9)]);
+        let mut after_break = before_break.clone();
+        let break_edit = after_break
+            .apply_block_states(&[((0, 63, 0), BlockData::default())])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            captured_seed_action_for_edit(&before_break, &after_break, true, 1, &break_edit),
+            Some(CapturedSeedAction::RemoveSourceSupportAndNotify((0, 63, 0)))
+        );
+        let mut break_runtime = WaterRuntime::default();
+        let break_seed = break_runtime
+            .apply_captured_seed(
+                std::collections::BTreeMap::from([
+                    (
+                        (0, 63, 0),
+                        beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: 1,
+                            metadata: 0,
+                        }),
+                    ),
+                    (
+                        (0, 64, 0),
+                        beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: 9,
+                            metadata: 0,
+                        }),
+                    ),
+                ]),
+                CapturedSeedAction::RemoveSourceSupportAndNotify((0, 63, 0)),
+            )
+            .unwrap();
+        assert_eq!(
+            break_seed.cells[&(0, 64, 0)],
+            beta_core::water::WaterCell::Loaded(beta_core::water::WaterBlock {
+                id: 8,
+                metadata: 0
+            })
+        );
+        assert_eq!(break_runtime.queue().len(), 1);
+
+        let irrelevant = BlockEdit {
+            changed: (0, 127, 0),
+            additional_changed: Vec::new(),
+            dirty_chunks: Vec::new(),
+            revision: 1,
+        };
+        let top = block_scene_with(&[(0, 127, 0, 1)]);
+        let mut top_after_break = top.clone();
+        top_after_break
+            .apply_block_states(&[((0, 127, 0), BlockData::default())])
+            .unwrap();
+        assert_eq!(
+            captured_seed_action_for_edit(&top, &top_after_break, true, 1, &irrelevant),
+            None
+        );
+        assert_eq!(top_after_break.block(0, 127, 0).unwrap().unwrap().id, 0);
+
+        let top_place_before = block_scene_with(&[(0, 126, 0, 1), (0, 127, 0, 0)]);
+        let mut top_place_after = top_place_before.clone();
+        let top_place_edit = top_place_after
+            .apply_block_states(&[(
+                (0, 127, 0),
+                BlockData {
+                    id: 1,
+                    ..BlockData::default()
+                },
+            )])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            captured_seed_action_for_edit(
+                &top_place_before,
+                &top_place_after,
+                false,
+                1,
+                &top_place_edit,
+            ),
+            None
+        );
+        assert_eq!(top_place_after.block(0, 127, 0).unwrap().unwrap().id, 1);
+    }
 
     #[test]
     fn edited_block_sync_copies_primary_and_additional_cells_to_render_scene() {

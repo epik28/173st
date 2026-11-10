@@ -514,12 +514,12 @@
     },
     "WATER-SIM-001-A02": {
       "state": "in_progress",
-      "summary": "Добавлен промежуточный viewer adapter: logical fixed-step 20 Hz, атомарное делегирование целой due-batch в bounded core и staged relight/dirty mesh publication. A02 не завершён: живой queue seeding и edit/neighbor callbacks пока не интегрированы; native oracle extension ожидается.",
+      "summary": "Viewer adapter подключает fixed-step 20 Hz к bounded transition и поддерживает только три зафиксированных C01 seed операции. Schedule probe сверяет точный порядок event-запросов, дедупликацию queue и все 36 ячеек fixture.",
       "checks": [
-        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 34 library + 57 binary + 4 example tests; включая accumulator partition, same-time batch order, and atomic transition failure",
-        "cargo test --locked --offline -p beta-core --test water_tick_fixture → PASS: 3 tests across all 13 frozen native tick scenes",
-        "cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
-        "Adapter intentionally starts live scenes with an empty queue: C01 has no native startup-seeding or user-edit neighbor callback evidence yet. No water-flow gameplay parity is claimed until the pending synthetic scheduler capture is integrated."
+        "cargo test --locked --offline -p beta-viewer --all-targets → PASS: 36 library + 58 binary + 5 example tests; включая seed fixture, accumulator partition, same-time batch order и atomic transition failure",
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: полный core suite, включая 3 tests water_tick_fixture для 13 native tick scenes и source cases",
+        "Runtime probe supports direct flowing placement plus two App hooks: east-adjacent solid placement beside supported still source, and removal of its directly-below support. Other directions, startup seeding, and general neighbor behavior are unsupported.",
+        "Probe invocation: cargo run --locked --offline -p beta-viewer --example water_schedule_probe < tests/fixtures/water_tick_schedule/input.tsv; output uses fixture case/event/queue_after/state records and is checked against native.tsv in its example test."
       ]
     },
     "WATER-MOVE-001-A01": {
