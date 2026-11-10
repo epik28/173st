@@ -110,3 +110,14 @@ twice, retain independent audits, and never overwrite committed fixtures. Saved
 verification also supports custom reports. Protocol and operation definitions:
 [GAME-ORACLE-001](../../docs/tasks/GAME-ORACLE-001.md). This verifies geometry;
 player ticks, World simulation and rendering require their own suites.
+
+## Bounded water tick parity
+
+The command python3 tools/parity/run.py water-tick --strict verifies the pinned
+native scheduled-tick traces, then feeds each recorded whole due-time batch to
+the Rust water_tick_probe. It compares ordered edit/schedule/neighbor events,
+the complete resulting queue, and all 100 block-ID/metadata cells byte-for-byte.
+The report retains every probe input/output and binds the runner, sources,
+fixtures, client JAR, and Rust revision. Native evidence covers only synthetic
+loaded chunks and the captured water IDs 8/9 scenes; it does not claim unloaded
+neighbor rules, general source thresholds, lava, or player swimming physics.

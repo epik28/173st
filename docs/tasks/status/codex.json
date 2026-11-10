@@ -964,12 +964,13 @@
     },
     "WATER-SIM-001-C01": {
       "state": "done",
-      "summary": "Pinned bounded native water scheduled-tick behavior on nine synthetic loaded-chunk scenes. The oracle captures actual fd.a(false) due-time scheduling, ordered block/meta changes, tick requests and full local states. Source creation and unloaded-neighbor behavior remain unverified.",
+      "summary": "Pinned bounded native water update and source-formation behavior across 13 synthetic loaded-chunk scenes. The original nine-row C01 corpus remains byte-identical; four source cases have an independently versioned fixture. Strict runner compares ordered native/Rust events, scheduler queues, and full 100-cell state.",
       "checks": [
-        "python3 tools/oracle/water_tick_corpus.py --live --write → PASS: two independent native JVM captures were byte-identical, nine scenes and 158 events, output SHA-256 cf829ee9...08f5276",
-        "python3 -m unittest tests.python.test_water_tick_corpus -v → PASS: 7 fixture/protocol tests; audit verifies original JAR/classes, source and fixture hashes",
-        "python3 -m py_compile tools/oracle/water_tick_corpus.py tests/python/test_water_tick_corpus.py; git diff --check → PASS",
-        "Synthetic loaded chunks only: no general source-generation, random world ticks, unloaded-neighbor or viewer scheduling claim."
+        "python3 tools/oracle/water_tick_corpus.py --live --write → PASS: two identical native captures for nine base scenes; original fixture SHA remains pinned",
+        "python3 tools/oracle/water_tick_corpus.py --source-live --write → PASS: two identical native captures for four separate source-formation cases",
+        "python3 tools/parity/run.py water-tick --strict → PASS: all bounded water-tick transcripts match across 13 scenes; report artifacts/parity/water-tick/run-scs93bp4/report.json",
+        "python3 -m unittest tests.python.test_water_tick_corpus tests.python.test_water_tick_runner -v → PASS: 15 tests",
+        "Native scope remains synthetic loaded chunks; no world-wide random ticks, unloaded-neighbor behavior, lava, persistence, bucket interactions, viewer scheduler, or movement physics claim."
       ]
     },
     "WATER-SIM-001-C02": {

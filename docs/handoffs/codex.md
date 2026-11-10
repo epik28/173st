@@ -1921,3 +1921,11 @@ audit and seven Python regressions pass. Verified cases include falling, decay,
 blocked flow, two-step horizontal spread and scheduler ordering. All chunks are
 loaded. Source formation and unloaded-neighbor behavior remain explicitly open;
 the two-adjacent-sources row is observation-only and does not establish a rule.
+
+
+## WATER-SIM-001-C01 — расширен эталон и подключён строгий runner
+
+- Принят Agy snapshot `a41a2be` в Codex commit `6e00052`: bounded Rust transition и probe покрывают девять базовых и четыре source-formation сценария. Проверены упорядоченные edits/schedule/neighbor events, очередь и все 100 ID/meta ячеек каждого шага. Source claim ограничен зафиксированными входами.
+- Добавлен `water-tick` strict parity runner. Он проверяет две воспроизводимые native captures обоих corpora, затем сравнивает Rust probe с полным native transcript/state. `python3 tools/parity/run.py water-tick --strict` → PASS на 13 сценах; отчёт `artifacts/parity/water-tick/run-scs93bp4/report.json`.
+- `python3 -m unittest tests.python.test_water_tick_corpus tests.python.test_water_tick_runner -v` → PASS: 15. `cargo test --locked --offline -p beta-core --test water_tick_fixture -- --nocapture` → PASS: 3 test functions.
+- Не заявлены world-wide random ticks, unloaded neighbors, lava, persistence, buckets или viewer scheduling. Следующая функциональная зависимость — WATER-SIM-001-A02.
