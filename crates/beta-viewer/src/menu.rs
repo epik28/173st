@@ -574,8 +574,10 @@ fn draw_centered_text(
     color: [f32; 4],
     shadow: bool,
 ) {
-    let width = text_width(assets, text) as f32;
-    let x = (center_x - width / 2.0).floor();
+    // Beta's `Gui.drawCenteredString` subtracts integer `stringWidth / 2`.
+    // Flooring the floating-point half-width moves odd-width labels one pixel
+    // left of the native position.
+    let x = center_x - (text_width(assets, text) / 2) as f32;
     if shadow {
         draw_shadowed_text_at(out, size, layout, assets, x, y, text, color);
     } else {
@@ -815,6 +817,39 @@ mod tests {
         assert_eq!(vertices[7].position[0], ndc_x(15.0 + FONT_GLYPH_DRAW_WIDTH));
         assert_eq!(vertices[0].uv, [264.0 / 512.0, 288.0 / 512.0]);
         assert_eq!(vertices[6].uv, [272.0 / 512.0, 288.0 / 512.0]);
+    }
+
+    #[test]
+    fn native_centered_text_uses_integer_half_width_for_odd_labels() {
+        let mut assets = MenuAssets::synthetic();
+        // Reproduce the pinned font metric width that makes the Mods label odd.
+        let text = "Mods and Texture Packs";
+        assets.glyphs.fill(Glyph { width: 4 });
+        assert_eq!(text_width(&assets, text), 88);
+        assets.glyphs[b'M' as usize].width = 5;
+        assert_eq!(text_width(&assets, text), 89);
+
+        let mut vertices = Vec::new();
+        let layout = Layout {
+            width: 854,
+            height: 480,
+            scale: 1,
+        };
+        draw_centered_text(
+            &mut vertices,
+            (854, 480),
+            layout,
+            &assets,
+            427.0,
+            100.0,
+            text,
+            [1.0; 4],
+            false,
+        );
+        let expected_x = 427.0 - (89 / 2) as f32;
+        let actual_x = (vertices[0].position[0] + 1.0) * 854.0 / 2.0;
+        assert_eq!(actual_x, expected_x);
+        assert_eq!(expected_x, 383.0);
     }
 
     #[test]
