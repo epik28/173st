@@ -523,9 +523,15 @@
       ]
     },
     "WATER-MOVE-001-A01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Added pure bounded beta_core::motion::water_travel over supplied water ID 8/9 cells and solid AABBs. The strict native fixture test matches every ordered field/raw float word for all 7 scenarios and 72 states. Query AABB uses the native vertical and epsilon contractions; invalid/oversized inputs reject atomically.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --test water_movement_fixture -- --nocapture → PASS: 2 tests; all 72 states match exactly and invalid/oversized cell/collider requests leave MotionState unchanged",
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: complete beta-core unit/integration/example targets, including the preserved dry movement corpus",
+        "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings → PASS",
+        "cargo fmt --all -- --check; git diff --check → PASS",
+        "Native query detail: sn.k_ uses eq.b(0,-0.4,0) to contract Y, then eq.e(0.001,0.001,0.001) to contract all faces; strict fixture stays unchanged"
+      ]
     }
   }
 }

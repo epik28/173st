@@ -1102,3 +1102,22 @@ black frame at startup. MENU-PARITY-001-A01 remains in progress: paired native
 pixels are still missing, the date-dependent splash remains unimplemented, and
 the scale3 conversion-world row remains unresolved. Other menu action buttons
 remain presentation-only.
+
+## WATER-MOVE-001-A01 — bounded water movement core
+
+Added `beta_core::motion::water_travel` over a bounded caller-supplied map of
+water cells (IDs 8/9) and solid collision boxes. The implementation preserves
+the native query and travel order for the frozen synthetic corpus; the contact
+box first contracts vertically by 0.4 through `eq.b(0,-0.4,0)`, then contracts
+all six faces by 0.001 through `eq.e(0.001,...)`. No world reads or viewer
+controller scheduling are included. Unsupported block IDs and over-limit input
+are rejected before mutating the motion state.
+
+Checks: `cargo test --locked --offline -p beta-core --test
+water_movement_fixture -- --nocapture` → PASS (2 tests; all 72 ordered states
+match every raw field, plus atomic rejection checks); `cargo test --locked
+--offline -p beta-core --all-targets` → PASS; `cargo clippy --locked --offline
+-p beta-core --all-targets -- -D warnings` → PASS; `cargo fmt --all -- --check`
+and `git diff --check` → PASS. Scope remains the seven frozen synthetic water
+scenes; this does not claim local-player/controller behavior, lava, drowning, or
+arbitrary world/environment queries.

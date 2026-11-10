@@ -1,8 +1,10 @@
-//! Beta 1.7.3 entity collision and dry player travel.
+//! Beta 1.7.3 entity collision and player travel.
 //!
 //! The collision resolver follows the pinned `sn.b(DDD)` bytecode. Dry travel
 //! follows `ls.a_(FF)`, `sn.a(FFF)`, and `ls.R()` with water, lava, and ladder
 //! queries disabled by the frozen movement contract.
+
+use std::collections::BTreeMap;
 
 use crate::geometry::{Aabb, Axis};
 use crate::math::{cos, floor_f64, sin, sqrt_f32};
@@ -86,6 +88,172 @@ pub struct TravelInput {
     pub yaw_degrees: f32,
     pub jump: bool,
     pub sneaking: bool,
+}
+
+pub type WaterMotionPos = (i32, i32, i32);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WaterMotionCell {
+    pub id: u8,
+    pub metadata: u8,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WaterMotionError {
+    TooManyWaterCells,
+    TooManyColliders,
+    InvalidWaterCell(WaterMotionPos),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WaterTravelObservation {
+    /// Native `bx` value cached by `sn.U()` before this frame's movement.
+    pub in_water: bool,
+    /// Result of the player's eyes-in-water query after movement.
+    pub eyes_in_water: bool,
+    pub native_water_queries: u8,
+    pub water_contact_queries: u8,
+}
+
+const MAX_WATER_MOTION_CELLS: usize = 512;
+const MAX_WATER_MOTION_COLLIDERS: usize = 128;
+const WATER_JUMP: f64 = 0.419_999_986_886_978_15;
+const WATER_HORIZONTAL_DRAG: f64 = 0.800_000_011_920_929;
+const WATER_GRAVITY: f64 = 0.02;
+const WATER_SURFACE_JUMP: f64 = 0.300_000_011_920_928_96;
+const PLAYER_EYE_HEIGHT: f32 = 0.12_f32;
+const WATER_LEVEL_OFFSET: f32 = 0.111_111_11_f32;
+
+/// Runs the bounded native `gs.a_(FF)` water path using only supplied water
+/// cells and solid collision boxes. The frozen corpus supplies only water IDs
+/// 8/9; absent cells are air, and every other block shape is unsupported.
+pub fn water_travel(
+    state: &mut MotionState,
+    input: TravelInput,
+    colliders: &[Aabb],
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> Result<WaterTravelObservation, WaterMotionError> {
+    if water_cells.len() > MAX_WATER_MOTION_CELLS {
+        return Err(WaterMotionError::TooManyWaterCells);
+    }
+    if colliders.len() > MAX_WATER_MOTION_COLLIDERS {
+        return Err(WaterMotionError::TooManyColliders);
+    }
+    for (&position, cell) in water_cells {
+        if !matches!(cell.id, 8 | 9) || cell.metadata > 15 {
+            return Err(WaterMotionError::InvalidWaterCell(position));
+        }
+    }
+
+    // `ls.R()` is invoked directly by the captured adapter before travel.
+    if input.jump {
+        state.velocity[1] = WATER_JUMP;
+    }
+    state.yaw_degrees = input.yaw_degrees;
+    state.sneaking = input.sneaking;
+
+    // Native `eq.b(0, -0.4, 0)` contracts along Y because that method
+    // subtracts the argument from minima and adds it to maxima. Then
+    // `eq.e(0.001, ...)` contracts all faces again.
+    let contact_box = Aabb::new(
+        [
+            state.bbox.min[0] + 0.001,
+            state.bbox.min[1] + 0.400_000_005_960_464_5 + 0.001,
+            state.bbox.min[2] + 0.001,
+        ],
+        [
+            state.bbox.max[0] - 0.001,
+            state.bbox.max[1] - 0.400_000_005_960_464_5 - 0.001,
+            state.bbox.max[2] - 0.001,
+        ],
+    );
+    let in_water = water_volume_contains(contact_box, water_cells);
+    if in_water {
+        state.fall_distance = 0.0;
+        move_flying(state, input.strafe, input.forward, 0.02_f32);
+        let previous_y = state.position[1];
+        let movement = state.velocity;
+        move_entity(state, movement, colliders);
+        state.velocity[0] *= WATER_HORIZONTAL_DRAG;
+        state.velocity[1] *= WATER_HORIZONTAL_DRAG;
+        state.velocity[2] *= WATER_HORIZONTAL_DRAG;
+        state.velocity[1] -= WATER_GRAVITY;
+        if state.collided_horizontally
+            && water_volume_contains(
+                state.bbox.offset(
+                    state.velocity[0],
+                    state.velocity[1] + 0.600_000_023_841_857_9 - state.position[1] + previous_y,
+                    state.velocity[2],
+                ),
+                water_cells,
+            )
+        {
+            state.velocity[1] = WATER_SURFACE_JUMP;
+        }
+    } else {
+        // The direct jump call above has already run; dry_travel's optional
+        // grounded jump would otherwise apply the same native impulse twice.
+        dry_travel(
+            state,
+            TravelInput {
+                jump: false,
+                ..input
+            },
+            colliders,
+            Surface::Air,
+        );
+    }
+
+    let eye_y = state.position[1] + f64::from(PLAYER_EYE_HEIGHT);
+    let eye_cell = (
+        floor_f64(state.position[0]),
+        floor_f64(eye_y),
+        floor_f64(state.position[2]),
+    );
+    let eyes_in_water = water_cells.get(&eye_cell).is_some_and(|cell| {
+        let level = if cell.metadata >= 8 { 0 } else { cell.metadata };
+        let fluid_height = (f32::from(level) + 1.0_f32) / 9.0_f32;
+        let height = (eye_cell.1 + 1) as f32 - (fluid_height - WATER_LEVEL_OFFSET);
+        eye_y < f64::from(height)
+    });
+    Ok(WaterTravelObservation {
+        in_water,
+        eyes_in_water,
+        // The native frame path calls `a(water)` from living update, player
+        // movement sound handling, and the adapter's final eye query.
+        native_water_queries: 3,
+        water_contact_queries: 1,
+    })
+}
+
+fn water_volume_contains(
+    region: Aabb,
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> bool {
+    let min_x = floor_f64(region.min[0]);
+    let min_y = floor_f64(region.min[1]);
+    let min_z = floor_f64(region.min[2]);
+    let max_x = floor_f64(region.max[0] + 1.0);
+    let max_y = floor_f64(region.max[1] + 1.0);
+    let max_z = floor_f64(region.max[2] + 1.0);
+    for x in min_x..max_x {
+        for y in min_y..max_y {
+            for z in min_z..max_z {
+                let Some(cell) = water_cells.get(&(x, y, z)) else {
+                    continue;
+                };
+                let level = if cell.metadata >= 8 { 0 } else { cell.metadata };
+                let fluid_height = (f32::from(level) + 1.0_f32) / 9.0_f32;
+                let surface = (y + 1) as f32 - fluid_height;
+                // Native compares the integer exclusive-loop ceiling
+                // `floor(region.maxY + 1)` against the fluid surface.
+                if f64::from(max_y) >= f64::from(surface) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 /// Moves an entity box through ordered collision candidates.
