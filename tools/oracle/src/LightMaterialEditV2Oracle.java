@@ -36,7 +36,8 @@ public final class LightMaterialEditV2Oracle {
       new Case("canopy-log-sequence",crown,List.of(new Step("after-place","place",new Cell(8,65,8,17,0)),new Step("after-remove","remove",new Cell(8,65,8,0,0))),canopy),
       new Case("leaf-attenuation",List.of(),List.of(new Step("after-place","place",new Cell(8,64,8,18,0)),new Step("after-remove","remove",new Cell(8,64,8,0,0))),List.of(new Point(8,64,8),new Point(8,65,8),new Point(8,63,8),new Point(7,64,8),new Point(9,64,8))),
       new Case("water-attenuation",floor,List.of(new Step("after-place","place",new Cell(8,64,8,9,0)),new Step("after-remove","remove",new Cell(8,64,8,0,0))),water),
-      new Case("glowstone-loaded-chunk-edge",List.of(),List.of(new Step("after-place","place",new Cell(15,64,8,89,0)),new Step("after-remove","remove",new Cell(15,64,8,0,0))),torch)
+      new Case("glowstone-loaded-chunk-edge",List.of(),List.of(new Step("after-place","place",new Cell(15,64,8,89,0)),new Step("after-remove","remove",new Cell(15,64,8,0,0))),torch),
+      new Case("opaque-overhead-place-remove",List.of(new Cell(8,63,8,2,0)),List.of(new Step("after-place","place",new Cell(8,65,8,1,0)),new Step("after-remove","remove",new Cell(8,65,8,0,0))),List.of(new Point(8,63,8),new Point(8,64,8),new Point(8,65,8),new Point(8,66,8),new Point(7,64,8),new Point(9,64,8)))
     };
   }
   static String stateRows(LightUpdateOracle.W w,String name,String phase,StringBuilder out)throws Exception {

@@ -18,17 +18,25 @@ class LightMaterialEditV2AuditTests(unittest.TestCase):
         self.assertEqual(digest,manifest['output_sha256'])
         self.assertEqual([digest,digest],manifest['two_capture_output_sha256'])
         self.assertEqual('af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c',manifest['jar_sha256'])
-        self.assertEqual(44806,manifest['row_count'])
-        self.assertEqual(2769192,manifest['byte_count'])
+        self.assertEqual(len(self.data.decode('ascii').splitlines()),manifest['row_count'])
+        self.assertEqual(len(self.data),manifest['byte_count'])
 
     def test_complete_ordered_phases_and_native_state_diffs(self):
-        expected={'canopy-log-sequence','leaf-attenuation','water-attenuation','glowstone-loaded-chunk-edge'}
+        expected={'canopy-log-sequence','leaf-attenuation','water-attenuation','glowstone-loaded-chunk-edge','opaque-overhead-place-remove'}
         self.assertEqual(expected,set(self.parsed['cases']))
         for case in self.parsed['cases'].values():
             self.assertEqual(['before','after-place','after-remove'],case['phases'])
             self.assertEqual(2,case['steps'])
         self.assertGreater(self.parsed['counts']['glowstone-loaded-chunk-edge']['deltas'],9000)
         self.assertEqual(2,self.parsed['counts']['glowstone-loaded-chunk-edge']['hdeltas'])
+
+    def test_opaque_overhead_native_light_is_captured_at_and_below_edit(self):
+        rows=[line.split('\t') for line in self.data.decode('ascii').splitlines() if line.startswith('sample\topaque-overhead-place-remove\t')]
+        samples={(r[2],int(r[3]),int(r[4]),int(r[5])):tuple(map(int,r[6:])) for r in rows}
+        self.assertEqual(15,samples[('before',8,64,8)][4])
+        self.assertEqual(1,samples[('after-place',8,65,8)][0])
+        self.assertLess(samples[('after-place',8,64,8)][4],15)
+        self.assertEqual(samples[('before',8,64,8)][4],samples[('after-remove',8,64,8)][4])
 
     def test_glowstone_native_emission_crosses_chunk_edge(self):
         rows=[line.split('\t') for line in self.data.decode('ascii').splitlines() if line.startswith('sample\tglowstone-loaded-chunk-edge\tafter-place\t')]

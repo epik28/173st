@@ -12,7 +12,7 @@ JAR=ROOT/'../.local/minecraft/client-b1.7.3.jar'
 JAR_SHA='af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c'
 REQUEST=b'material-edits-v2\n'
 BOOTSTRAP_SHA='0b280c253ec80f2690447bfc42cadac3ed78f1d388bdbe2d10b340c76daacc4e'
-CASES=('canopy-log-sequence','leaf-attenuation','water-attenuation','glowstone-loaded-chunk-edge')
+CASES=('canopy-log-sequence','leaf-attenuation','water-attenuation','glowstone-loaded-chunk-edge','opaque-overhead-place-remove')
 CLASS_NAMES=('fd','lm','wi','uu','eb','st')
 
 def sha(b): return hashlib.sha256(b).hexdigest()
@@ -147,8 +147,8 @@ def validate(data):
             actual_h=c['hdeltas'].get((fr,to),{})
             if actual_h!=expected_h: raise ValueError(f'native height deltas do not match adjacent complete snapshots: {name} {fr}->{to}')
     for name,phase,op,x,y,z,bid,meta in edit_rows:
-        if (phase,op,bid) not in (('after-place','place',17),('after-place','place',18),('after-place','place',9),('after-place','place',89),('after-remove','remove',0)): raise ValueError(f'unexpected edit transition {name}')
-    if len(edit_rows)!=8: raise ValueError('expected exactly eight sequential edit rows')
+        if (phase,op,bid) not in (('after-place','place',17),('after-place','place',18),('after-place','place',9),('after-place','place',89),('after-place','place',1),('after-remove','remove',0)): raise ValueError(f'unexpected edit transition {name}')
+    if len(edit_rows)!=10: raise ValueError('expected exactly ten sequential edit rows')
     return {'cases':cases,'counts':counts,'edit_rows':edit_rows,'row_count':len(lines)}
 
 def capture(jar,build,req=REQUEST):
