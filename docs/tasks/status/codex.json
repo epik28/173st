@@ -975,9 +975,15 @@
       ]
     },
     "WATER-SIM-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "in_progress",
+      "summary": "Codex review проверил bounded simulation runtime: fixed 20 Hz schedule, native tick/seed parity, runtime water mesh меняется только в затронутом чанке. Полная карточка остаётся открытой до завершения owner-owned WATER-SIM-001-A02 handoff/status; не заявляется общая water-world simulation.",
+      "checks": [
+        "python3 tools/parity/run.py water-tick --strict → PASS: 13 native transition/source scenes; report artifacts/parity/water-tick/run-tslldqag/report.json",
+        "python3 tools/parity/run.py water-schedule --strict → PASS: native edit/neighbor/schedule transcript and full state; report artifacts/parity/water-schedule/run-d0wc9kcw",
+        "cargo test --locked --offline -p beta-viewer native_flow_tick_changes_only_the_fluid_mesh_in_its_touched_chunk -- --nocapture → PASS: native flow-decay removes water from touched chunk mesh; unrelated chunk mesh is unchanged",
+        "python3 tools/check.py → PASS: 284 Python tests (18 opt-in skipped), fmt, workspace check, clippy -D warnings, all Rust targets and doc tests",
+        "Release light-edit benchmark repeated: canopy/water scenes p50 617–628 us; complete scene/result digests unchanged. This is a bounded edit benchmark, not overall FPS."
+      ]
     },
     "WATER-MOVE-001-C01": {
       "state": "done",
