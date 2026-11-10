@@ -10,7 +10,8 @@
 use std::{
     collections::BTreeMap,
     error::Error,
-    io::{self, BufRead},
+    fmt::Write as _,
+    io::{self, Read},
 };
 
 use beta_core::water::{
@@ -18,11 +19,17 @@ use beta_core::water::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input)?;
+    print!("{}", run_probe(&input)?);
+    Ok(())
+}
+
+pub fn run_probe(input: &str) -> Result<String, Box<dyn Error>> {
     let mut cells = BTreeMap::<WaterPos, WaterCell>::new();
     let mut queue = Vec::new();
     let mut run = None;
-    for (line_number, line) in io::stdin().lock().lines().enumerate() {
-        let line = line?;
+    for (line_number, line) in input.lines().enumerate() {
         if line.trim().is_empty() || line.starts_with('#') {
             continue;
         }
@@ -67,14 +74,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         queue,
         max_ticks,
     })?;
-    println!("result\tprocessed_ticks={}", result.ticks_processed);
+    let mut output = String::new();
+    writeln!(output, "result\tprocessed_ticks={}", result.ticks_processed)?;
     for event in result.events {
         match event {
             beta_core::water::WaterEvent::Edit {
                 position,
                 before,
                 after,
-            } => println!(
+            } => writeln!(
+                output,
                 "edit\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 position.0,
                 position.1,
@@ -88,15 +97,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                 position,
                 id,
                 delay,
-            } => println!(
+            } => writeln!(
+                output,
                 "schedule\t{}\t{}\t{}\t{id}\t{delay}",
                 position.0, position.1, position.2
             ),
-            beta_core::water::WaterEvent::Neighbor { position, id } => println!(
+            beta_core::water::WaterEvent::Neighbor { position, id } => writeln!(
+                output,
                 "neighbor\t{}\t{}\t{}\t{id}",
                 position.0, position.1, position.2
             ),
-        }
+        }?;
     }
     let queue_after = result
         .queue_after
@@ -109,14 +120,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect::<Vec<_>>()
         .join(",");
-    println!("queue_after\t{queue_after}");
+    writeln!(output, "queue_after\t{queue_after}")?;
     // Frozen C01 state uses descending y, then z, then x.
     for y in (62..=65).rev() {
         for z in -2..=2 {
             for x in -2..=2 {
                 let position = (x, y, z);
                 if let Some(cell) = result.cells.get(&position) {
-                    print_cell(position, *cell);
+                    print_cell(&mut output, position, *cell);
                 }
             }
         }
@@ -126,22 +137,29 @@ fn main() -> Result<(), Box<dyn Error>> {
             || !(-2..=2).contains(&position.0)
             || !(-2..=2).contains(&position.2)
         {
-            print_cell(*position, *cell);
+            print_cell(&mut output, *position, *cell);
         }
     }
-    Ok(())
+    Ok(output)
 }
 
 fn position(fields: &[&str]) -> Result<WaterPos, Box<dyn Error>> {
     Ok((fields[0].parse()?, fields[1].parse()?, fields[2].parse()?))
 }
 
-fn print_cell(position: WaterPos, cell: WaterCell) {
+fn print_cell(output: &mut String, position: WaterPos, cell: WaterCell) {
     match cell {
-        WaterCell::Loaded(block) => println!(
+        WaterCell::Loaded(block) => writeln!(
+            output,
             "state\t{}\t{}\t{}\t{}\t{}",
             position.0, position.1, position.2, block.id, block.metadata
-        ),
-        WaterCell::Unloaded => println!("unloaded\t{}\t{}\t{}", position.0, position.1, position.2),
+        )
+        .expect("writing to a String cannot fail"),
+        WaterCell::Unloaded => writeln!(
+            output,
+            "unloaded\t{}\t{}\t{}",
+            position.0, position.1, position.2
+        )
+        .expect("writing to a String cannot fail"),
     }
 }

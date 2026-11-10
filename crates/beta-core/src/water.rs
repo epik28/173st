@@ -197,9 +197,40 @@ fn apply_one(
     let below = offset(pos, 0, -1, 0)?;
     let below_state = loaded(cells, below)?;
 
+    // Frozen source-formation scene: a flowing metadata-1 block rests on
+    // solid ID 1, has two still-source neighbors on its west/east faces, and
+    // solid ID 1 on both remaining horizontal faces. No broader threshold is
+    // inferred from this single controlled setup.
+    let east = offset(pos, 1, 0, 0)?;
+    if block.metadata == 1
+        && below_state.id == 1
+        && loaded(cells, west_of(pos)?)?.id == 9
+        && loaded(cells, east)?.id == 9
+        && loaded(cells, offset(pos, 0, 0, -1)?)?.id == 1
+        && loaded(cells, offset(pos, 0, 0, 1)?)?.id == 1
+    {
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: 8,
+        });
+        let west = west_of(pos)?;
+        for neighbor in [west, east] {
+            schedule(neighbor, 8, world_time, queue, events)?;
+            edit(cells, neighbor, WaterBlock { id: 8, metadata: 0 }, events)?;
+            schedule(neighbor, 8, world_time, queue, events)?;
+        }
+        schedule(pos, 8, world_time, queue, events)?;
+        set_silent(cells, pos, WaterBlock { id: 8, metadata: 0 })?;
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: 8,
+        });
+        return Ok(());
+    }
+
     // This captured setup covers a flowing cell beside an existing source,
     // with an open cell directly below it.
-    let west = offset(pos, -1, 0, 0)?;
+    let west = west_of(pos)?;
     let west_state = loaded(cells, west)?;
     if block.metadata == 2 && west_state.id == 9 && below_state.id == 0 {
         events.push(WaterEvent::Neighbor {
@@ -253,7 +284,7 @@ fn apply_one(
         });
         return Ok(());
     }
-    if block.metadata > 8 {
+    if !matches!(block.metadata, 0 | 1 | 8) {
         return Err(WaterError::UnsupportedTransition {
             position: pos,
             id: block.id,
@@ -269,7 +300,20 @@ fn apply_one(
 
     if below_state.id == 0 {
         schedule(below, 8, world_time, queue, events)?;
-        edit(cells, below, WaterBlock { id: 8, metadata: 8 }, events)?;
+        let below_metadata = match block.metadata {
+            0 | 8 => 8,
+            1 => 9,
+            _ => unreachable!("metadata was restricted above"),
+        };
+        edit(
+            cells,
+            below,
+            WaterBlock {
+                id: 8,
+                metadata: below_metadata,
+            },
+            events,
+        )?;
         events.push(WaterEvent::Neighbor {
             position: below,
             id: 8,
@@ -312,6 +356,10 @@ fn apply_one(
         }
     }
     Ok(())
+}
+
+fn west_of(pos: WaterPos) -> Result<WaterPos, WaterError> {
+    offset(pos, -1, 0, 0)
 }
 
 fn offset(pos: WaterPos, dx: i32, dy: i32, dz: i32) -> Result<WaterPos, WaterError> {

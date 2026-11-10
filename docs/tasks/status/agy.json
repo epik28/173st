@@ -502,13 +502,14 @@
       ]
     },
     "WATER-SIM-001-A01": {
-      "state": "in_progress",
-      "summary": "Added a pure bounded due-batch transition and line-based probe matching all nine frozen C01 water-tick cases exactly. Ordered edits, schedule requests, neighbor notifications, queue-after entries, and every post-step ID/metadata cell match. A01 remains open for the additional source-formation C01 rows being integrated by Codex.",
+      "state": "done",
+      "summary": "Implemented the pure bounded water transition and probe for all 13 frozen native scenes: nine base cases plus four controlled source-formation cases. Exact ordered events, due queue results, and every 100-cell ID/metadata state match. Source formation is claimed only for the captured two-tick supported meta-1 scene and its controls; no universal threshold is inferred.",
       "checks": [
-        "cargo test --locked --offline -p beta-core --test water_tick_fixture -- --nocapture → PASS: 2 tests; all 9 native cases, every ordered event/queue and all 100 cells per step",
-        "cargo test --locked --offline -p beta-core --all-targets → PASS: core unit, integration and example targets",
-        "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS",
-        "water_tick_probe smoke from still-source C01 row → PASS: processed tick header, empty queue, 100 state records"
+        "cargo test --locked --offline -p beta-core --test water_tick_fixture -- --nocapture → PASS: 3 tests; all 13 native cases, probe output, ordered events/queues, and all 100 cells per step",
+        "python3 -m unittest discover -s tests/python -p test_water_tick_corpus.py → PASS: 10 tests",
+        "python3 tools/oracle/water_tick_corpus.py → PASS: 9 base cases, repeatable; python3 tools/oracle/water_tick_corpus.py --sources → PASS: 4 source cases, repeatable",
+        "cargo test --locked --offline -p beta-core --all-targets → PASS: 90 core unit tests plus integration/example targets",
+        "cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings; cargo fmt --all -- --check; git diff --check → PASS"
       ]
     },
     "WATER-SIM-001-A02": {

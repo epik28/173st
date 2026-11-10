@@ -4,7 +4,12 @@ use beta_core::water::{
     WaterBlock, WaterCell, WaterEvent, WaterPos, WaterTick, WaterTickInput, transition_water_ticks,
 };
 
+#[allow(dead_code)]
+#[path = "../examples/water_tick_probe.rs"]
+mod water_tick_probe;
+
 const NATIVE: &str = include_str!("../../../tests/fixtures/water_tick/native.tsv");
+const NATIVE_SOURCES: &str = include_str!("../../../tests/fixtures/water_tick_sources/native.tsv");
 
 #[derive(Default)]
 struct NativeStep {
@@ -13,6 +18,7 @@ struct NativeStep {
     queue_after: Vec<WaterTick>,
     state: BTreeMap<WaterPos, WaterBlock>,
     events: Vec<WaterEvent>,
+    event_lines: Vec<String>,
 }
 
 #[derive(Default)]
@@ -57,6 +63,7 @@ fn parse_queue(value: &str) -> Vec<WaterTick> {
 
 fn parse_events(case: &mut NativeCase, fields: &[&str]) {
     let step = case.step.as_mut().expect("event outside a native step");
+    step.event_lines.push(fields.join("\t"));
     match fields[0] {
         "edit" => step.events.push(WaterEvent::Edit {
             position: (
@@ -94,10 +101,10 @@ fn parse_events(case: &mut NativeCase, fields: &[&str]) {
     }
 }
 
-fn parse_native() -> Vec<NativeCase> {
+fn parse_native(native: &str) -> Vec<NativeCase> {
     let mut cases = Vec::new();
     let mut case: Option<NativeCase> = None;
-    for line in NATIVE.lines() {
+    for line in native.lines() {
         let fields: Vec<_> = line.split('\t').collect();
         match fields[0] {
             "case" => {
@@ -204,14 +211,23 @@ fn full_cells(initial: &BTreeMap<WaterPos, WaterBlock>) -> BTreeMap<WaterPos, Wa
     cells
 }
 
-#[test]
-fn native_water_tick_corpus_matches_ordered_transcripts_and_state() {
-    let cases = parse_native();
-    assert_eq!(cases.len(), 9);
+fn assert_native_fixture(native: &str, expected_cases: usize) {
+    let cases = parse_native(native);
+    assert_eq!(cases.len(), expected_cases);
     for case in cases {
         let mut cells = full_cells(&case.initial);
         for (index, expected) in case.steps.iter().enumerate() {
             assert_eq!(expected.state.len(), 100, "{} step {index}", case.name);
+            let probe_input = probe_input(&cells, &expected.queue_before, expected.world_time);
+            let probe_output = water_tick_probe::run_probe(&probe_input)
+                .unwrap_or_else(|error| panic!("{} step {index}: {error}", case.name));
+            let expected_probe = expected_probe_lines(expected);
+            assert_eq!(
+                probe_output.lines().collect::<Vec<_>>(),
+                expected_probe,
+                "{} probe step {index}",
+                case.name
+            );
             let actual = transition_water_ticks(WaterTickInput {
                 world_time: expected.world_time,
                 cells,
@@ -237,6 +253,82 @@ fn native_water_tick_corpus_matches_ordered_transcripts_and_state() {
             cells = actual.cells;
         }
     }
+}
+
+fn queue_text(queue: &[WaterTick]) -> String {
+    queue
+        .iter()
+        .map(|tick| {
+            format!(
+                "{}:{}:{}:{}:{}",
+                tick.position.0, tick.position.1, tick.position.2, tick.id, tick.due_time
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn probe_input(
+    cells: &BTreeMap<WaterPos, WaterCell>,
+    queue: &[WaterTick],
+    world_time: i64,
+) -> String {
+    let mut input = String::new();
+    for y in (62..=65).rev() {
+        for z in -2..=2 {
+            for x in -2..=2 {
+                let position = (x, y, z);
+                match cells.get(&position).unwrap() {
+                    WaterCell::Loaded(block) => input.push_str(&format!(
+                        "cell\t{x}\t{y}\t{z}\t{}\t{}\n",
+                        block.id, block.metadata
+                    )),
+                    WaterCell::Unloaded => panic!("captured probe inputs are fully loaded"),
+                }
+            }
+        }
+    }
+    for tick in queue {
+        input.push_str(&format!(
+            "queue\t{}\t{}\t{}\t{}\t{}\n",
+            tick.position.0, tick.position.1, tick.position.2, tick.id, tick.due_time
+        ));
+    }
+    input.push_str(&format!("run\t{world_time}\t64\n"));
+    input
+}
+
+fn expected_probe_lines(step: &NativeStep) -> Vec<String> {
+    let processed = step
+        .queue_before
+        .iter()
+        .filter(|tick| tick.due_time <= step.world_time)
+        .count();
+    let mut lines = vec![format!("result\tprocessed_ticks={processed}")];
+    lines.extend(step.event_lines.iter().cloned());
+    lines.push(format!("queue_after\t{}", queue_text(&step.queue_after)));
+    for y in (62..=65).rev() {
+        for z in -2..=2 {
+            for x in -2..=2 {
+                let block = step.state[&(x, y, z)];
+                lines.push(format!(
+                    "state\t{x}\t{y}\t{z}\t{}\t{}",
+                    block.id, block.metadata
+                ));
+            }
+        }
+    }
+    lines
+}
+
+#[test]
+fn native_water_tick_corpus_matches_ordered_transcripts_and_state() {
+    assert_native_fixture(NATIVE, 9);
+}
+
+#[test]
+fn native_source_formation_cases_match_ordered_transcripts_and_state() {
+    assert_native_fixture(NATIVE_SOURCES, 4);
 }
 
 #[test]
