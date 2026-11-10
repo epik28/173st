@@ -1357,6 +1357,26 @@ fn dirty_chunk_union(edit: &[(i32, i32)], relight: &[(i32, i32)]) -> Vec<(i32, i
     result
 }
 
+fn sync_edited_blocks(
+    block_scene: &BlockScene,
+    scene_chunks: &mut [SceneChunk],
+    changed: &[(i32, i32, i32)],
+) -> Result<(), Box<dyn std::error::Error>> {
+    for &(x, y, z) in changed {
+        let value: BlockData = block_scene
+            .block(x, y, z)?
+            .ok_or("edited cell is no longer loaded")?;
+        let (chunk_x, local_x) = split_block_coord(x);
+        let (chunk_z, local_z) = split_block_coord(z);
+        let chunk = scene_chunks
+            .iter_mut()
+            .find(|chunk| chunk.x == chunk_x && chunk.z == chunk_z)
+            .ok_or("edited chunk is not in the disposable scene")?;
+        chunk.data.set(local_x, y as u8, local_z, value)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 fn srgb_to_linear(channel: f32) -> f32 {
     if channel <= 0.04045 {
@@ -1585,20 +1605,11 @@ impl App {
             relight_updates.extend(relight.light_updates);
         }
         let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight_dirty_chunks);
-        let (chunk_x, local_x) = split_block_coord(x);
-        let (chunk_z, local_z) = split_block_coord(z);
-        let value: BlockData = next_block_scene
-            .block(x, y, z)?
-            .ok_or("edited cell is no longer loaded")?;
         let mut next_scene_chunks = self.scene_chunks.clone();
-        let chunk = next_scene_chunks
-            .iter_mut()
-            .find(|chunk| chunk.x == chunk_x && chunk.z == chunk_z)
-            .ok_or("edited chunk is not in the disposable scene")?;
-        chunk
-            .data
-            .set(local_x, y as u8, local_z, value)
-            .map_err(|error| format!("chunk update failed: {error}"))?;
+        let changed_cells: Vec<_> = std::iter::once(edit.changed)
+            .chain(edit.additional_changed.iter().copied())
+            .collect();
+        sync_edited_blocks(&next_block_scene, &mut next_scene_chunks, &changed_cells)?;
         for &((lx_world, ly, lz_world), block_light, sky_light) in &relight_updates {
             let (cx, lx) = split_block_coord(lx_world);
             let (cz, lz) = split_block_coord(lz_world);
@@ -2758,10 +2769,70 @@ mod tests {
     use super::{
         LightDimension, Vertex, build_atlas_mips, fluid_frame_upload_bytes, interaction_shape,
         local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
-        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear,
+        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear, sync_edited_blocks,
     };
-    use beta_core::block::RayShape;
-    use beta_view::{BlockMapping, BlockStateKey};
+    use beta_core::{
+        block::{BlockScene, BlockSceneBounds, BlockSceneChunk, RayShape},
+        chunk::{BlockData, ChunkData},
+    };
+    use beta_view::{BlockMapping, BlockStateKey, SceneChunk};
+
+    #[test]
+    fn edited_block_sync_copies_primary_and_additional_cells_to_render_scene() {
+        let mut data = ChunkData::new();
+        data.set(
+            0,
+            10,
+            0,
+            BlockData {
+                id: 0,
+                metadata: 0,
+                block_light: 2,
+                sky_light: 3,
+            },
+        )
+        .unwrap();
+        data.set(
+            0,
+            9,
+            0,
+            BlockData {
+                id: 1,
+                metadata: 0,
+                block_light: 0,
+                sky_light: 0,
+            },
+        )
+        .unwrap();
+        let block_scene = BlockScene::new(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk { x: 0, z: 0, data }],
+        )
+        .unwrap();
+        let mut stale_render_data = ChunkData::new();
+        stale_render_data
+            .set(
+                0,
+                10,
+                0,
+                BlockData {
+                    id: 31,
+                    ..BlockData::default()
+                },
+            )
+            .unwrap();
+        let mut scene_chunks = vec![SceneChunk {
+            x: 0,
+            z: 0,
+            data: stale_render_data,
+        }];
+
+        sync_edited_blocks(&block_scene, &mut scene_chunks, &[(0, 9, 0), (0, 10, 0)]).unwrap();
+
+        assert_eq!(scene_chunks[0].data.get(0, 9, 0).unwrap().id, 1);
+        assert_eq!(scene_chunks[0].data.get(0, 10, 0).unwrap().id, 0);
+        assert_eq!(scene_chunks[0].data.get(0, 10, 0).unwrap().sky_light, 3);
+    }
 
     #[test]
     fn dirty_chunk_union_keeps_edit_corner_and_relight_neighbors() {
