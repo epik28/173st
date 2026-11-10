@@ -1936,3 +1936,10 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - Integrated oracle commit `5db9d89` as `7bbf867`. Pinned native liquid travel/contact methods and captured seven synthetic scenarios over 72 ordered movement states; the live corpus repeats two JVM runs byte-identically (output SHA-256 `d5025963b822812c8f299aacc9ebf14eb959cb6c16feb101a2f7278e466ee044`).
 - `python3 tools/oracle/water_movement_corpus.py` → PASS; `python3 -m unittest tests.python.test_water_movement_corpus -v` → PASS: 3 tests; `git diff --check` → PASS.
 - Scope is native travel/contact on a synthetic sparse world; this is not full client input/controller parity, no Rust comparison, drowning, lava, multiplayer, or save-world claim. `MOVE-001-C03` dependency was already accepted.
+
+
+## WATER-SIM-001-A02 — интегрирован промежуточный viewer adapter
+
+- Принят reviewable Agy commit `606ce8a` как Codex `afd10ae`. Добавлен fixed 50 ms logical clock, bounded queue batch processing, candidate scene/relight/mesh publication и атомарное поведение при ошибке. Viewer меняет только in-memory snapshot.
+- Это **не завершённая A02**: live-world start/edit scheduling пока не подключён, default queue пуст. Native callback/seed oracle поручен отдельно; до его приёмки A02 остаётся in progress и fluid gameplay parity не заявляется.
+- Проверки на объединённой ревизии: `cargo test --locked --offline -p beta-viewer --all-targets` → PASS (34 library, 58 binary, 4 example tests); `cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings` → PASS; `cargo fmt --all -- --check` → PASS. Core water fixture ранее PASS (3 test functions, все 13 сцен).
