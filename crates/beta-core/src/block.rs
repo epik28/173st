@@ -124,6 +124,7 @@ pub enum BlockError {
     InvalidBlockId,
     UnsupportedPlacement { id: u8, metadata: u8 },
     HitNotEditable,
+    BuildHeightExceeded { y: i32 },
     StaleHit,
     TargetOccupied,
     TargetUnloaded { x: i32, y: i32, z: i32 },
@@ -150,6 +151,9 @@ impl fmt::Display for BlockError {
                 write!(f, "block state {id}:{metadata} is not a verified full cube")
             }
             Self::HitNotEditable => write!(f, "hit is not an editable full-cube block"),
+            Self::BuildHeightExceeded { y } => {
+                write!(f, "placement destination y={y} exceeds native build height")
+            }
             Self::StaleHit => write!(f, "block changed since it was targeted"),
             Self::TargetOccupied => write!(f, "placement target is occupied"),
             Self::TargetUnloaded { x, y, z } => {
@@ -885,6 +889,9 @@ impl BlockScene {
         let x = hit.x.checked_add(dx).ok_or(BlockError::HitNotEditable)?;
         let y = hit.y.checked_add(dy).ok_or(BlockError::HitNotEditable)?;
         let z = hit.z.checked_add(dz).ok_or(BlockError::HitNotEditable)?;
+        if y >= 127 {
+            return Err(BlockError::BuildHeightExceeded { y });
+        }
         let target = self
             .block(x, y, z)?
             .ok_or(BlockError::TargetUnloaded { x, y, z })?;
@@ -928,6 +935,9 @@ impl BlockScene {
         let x = hit.x.checked_add(dx).ok_or(BlockError::HitNotEditable)?;
         let y = hit.y.checked_add(dy).ok_or(BlockError::HitNotEditable)?;
         let z = hit.z.checked_add(dz).ok_or(BlockError::HitNotEditable)?;
+        if y >= 127 {
+            return Err(BlockError::BuildHeightExceeded { y });
+        }
         let target = self
             .block(x, y, z)?
             .ok_or(BlockError::TargetUnloaded { x, y, z })?;
@@ -1843,6 +1853,42 @@ mod tests {
             world.break_block(stale, &|id, _| CUBES[id as usize]),
             Err(BlockError::StaleHit)
         );
+        assert_eq!(world.revision(), 0);
+    }
+
+    #[test]
+    fn placement_at_native_build_height_limit_is_rejected_atomically() {
+        let row = include_str!("../../../tests/fixtures/block-placement/native.tsv")
+            .lines()
+            .find(|line| line.starts_with("place_at_127\t"))
+            .expect("C01 native build-height boundary row");
+        let fields: Vec<_> = row.split('\t').collect();
+        assert_eq!(fields[4], "126");
+        assert_eq!(fields[6], "1");
+        assert_eq!(fields[9], "false");
+
+        let data = chunk_with(&[(0, 126, 0, 1, 0)]);
+        let mut world = scene(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk { x: 0, z: 0, data }],
+        );
+        let hit = BlockHit {
+            x: 0,
+            y: 126,
+            z: 0,
+            face: 1,
+            position: Vec3::new(0.5, 127.0, 0.5),
+            kind: BlockHitKind::FullCube,
+            id: 1,
+            metadata: 0,
+        };
+
+        assert_eq!(
+            world.place_block(hit, 2, 0, &|id, _| CUBES[id as usize]),
+            Err(BlockError::BuildHeightExceeded { y: 127 })
+        );
+        assert_eq!(world.block(0, 126, 0).unwrap().unwrap().id, 1);
+        assert_eq!(world.block(0, 127, 0).unwrap().unwrap().id, 0);
         assert_eq!(world.revision(), 0);
     }
 
