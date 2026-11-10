@@ -657,9 +657,14 @@
       ]
     },
     "BLOCK-PLACEMENT-002-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Accepted bounded creative placement/break parity for the 16 frozen native action rows and ID31/meta0 ray shape. Placement results, target/adjacent IDs and metadata match; native y=127 rejection and render-scene synchronization are covered. No inventory decrement, survival, general item placement, or lighting parity is claimed.",
+      "checks": [
+        "cargo test --locked --offline -p beta-core --test placement_action_fixture → PASS: all 16 native action rows compare result, target and adjacent block state",
+        "python3 tools/oracle/placement_corpus.py; python3 tools/oracle/placement_grass_rays.py → PASS: 16 action cases and 14 native ray probes, pinned original JAR and repeat captures",
+        "cargo test --locked --offline -p beta-core --all-targets; cargo test --locked --offline -p beta-viewer --all-targets → PASS on reviewed implementation; cargo clippy --locked --offline -p beta-core -p beta-viewer --all-targets -- -D warnings; cargo fmt --all -- --check → PASS",
+        "Action integration is intentionally bounded to captured ID1/ID31 cases; fixture light is zero. Inventory consumption, survival rules, broader placements, screenshot shadows, and general lighting remain outside acceptance."
+      ]
     },
     "FLIGHT-SMOOTH-001-C03": {
       "state": "done",
@@ -958,9 +963,14 @@
       "checks": []
     },
     "WATER-SIM-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Pinned bounded native water scheduled-tick behavior on nine synthetic loaded-chunk scenes. The oracle captures actual fd.a(false) due-time scheduling, ordered block/meta changes, tick requests and full local states. Source creation and unloaded-neighbor behavior remain unverified.",
+      "checks": [
+        "python3 tools/oracle/water_tick_corpus.py --live --write → PASS: two independent native JVM captures were byte-identical, nine scenes and 158 events, output SHA-256 cf829ee9...08f5276",
+        "python3 -m unittest tests.python.test_water_tick_corpus -v → PASS: 7 fixture/protocol tests; audit verifies original JAR/classes, source and fixture hashes",
+        "python3 -m py_compile tools/oracle/water_tick_corpus.py tests/python/test_water_tick_corpus.py; git diff --check → PASS",
+        "Synthetic loaded chunks only: no general source-generation, random world ticks, unloaded-neighbor or viewer scheduling claim."
+      ]
     },
     "WATER-SIM-001-C02": {
       "state": "pending",

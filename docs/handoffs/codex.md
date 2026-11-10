@@ -1897,3 +1897,27 @@ It is a cuboid. The coordinator reran both native corpus verifiers and seven
 focused tests; all passed. Generic item placement remains separately constrained
 by the 16 action rows; zero light in those minimal worlds does not settle the
 reported shadow.
+
+### BLOCK-PLACEMENT-002 C02 bounded acceptance
+
+The fixture-driven Rust test compares all 16 native action rows on result and
+target/adjacent ID+metadata, including the y=127 rejection. Native tallgrass
+shape has a separate 14-ray fixture; viewer edits sync all changed cells before
+lighting/mesh rebuild. Both native corpus verifiers and the exact Rust action
+test passed; core/viewer all-target tests, clippy `-D warnings`, fmt and
+diff-check passed on the reviewed snapshot. Scope excludes inventory decrement,
+general item/survival placement, and lighting parity. Native action fixtures have
+zero light, so they do not diagnose the reported shadow.
+
+### WATER-SIM-001 C01 bounded native tick corpus
+
+Integrated `b2bdd29` as `9dd2434`. The pinned original-client adapter invokes
+the actual `fd.a(false)` due-time scheduler over synthetic byte-array chunks and
+captures nine scenes, 158 ordered setup/tick events, queue snapshots and complete
+100-cell state after each step. Two independent JVM processes matched byte for
+byte; frozen output SHA-256 is
+`cf829ee9aa63bdf2ace25104c36e9cc84eb9c6b1e92c1607573e8f18008f5276`. Fixture
+audit and seven Python regressions pass. Verified cases include falling, decay,
+blocked flow, two-step horizontal spread and scheduler ordering. All chunks are
+loaded. Source formation and unloaded-neighbor behavior remain explicitly open;
+the two-adjacent-sources row is observation-only and does not establish a rule.

@@ -57,3 +57,18 @@ all item orientations, inventory/UI integration, and general lighting behavior
 remain out of scope. Light values in the minimal action worlds are zero, so the
 reported shadow/lighting refresh remains an independent unresolved issue under
 LIGHT-UPDATE-002.
+
+### C02 bounded acceptance (2026-11-10)
+
+Accepted the captured action subset: the fixture-driven Rust test compares all
+16 native rows by action result and target/adjacent ID+metadata. A separate
+14-ray check pins the tall-grass selection shape; placement at the native y=127
+limit is rejected before mutation. Changed cells are synchronized into render
+chunks before lighting and mesh rebuild.
+
+Checks passed on the reviewed snapshot: `cargo test --locked --offline -p
+beta-core --test placement_action_fixture`, both native placement corpus
+verifiers, core/viewer all-target tests, clippy `-D warnings`, fmt and diff-check.
+The minimal native action worlds contain zero light. Inventory decrement, general
+item/survival placement and the reported black shadow are not part of this
+acceptance.
