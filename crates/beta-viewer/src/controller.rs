@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use beta_core::{
     geometry::Aabb,
-    motion::{MotionState, TravelInput, dry_travel},
+    motion::{MotionState, TravelInput, dry_travel, water_contact, water_travel},
 };
 use beta_view::{Scene, ViewError};
 
@@ -121,19 +121,21 @@ impl MotionController {
         let query = collider_query(&self.state, self.state.velocity);
         let colliders = scene.colliders_in(query)?;
         let yaw_degrees = self.state.yaw_degrees;
-        let surface = scene.surface_below(self.state.bbox)?;
-        dry_travel(
-            &mut self.state,
-            TravelInput {
-                strafe,
-                forward,
-                yaw_degrees,
-                jump: controls.jump,
-                sneaking: controls.sneak,
-            },
-            &colliders,
-            surface,
-        );
+        let travel_input = TravelInput {
+            strafe,
+            forward,
+            yaw_degrees,
+            jump: controls.jump,
+            sneaking: controls.sneak,
+        };
+        let water_cells = scene.water_cells_in(self.state.bbox.expanded(1.0, 1.0, 1.0))?;
+        if water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)? {
+            water_travel(&mut self.state, travel_input, &colliders, &water_cells)
+                .map_err(beta_view::ViewError::WaterMotion)?;
+        } else {
+            let surface = scene.surface_below(self.state.bbox)?;
+            dry_travel(&mut self.state, travel_input, &colliders, surface);
+        }
         scene.constrain_motion_state(&mut self.state);
         self.accumulator -= TICK;
         Ok(TickResult {
@@ -355,6 +357,33 @@ mod tests {
         .unwrap()
     }
 
+    fn water_test_scene() -> Scene {
+        let mut data = beta_core::chunk::ChunkData::new();
+        for x in 7..10 {
+            for y in 1..4 {
+                for z in 7..10 {
+                    data.set(
+                        x,
+                        y,
+                        z,
+                        beta_core::chunk::BlockData {
+                            id: 9,
+                            metadata: 0,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        Scene::new(
+            beta_view::SceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![beta_view::SceneChunk { x: 0, z: 0, data }],
+            vec![],
+        )
+        .unwrap()
+    }
+
     fn ticks(motion: &mut MotionController, scene: &Scene, input: Controls, count: usize) {
         for _ in 0..count {
             motion.accumulate(TICK);
@@ -396,6 +425,49 @@ mod tests {
         assert!(jumping.state.on_ground);
         assert!((jumping.state.position[1] - 1.0).abs() < 1e-9);
         assert!(jumping.state.bbox.max[1] <= 4.0);
+    }
+
+    #[test]
+    fn water_controller_uses_native_drag_and_fixed_tick_partitioning() {
+        fn simulate(rate: u128) -> MotionState {
+            let scene = water_test_scene();
+            let mut motion = MotionController::new(MotionState::new([8.5, 1.5, 8.5]));
+            let mut previous_nanos = 0_u128;
+            for frame in 1..=rate {
+                let frame_nanos = frame * 1_000_000_000 / rate;
+                motion.accumulate(Duration::from_nanos((frame_nanos - previous_nanos) as u64));
+                previous_nanos = frame_nanos;
+                while motion.ticks_due() > 0 {
+                    motion
+                        .tick(
+                            &scene,
+                            Controls {
+                                forward: true,
+                                ..Controls::default()
+                            },
+                        )
+                        .unwrap();
+                }
+            }
+            motion.state
+        }
+
+        let states: Vec<_> = [20_u128, 30, 60, 144].into_iter().map(simulate).collect();
+        assert!(states.windows(2).all(|pair| pair[0] == pair[1]));
+
+        let mut dry = MotionController::new(MotionState::new([8.5, 1.5, 8.5]));
+        let dry_scene = test_scene(0..0, false, false);
+        ticks(
+            &mut dry,
+            &dry_scene,
+            Controls {
+                forward: true,
+                ..Controls::default()
+            },
+            20,
+        );
+        assert!(states[0].position[2] > 8.5);
+        assert!(states[0].velocity[1] > dry.state.velocity[1]);
     }
 
     #[test]

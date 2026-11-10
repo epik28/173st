@@ -115,7 +115,7 @@ pub struct WaterTravelObservation {
     pub water_contact_queries: u8,
 }
 
-const MAX_WATER_MOTION_CELLS: usize = 512;
+pub const MAX_WATER_MOTION_CELLS: usize = 512;
 const MAX_WATER_MOTION_COLLIDERS: usize = 128;
 const WATER_JUMP: f64 = 0.419_999_986_886_978_15;
 const WATER_HORIZONTAL_DRAG: f64 = 0.800_000_011_920_929;
@@ -133,17 +133,10 @@ pub fn water_travel(
     colliders: &[Aabb],
     water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
 ) -> Result<WaterTravelObservation, WaterMotionError> {
-    if water_cells.len() > MAX_WATER_MOTION_CELLS {
-        return Err(WaterMotionError::TooManyWaterCells);
-    }
     if colliders.len() > MAX_WATER_MOTION_COLLIDERS {
         return Err(WaterMotionError::TooManyColliders);
     }
-    for (&position, cell) in water_cells {
-        if !matches!(cell.id, 8 | 9) || cell.metadata > 15 {
-            return Err(WaterMotionError::InvalidWaterCell(position));
-        }
-    }
+    validate_water_cells(water_cells)?;
 
     // `ls.R()` is invoked directly by the captured adapter before travel.
     if input.jump {
@@ -152,22 +145,7 @@ pub fn water_travel(
     state.yaw_degrees = input.yaw_degrees;
     state.sneaking = input.sneaking;
 
-    // Native `eq.b(0, -0.4, 0)` contracts along Y because that method
-    // subtracts the argument from minima and adds it to maxima. Then
-    // `eq.e(0.001, ...)` contracts all faces again.
-    let contact_box = Aabb::new(
-        [
-            state.bbox.min[0] + 0.001,
-            state.bbox.min[1] + 0.400_000_005_960_464_5 + 0.001,
-            state.bbox.min[2] + 0.001,
-        ],
-        [
-            state.bbox.max[0] - 0.001,
-            state.bbox.max[1] - 0.400_000_005_960_464_5 - 0.001,
-            state.bbox.max[2] - 0.001,
-        ],
-    );
-    let in_water = water_volume_contains(contact_box, water_cells);
+    let in_water = water_contact_validated(state, water_cells);
     if in_water {
         state.fall_distance = 0.0;
         move_flying(state, input.strafe, input.forward, 0.02_f32);
@@ -224,6 +202,51 @@ pub fn water_travel(
         native_water_queries: 3,
         water_contact_queries: 1,
     })
+}
+
+/// Returns the native `sn.k_()` water-contact result for a bounded supplied
+/// cell map. Missing cells are air; callers own the loaded-scene boundary.
+pub fn water_contact(
+    state: &MotionState,
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> Result<bool, WaterMotionError> {
+    validate_water_cells(water_cells)?;
+    Ok(water_contact_validated(state, water_cells))
+}
+
+fn validate_water_cells(
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> Result<(), WaterMotionError> {
+    if water_cells.len() > MAX_WATER_MOTION_CELLS {
+        return Err(WaterMotionError::TooManyWaterCells);
+    }
+    for (&position, cell) in water_cells {
+        if !matches!(cell.id, 8 | 9) || cell.metadata > 15 {
+            return Err(WaterMotionError::InvalidWaterCell(position));
+        }
+    }
+    Ok(())
+}
+
+fn water_contact_validated(
+    state: &MotionState,
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> bool {
+    // Native `eq.b(0, -0.4, 0)` contracts along Y; `eq.e(0.001,...)`
+    // contracts every face. Keep its subtraction/addition order explicit.
+    let contact_box = Aabb::new(
+        [
+            state.bbox.min[0] + 0.001,
+            state.bbox.min[1] + 0.400_000_005_960_464_5 + 0.001,
+            state.bbox.min[2] + 0.001,
+        ],
+        [
+            state.bbox.max[0] - 0.001,
+            state.bbox.max[1] - 0.400_000_005_960_464_5 - 0.001,
+            state.bbox.max[2] - 0.001,
+        ],
+    );
+    water_volume_contains(contact_box, water_cells)
 }
 
 fn water_volume_contains(

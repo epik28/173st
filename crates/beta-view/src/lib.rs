@@ -15,6 +15,7 @@ use std::{collections::BTreeMap, error::Error, fmt};
 use beta_core::{
     chunk::{ChunkData, ChunkError},
     geometry::Aabb,
+    motion::{MAX_WATER_MOTION_CELLS, WaterMotionCell, WaterMotionError, WaterMotionPos},
 };
 use glam::{Mat4, Vec3, Vec4};
 
@@ -131,6 +132,8 @@ impl SceneBounds {
 pub enum ViewError {
     InvalidSceneBounds,
     InvalidColliderQuery,
+    TooManyWaterCells(usize),
+    WaterMotion(WaterMotionError),
     NoSafeSpawn,
     TooManyChunks(usize),
     ChunkOutsideScene { x: i32, z: i32 },
@@ -157,6 +160,11 @@ impl fmt::Display for ViewError {
                 f,
                 "collider query must be finite and at most 32 blocks per axis"
             ),
+            Self::TooManyWaterCells(count) => write!(
+                f,
+                "water query found {count} cells; limit is {MAX_WATER_MOTION_CELLS}"
+            ),
+            Self::WaterMotion(error) => write!(f, "water travel: {error:?}"),
             Self::NoSafeSpawn => write!(
                 f,
                 "scene contains no confirmed full-cube floor with two clear blocks"
@@ -417,6 +425,56 @@ impl Scene {
             }
         }
         Ok(result)
+    }
+
+    /// Returns only native water IDs in a small loaded-scene query region.
+    /// Missing chunks and blocks outside build height are treated as air, as in
+    /// the existing bounded collision query.
+    pub fn water_cells_in(
+        &self,
+        area: Aabb,
+    ) -> Result<BTreeMap<WaterMotionPos, WaterMotionCell>, ViewError> {
+        if (0..3).any(|axis| {
+            !area.min[axis].is_finite()
+                || !area.max[axis].is_finite()
+                || area.min[axis] > area.max[axis]
+        }) {
+            return Err(ViewError::InvalidColliderQuery);
+        }
+        let world_min_x = i64::from(self.bounds.min_chunk_x) * 16;
+        let world_min_z = i64::from(self.bounds.min_chunk_z) * 16;
+        let world_max_x = world_min_x + i64::from(self.bounds.width) * 16;
+        let world_max_z = world_min_z + i64::from(self.bounds.depth) * 16;
+        let x0 = (area.min[0].floor() as i64).max(world_min_x);
+        let x1 = (area.max[0].ceil() as i64).min(world_max_x);
+        let y0 = (area.min[1].floor() as i32).clamp(0, WORLD_HEIGHT as i32);
+        let y1 = (area.max[1].ceil() as i32).clamp(0, WORLD_HEIGHT as i32);
+        let z0 = (area.min[2].floor() as i64).max(world_min_z);
+        let z1 = (area.max[2].ceil() as i64).min(world_max_z);
+        if x1.saturating_sub(x0) > 32 || y1.saturating_sub(y0) > 32 || z1.saturating_sub(z0) > 32 {
+            return Err(ViewError::InvalidColliderQuery);
+        }
+        let mut cells = BTreeMap::new();
+        for x in x0..x1 {
+            for y in y0..y1 {
+                for z in z0..z1 {
+                    let block = self.block(x as i32, y, z as i32)?;
+                    if matches!(block.id, 8 | 9) {
+                        cells.insert(
+                            (x as i32, y, z as i32),
+                            WaterMotionCell {
+                                id: block.id,
+                                metadata: block.metadata,
+                            },
+                        );
+                        if cells.len() > MAX_WATER_MOTION_CELLS {
+                            return Err(ViewError::TooManyWaterCells(cells.len()));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(cells)
     }
 
     /// Finds a nearby column with a confirmed solid floor and two clear blocks.
@@ -1163,6 +1221,28 @@ mod tests {
                 max_indices: 0
             }),
             Err(ViewError::MeshLimitExceeded { .. })
+        ));
+    }
+
+    #[test]
+    fn bounded_water_cell_query_returns_ids_and_metadata_in_scene_coordinates() {
+        let scene = blocks_scene(
+            &[(3, 10, 4, 9, 6), (4, 10, 4, 8, 2), (5, 10, 4, 1, 0)],
+            vec![],
+        );
+        let cells = scene
+            .water_cells_in(Aabb::new([2.0, 9.0, 3.0], [6.0, 12.0, 5.0]))
+            .unwrap();
+        assert_eq!(
+            cells,
+            BTreeMap::from([
+                ((3, 10, 4), WaterMotionCell { id: 9, metadata: 6 }),
+                ((4, 10, 4), WaterMotionCell { id: 8, metadata: 2 }),
+            ])
+        );
+        assert!(matches!(
+            scene.water_cells_in(Aabb::new([0.0, 0.0, 0.0], [1.0, 33.0, 1.0])),
+            Err(ViewError::InvalidColliderQuery)
         ));
     }
 

@@ -989,9 +989,16 @@
       ]
     },
     "WATER-MOVE-001-C02": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+    "state": "done",
+    "summary": "Подключено bounded native water travel/contact к viewer controller: вода запрашивается из ограниченной области текущей сцены, сухой маршрут сохранён, фиксированный tick даёт одинаковый результат при 20/30/60/144 Hz. Полная native parity подтверждена для pure travel по семи сценариям/72 состояниям; dry movement не изменился. Не утверждается полная client input/scheduler parity.",
+    "checks": [
+      "python3 tools/parity/run.py movement --strict → PASS: все native per-frame сухие movement states совпали; report artifacts/parity/movement/run-_2dxpvlr/report.json",
+      "cargo test --locked --offline -p beta-core --test water_movement_fixture -- --nocapture → PASS: все 72 native water states/raw float words и atomic invalid-input checks",
+      "cargo test --locked --offline -p beta-view water_cells_in -- --nocapture → PASS: bounded ID/metadata query",
+      "cargo test --locked --offline -p beta-viewer water_controller_uses_native_drag_and_fixed_tick_partitioning -- --nocapture → PASS: water travel and exact terminal state at 20/30/60/144 Hz",
+      "python3 tools/check.py → PASS: 284 Python tests (18 opt-in skipped), fmt, workspace check, clippy -D warnings, all Rust targets and doc tests",
+      "GUI pixel smoke unavailable in this environment; no screenshot parity claimed. Lava, drowning, multiplayer and client keyboard scheduling remain outside scope."
+    ]
     }
   }
 }

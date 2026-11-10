@@ -1950,3 +1950,11 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - Integrated native fixture commit `6aae7d9` as `7db22f8`. Separate versioned `water-tick-seeding-1` corpus captures direct ID 8 placement, adjacent solid placement beside still water, and support removal beneath still water. It records native neighbor callback order, duplicate schedule requests, and the single deduplicated delay-5 queue entry. Nine loaded synthetic byte-array chunks, three scenes, no due ticks.
 - Two independent JVM captures are byte-identical; native output SHA-256 `25e2b65c7b96bcbdfb5f9c8197e6e45ffb5df6142d1921a4ccb42839681d965e`. `python3 tools/oracle/water_schedule_corpus.py` → PASS. Combined water oracle/runner Python tests → 19 PASS. `python3 tools/parity/run.py water-tick --strict` → PASS for all 13 transition/source cases; schedule-trigger cases still await Rust A02 integration.
 - The trigger evidence is limited to these three synthetic actions. Chunk-load initialization, arbitrary neighbor blocks, randomized ticking, lava and persistence remain unclaimed.
+
+
+## WATER-MOVE-001-C02 — bounded water movement integration
+
+- Added viewer-scene water query and connected the native bounded water-contact/travel path to `MotionController`; dry travel stays on its prior path. Fixed-step controller output is identical under 20/30/60/144 Hz frame partition.
+- Pure Rust travel matches all seven native scenarios and 72 ordered states/raw float words; `python3 tools/parity/run.py movement --strict` still matches every dry native state.
+- `python3 tools/check.py` → PASS: 284 Python tests (18 opt-in skipped), fmt, workspace check, clippy `-D warnings`, all Rust targets and doc tests. Focused water-query/controller tests pass.
+- GUI capture was unavailable, so no visual pixel claim. This acceptance covers supplied water ID 8/9 cells and solid colliders only; it does not cover lava, drowning, multiplayer, or full keyboard/client scheduling.
