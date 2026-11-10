@@ -18,11 +18,13 @@ use beta_core::{
     items::Inventory,
     light::{LightDimension, sample_brightness, sky_subtraction},
     motion::MotionState,
+    water::{WaterCell, WaterPos, WaterTickResult, changed_positions},
 };
 use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Mesh as FluidMesh};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
 };
+use beta_viewer::water_runtime::WaterRuntime;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -168,6 +170,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         )?,
         scene,
         controller: MotionController::new(MotionState::new(safe_spawn)),
+        water_runtime: WaterRuntime::default(),
         safe_spawn,
         controls: Controls::default(),
         inventory: saved_inventory.inventory,
@@ -1175,6 +1178,7 @@ struct App {
     gpu: Option<Gpu>,
     camera: Camera,
     controller: MotionController,
+    water_runtime: WaterRuntime,
     safe_spawn: [f64; 3],
     controls: Controls,
     inventory: Inventory,
@@ -1405,6 +1409,163 @@ fn depth(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::TextureView {
         .create_view(&Default::default())
 }
 impl App {
+    fn water_step_cells(&self) -> BTreeMap<WaterPos, WaterCell> {
+        let next_time = self.water_runtime.world_time().saturating_add(1);
+        let mut positions = std::collections::BTreeSet::new();
+        for tick in self.water_runtime.queue() {
+            if tick.due_time > next_time {
+                break;
+            }
+            for y in tick.position.1.saturating_sub(2)..=tick.position.1.saturating_add(1) {
+                for z in tick.position.2.saturating_sub(2)..=tick.position.2.saturating_add(2) {
+                    for x in tick.position.0.saturating_sub(2)..=tick.position.0.saturating_add(2) {
+                        positions.insert((x, y, z));
+                    }
+                }
+            }
+        }
+        positions
+            .into_iter()
+            .map(|position @ (x, y, z)| {
+                let cell = match self.block_scene.block(x, y, z) {
+                    Ok(Some(block)) => WaterCell::Loaded(beta_core::water::WaterBlock {
+                        id: block.id,
+                        metadata: block.metadata,
+                    }),
+                    Ok(None) | Err(_) => WaterCell::Unloaded,
+                };
+                (position, cell)
+            })
+            .collect()
+    }
+
+    fn tick_water(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let cells = self.water_step_cells();
+        let mut next_runtime = self.water_runtime.clone();
+        let result = next_runtime.step(cells.clone())?;
+        let mut changed = changed_positions(&result.events);
+        changed.extend(cells.iter().filter_map(|(position, before)| {
+            (result.cells.get(position) != Some(before)).then_some(*position)
+        }));
+        if !changed.is_empty() {
+            self.publish_water_result(&result, &changed)?;
+        }
+        self.water_runtime = next_runtime;
+        Ok(())
+    }
+
+    fn publish_water_result(
+        &mut self,
+        result: &WaterTickResult,
+        changed: &std::collections::BTreeSet<WaterPos>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut next_scene_chunks = self.scene_chunks.clone();
+        for &(x, y, z) in changed {
+            let WaterCell::Loaded(block) = result.cells[&(x, y, z)] else {
+                return Err("water transition returned an unloaded edited cell".into());
+            };
+            let (cx, lx) = split_block_coord(x);
+            let (cz, lz) = split_block_coord(z);
+            let chunk = next_scene_chunks
+                .iter_mut()
+                .find(|chunk| chunk.x == cx && chunk.z == cz)
+                .ok_or("water edit targeted a chunk outside the loaded scene")?;
+            let mut state = chunk.data.get(lx, y as u8, lz)?;
+            state.id = block.id;
+            state.metadata = block.metadata;
+            chunk.data.set(lx, y as u8, lz, state)?;
+        }
+        let bounds = self.block_scene.bounds();
+        let mut next_block_scene = BlockScene::new(
+            BlockSceneBounds::new(
+                bounds.min_chunk_x,
+                bounds.min_chunk_z,
+                bounds.width,
+                bounds.depth,
+            )?,
+            next_scene_chunks
+                .iter()
+                .map(|chunk| BlockSceneChunk {
+                    x: chunk.x,
+                    z: chunk.z,
+                    data: chunk.data.clone(),
+                })
+                .collect(),
+        )?;
+        let mut dirty = std::collections::BTreeSet::new();
+        for &(x, y, z) in changed {
+            let relight = next_block_scene.relight(
+                (x, y, z),
+                beta_core::block::MAX_RELIGHT_CELLS,
+                |id, _metadata| {
+                    (
+                        beta_core::light::opacity_level(id),
+                        beta_core::light::emission_level(id),
+                    )
+                },
+            )?;
+            dirty.extend(relight.dirty_chunks);
+            for &((lx_world, ly, lz_world), block_light, sky_light) in &relight.light_updates {
+                let (cx, lx) = split_block_coord(lx_world);
+                let (cz, lz) = split_block_coord(lz_world);
+                let chunk = next_scene_chunks
+                    .iter_mut()
+                    .find(|candidate| candidate.x == cx && candidate.z == cz)
+                    .ok_or("water relight targeted a chunk outside the loaded scene")?;
+                let mut state = chunk.data.get(lx, ly as u8, lz)?;
+                state.block_light = block_light;
+                state.sky_light = sky_light;
+                chunk.data.set(lx, ly as u8, lz, state)?;
+            }
+            // Mesh fluid corners sample diagonal neighbors. Expand only at a
+            // touched chunk edge, matching BlockScene edit dirty semantics.
+            let (cx, lx) = split_block_coord(x);
+            let (cz, lz) = split_block_coord(z);
+            dirty.insert((cx, cz));
+            let dxs: &[i32] = match lx {
+                0 => &[-1, 0],
+                15 => &[0, 1],
+                _ => &[0],
+            };
+            let dzs: &[i32] = match lz {
+                0 => &[-1, 0],
+                15 => &[0, 1],
+                _ => &[0],
+            };
+            for dx in dxs {
+                for dz in dzs {
+                    if next_scene_chunks
+                        .iter()
+                        .any(|chunk| chunk.x == cx + dx && chunk.z == cz + dz)
+                    {
+                        dirty.insert((cx + dx, cz + dz));
+                    }
+                }
+            }
+        }
+        // Relighting mutates candidate block-scene state; mirror it into view
+        // chunks before preparing any replacement meshes or GPU buffers.
+        for ((x, y, z), state) in changed.iter().filter_map(|&(x, y, z)| {
+            next_block_scene
+                .block(x, y, z)
+                .ok()
+                .flatten()
+                .map(|state| ((x, y, z), state))
+        }) {
+            let (cx, lx) = split_block_coord(x);
+            let (cz, lz) = split_block_coord(z);
+            let chunk = next_scene_chunks
+                .iter_mut()
+                .find(|chunk| chunk.x == cx && chunk.z == cz)
+                .ok_or("water result chunk disappeared")?;
+            chunk.data.set(lx, y as u8, lz, state)?;
+        }
+        let dirty: Vec<_> = dirty.into_iter().collect();
+        self.rebuild_dirty_chunks(&dirty, next_block_scene, next_scene_chunks)?;
+        self.aimed_hit = None;
+        Ok(())
+    }
+
     fn update_aimed_target(&mut self) {
         let direction = self.camera.forward();
         let origin = self.camera.position;
@@ -2136,12 +2297,21 @@ impl App {
     fn frame(&mut self) {
         let window = self.window.clone();
         self.update_aimed_target();
-        let Some(g) = self.gpu.as_mut() else { return };
         let now = Instant::now();
         let dt = now.duration_since(self.last);
         self.last = now;
         if self.focused && !self.inventory_screen.is_open() {
             self.controller.accumulate(dt);
+            self.water_runtime.accumulate(dt);
+            while self.water_runtime.ticks_due() > 0 {
+                if let Err(error) = self.tick_water() {
+                    eprintln!(
+                        "beta-viewer water tick paused after unsupported bounded transition: {error}"
+                    );
+                    self.water_runtime.clear_clock();
+                    break;
+                }
+            }
             while self.controller.ticks_due() > 0 {
                 if self.controller.debug_flight {
                     self.camera.position =
@@ -2173,6 +2343,7 @@ impl App {
                 self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
             }
         }
+        let Some(g) = self.gpu.as_mut() else { return };
         let fluid_indices = match sort_fluid_quad_indices(
             &self.fluid_mesh.vertices,
             self.camera.position.to_array(),
