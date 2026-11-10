@@ -1929,3 +1929,10 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - Добавлен `water-tick` strict parity runner. Он проверяет две воспроизводимые native captures обоих corpora, затем сравнивает Rust probe с полным native transcript/state. `python3 tools/parity/run.py water-tick --strict` → PASS на 13 сценах; отчёт `artifacts/parity/water-tick/run-scs93bp4/report.json`.
 - `python3 -m unittest tests.python.test_water_tick_corpus tests.python.test_water_tick_runner -v` → PASS: 15. `cargo test --locked --offline -p beta-core --test water_tick_fixture -- --nocapture` → PASS: 3 test functions.
 - Не заявлены world-wide random ticks, unloaded neighbors, lava, persistence, buckets или viewer scheduling. Следующая функциональная зависимость — WATER-SIM-001-A02.
+
+
+## WATER-MOVE-001-C01 — native water movement baseline
+
+- Integrated oracle commit `5db9d89` as `7bbf867`. Pinned native liquid travel/contact methods and captured seven synthetic scenarios over 72 ordered movement states; the live corpus repeats two JVM runs byte-identically (output SHA-256 `d5025963b822812c8f299aacc9ebf14eb959cb6c16feb101a2f7278e466ee044`).
+- `python3 tools/oracle/water_movement_corpus.py` → PASS; `python3 -m unittest tests.python.test_water_movement_corpus -v` → PASS: 3 tests; `git diff --check` → PASS.
+- Scope is native travel/contact on a synthetic sparse world; this is not full client input/controller parity, no Rust comparison, drowning, lava, multiplayer, or save-world claim. `MOVE-001-C03` dependency was already accepted.

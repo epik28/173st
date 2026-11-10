@@ -979,9 +979,13 @@
       "checks": []
     },
     "WATER-MOVE-001-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Captured bounded original Beta 1.7.3 water movement/contact behavior in synthetic in-memory scenes: 7 scenarios and 72 ordered tick states. The oracle invokes native liquid travel and water-contact paths and repeats byte-identically. No Rust comparison or broad swimming claim yet.",
+      "checks": [
+        "python3 tools/oracle/water_movement_corpus.py → PASS: two independent native captures match; 7 scenarios, 72 states, output SHA-256 d5025963b822812c8f299aacc9ebf14eb959cb6c16feb101a2f7278e466ee044",
+        "python3 -m unittest tests.python.test_water_movement_corpus -v → PASS: 3 tests",
+        "Native references are synthetic in-memory sparse worlds and capture player base/contact, not the full client controller or scheduler; no lava, drowning, multiplayer, or Rust parity claim."
+      ]
     },
     "WATER-MOVE-001-C02": {
       "state": "pending",
