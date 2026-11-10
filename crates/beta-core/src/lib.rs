@@ -15,4 +15,5 @@ pub mod math;
 pub mod motion;
 pub mod nbt;
 pub mod region;
+pub mod water;
 pub mod world;

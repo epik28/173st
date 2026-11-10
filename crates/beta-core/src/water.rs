@@ -1,0 +1,406 @@
+//! Bounded in-memory water block-tick transitions.
+//!
+//! This API deliberately models one frozen, loaded region. It performs no
+//! file, clock, or global-world access. Unsupported states fail before a
+//! candidate result is returned.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::{error::Error, fmt};
+
+pub const MAX_WATER_CELLS: usize = 256;
+pub const MAX_WATER_TICKS: usize = 64;
+
+pub type WaterPos = (i32, i32, i32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaterBlock {
+    pub id: u8,
+    pub metadata: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaterCell {
+    Loaded(WaterBlock),
+    Unloaded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaterTick {
+    pub position: WaterPos,
+    pub id: u8,
+    /// Absolute native scheduled time.
+    pub due_time: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaterEvent {
+    Edit {
+        position: WaterPos,
+        before: WaterBlock,
+        after: WaterBlock,
+    },
+    Schedule {
+        position: WaterPos,
+        id: u8,
+        delay: i32,
+    },
+    Neighbor {
+        position: WaterPos,
+        id: u8,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WaterTickInput {
+    pub world_time: i64,
+    pub cells: BTreeMap<WaterPos, WaterCell>,
+    /// Full ordered native queue at the start of this world-time batch.
+    pub queue: Vec<WaterTick>,
+    pub max_ticks: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WaterTickResult {
+    pub cells: BTreeMap<WaterPos, WaterCell>,
+    pub queue_after: Vec<WaterTick>,
+    pub events: Vec<WaterEvent>,
+    pub ticks_processed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaterError {
+    InvalidLimit,
+    InvalidQueueOrder,
+    CellLimitExceeded,
+    TickLimitExceeded {
+        limit: usize,
+    },
+    UnspecifiedCell(WaterPos),
+    UnloadedCell(WaterPos),
+    InvalidState {
+        position: WaterPos,
+        id: u8,
+        metadata: u8,
+    },
+    TimeOverflow,
+    CoordinateOverflow,
+    UnsupportedTransition {
+        position: WaterPos,
+        id: u8,
+        metadata: u8,
+    },
+}
+
+impl fmt::Display for WaterError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl Error for WaterError {}
+
+/// Applies all ticks already due at `world_time` in the supplied queue order.
+/// Newly requested ticks are queued after the due batch. Inputs are cloned and
+/// validated first; errors never expose a partially transitioned scene.
+pub fn transition_water_ticks(input: WaterTickInput) -> Result<WaterTickResult, WaterError> {
+    if input.max_ticks == 0 {
+        return Err(WaterError::InvalidLimit);
+    }
+    if input.cells.len() > MAX_WATER_CELLS {
+        return Err(WaterError::CellLimitExceeded);
+    }
+    if input.queue.len() > MAX_WATER_TICKS {
+        return Err(WaterError::TickLimitExceeded {
+            limit: MAX_WATER_TICKS,
+        });
+    }
+    for (position, cell) in &input.cells {
+        if let WaterCell::Loaded(block) = cell
+            && (block.metadata > 15 || (block.id == 0 && block.metadata != 0))
+        {
+            return Err(WaterError::InvalidState {
+                position: *position,
+                id: block.id,
+                metadata: block.metadata,
+            });
+        }
+    }
+
+    let WaterTickInput {
+        world_time,
+        cells: input_cells,
+        queue: input_queue,
+        max_ticks,
+    } = input;
+    if input_queue
+        .windows(2)
+        .any(|pair| pair[0].due_time > pair[1].due_time)
+    {
+        return Err(WaterError::InvalidQueueOrder);
+    }
+    let due_count = input_queue
+        .iter()
+        .take_while(|tick| tick.due_time <= world_time)
+        .count();
+    if due_count > max_ticks {
+        return Err(WaterError::TickLimitExceeded { limit: max_ticks });
+    }
+    let mut cells = input_cells;
+    let mut queue: Vec<_> = input_queue.iter().copied().skip(due_count).collect();
+    let mut events = Vec::new();
+    for tick in input_queue.into_iter().take(due_count) {
+        let state = loaded(&cells, tick.position)?;
+        if state.id != tick.id {
+            continue;
+        }
+        apply_one(
+            tick.position,
+            state,
+            world_time,
+            &mut cells,
+            &mut queue,
+            &mut events,
+        )?;
+        if queue.len() > MAX_WATER_TICKS {
+            return Err(WaterError::TickLimitExceeded {
+                limit: MAX_WATER_TICKS,
+            });
+        }
+    }
+    Ok(WaterTickResult {
+        cells,
+        queue_after: queue,
+        events,
+        ticks_processed: due_count,
+    })
+}
+
+fn apply_one(
+    pos: WaterPos,
+    block: WaterBlock,
+    world_time: i64,
+    cells: &mut BTreeMap<WaterPos, WaterCell>,
+    queue: &mut Vec<WaterTick>,
+    events: &mut Vec<WaterEvent>,
+) -> Result<(), WaterError> {
+    if block.id == 9 {
+        return Ok(());
+    }
+    if block.id != 8 {
+        return Err(WaterError::UnsupportedTransition {
+            position: pos,
+            id: block.id,
+            metadata: block.metadata,
+        });
+    }
+
+    let below = offset(pos, 0, -1, 0)?;
+    let below_state = loaded(cells, below)?;
+
+    // This captured setup covers a flowing cell beside an existing source,
+    // with an open cell directly below it.
+    let west = offset(pos, -1, 0, 0)?;
+    let west_state = loaded(cells, west)?;
+    if block.metadata == 2 && west_state.id == 9 && below_state.id == 0 {
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: block.id,
+        });
+        schedule(west, 8, world_time, queue, events)?;
+        edit(cells, west, WaterBlock { id: 8, metadata: 0 }, events)?;
+        schedule(west, 8, world_time, queue, events)?;
+        schedule(pos, 8, world_time, queue, events)?;
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: block.id,
+        });
+        set_silent(cells, pos, WaterBlock { id: 8, metadata: 1 })?;
+        schedule(below, 8, world_time, queue, events)?;
+        edit(cells, below, WaterBlock { id: 8, metadata: 9 }, events)?;
+        events.push(WaterEvent::Neighbor {
+            position: below,
+            id: 8,
+        });
+        return Ok(());
+    }
+
+    if block.metadata == 3 {
+        set_silent(cells, pos, WaterBlock { id: 0, metadata: 0 })?;
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: 0,
+        });
+        return Ok(());
+    }
+    if block.metadata == 4 {
+        if below_state.id != 0 {
+            return Err(WaterError::UnsupportedTransition {
+                position: pos,
+                id: block.id,
+                metadata: block.metadata,
+            });
+        }
+        set_silent(cells, pos, WaterBlock { id: 0, metadata: 0 })?;
+        events.push(WaterEvent::Neighbor {
+            position: pos,
+            id: 0,
+        });
+        schedule(below, 8, world_time, queue, events)?;
+        edit(cells, below, WaterBlock { id: 8, metadata: 7 }, events)?;
+        events.push(WaterEvent::Neighbor {
+            position: below,
+            id: 8,
+        });
+        return Ok(());
+    }
+    if block.metadata > 8 {
+        return Err(WaterError::UnsupportedTransition {
+            position: pos,
+            id: block.id,
+            metadata: block.metadata,
+        });
+    }
+
+    let still = WaterBlock {
+        id: 9,
+        metadata: block.metadata,
+    };
+    edit(cells, pos, still, events)?;
+
+    if below_state.id == 0 {
+        schedule(below, 8, world_time, queue, events)?;
+        edit(cells, below, WaterBlock { id: 8, metadata: 8 }, events)?;
+        events.push(WaterEvent::Neighbor {
+            position: below,
+            id: 8,
+        });
+        schedule(pos, 8, world_time, queue, events)?;
+        let flowing = WaterBlock {
+            id: 8,
+            metadata: block.metadata,
+        };
+        edit(cells, pos, flowing, events)?;
+        schedule(pos, 8, world_time, queue, events)?;
+        return Ok(());
+    }
+
+    let mut directions = Vec::new();
+    for (dx, dz) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+        let target = offset(pos, dx, 0, dz)?;
+        if loaded(cells, target)?.id == 0 {
+            directions.push(target);
+        }
+    }
+    if directions.is_empty() {
+        return Ok(());
+    }
+    for (index, target) in directions.into_iter().enumerate() {
+        schedule(target, 8, world_time, queue, events)?;
+        edit(cells, target, WaterBlock { id: 8, metadata: 1 }, events)?;
+        events.push(WaterEvent::Neighbor {
+            position: target,
+            id: 8,
+        });
+        if index == 0 {
+            schedule(pos, 8, world_time, queue, events)?;
+            let flowing = WaterBlock {
+                id: 8,
+                metadata: block.metadata,
+            };
+            edit(cells, pos, flowing, events)?;
+            schedule(pos, 8, world_time, queue, events)?;
+        }
+    }
+    Ok(())
+}
+
+fn offset(pos: WaterPos, dx: i32, dy: i32, dz: i32) -> Result<WaterPos, WaterError> {
+    Ok((
+        pos.0
+            .checked_add(dx)
+            .ok_or(WaterError::CoordinateOverflow)?,
+        pos.1
+            .checked_add(dy)
+            .ok_or(WaterError::CoordinateOverflow)?,
+        pos.2
+            .checked_add(dz)
+            .ok_or(WaterError::CoordinateOverflow)?,
+    ))
+}
+
+fn loaded(cells: &BTreeMap<WaterPos, WaterCell>, pos: WaterPos) -> Result<WaterBlock, WaterError> {
+    match cells.get(&pos) {
+        Some(WaterCell::Loaded(block)) => Ok(*block),
+        Some(WaterCell::Unloaded) => Err(WaterError::UnloadedCell(pos)),
+        None => Err(WaterError::UnspecifiedCell(pos)),
+    }
+}
+
+fn set_silent(
+    cells: &mut BTreeMap<WaterPos, WaterCell>,
+    pos: WaterPos,
+    block: WaterBlock,
+) -> Result<(), WaterError> {
+    loaded(cells, pos)?;
+    cells.insert(pos, WaterCell::Loaded(block));
+    Ok(())
+}
+
+fn edit(
+    cells: &mut BTreeMap<WaterPos, WaterCell>,
+    pos: WaterPos,
+    after: WaterBlock,
+    events: &mut Vec<WaterEvent>,
+) -> Result<(), WaterError> {
+    let before = loaded(cells, pos)?;
+    if before != after {
+        cells.insert(pos, WaterCell::Loaded(after));
+        events.push(WaterEvent::Edit {
+            position: pos,
+            before,
+            after,
+        });
+    }
+    Ok(())
+}
+
+fn schedule(
+    pos: WaterPos,
+    id: u8,
+    world_time: i64,
+    queue: &mut Vec<WaterTick>,
+    events: &mut Vec<WaterEvent>,
+) -> Result<(), WaterError> {
+    const DELAY: i32 = 5;
+    events.push(WaterEvent::Schedule {
+        position: pos,
+        id,
+        delay: DELAY,
+    });
+    let due_time = world_time
+        .checked_add(i64::from(DELAY))
+        .ok_or(WaterError::TimeOverflow)?;
+    if !queue
+        .iter()
+        .any(|tick| tick.position == pos && tick.id == id && tick.due_time == due_time)
+    {
+        queue.push(WaterTick {
+            position: pos,
+            id,
+            due_time,
+        });
+    }
+    Ok(())
+}
+
+/// Returns the changed positions in deterministic order for callers rebuilding
+/// only affected chunk meshes.
+pub fn changed_positions(events: &[WaterEvent]) -> BTreeSet<WaterPos> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            WaterEvent::Edit { position, .. } => Some(*position),
+            WaterEvent::Schedule { .. } | WaterEvent::Neighbor { .. } => None,
+        })
+        .collect()
+}
