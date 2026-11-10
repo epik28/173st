@@ -36,6 +36,25 @@ The second top click is rejected with no additional stack change; an occupied
 destination and y=127 placement are rejected; the x=15 east-face placement
 succeeds into x=16.
 
+The independent `grass-rays-input.tsv` and `grass-rays-native.tsv` tables extend
+the block-31 ray evidence without changing the original 16 action cases. Rebuild
+them with `python3 tools/oracle/placement_grass_rays.py`; the generator runs
+`GrassRayOracle.java` twice per JVM invocation and the Python verifier performs
+two separate captures. Each ray uses a fresh byte-array chunk containing only
+ID 31/meta 0 at `(0,10,0)`. `grass-rays-audit.json` binds the JAR and the native
+`fd`, `bt`, `vf`, `uu`, and `ru` class hashes, method dispatch descriptions,
+inputs, outputs, and repeat result.
+
+The `ru` handler is the native `tallgrass` (`uu.Y`) subtype. Its constructor
+sets selection bounds from `0.5f - 0.4f`, `0.5f + 0.4f`, and height `0.8f`:
+X/Z `[0.09999999403953552, 0.8999999761581421]`, Y `[0, 0.800000011920929]`.
+The added 14 rays include interior and above-height horizontal paths, exact
+and adjacent-representable horizontal boundary paths, exact bottom/top vertical
+paths, vertical paths just outside and exactly on X bounds, and diagonal paths.
+Hit positions are retained as raw IEEE-754 double words. Boundary rays confirm
+the selection planes include both horizontal endpoints. This is evidence for
+ray selection only; it does not claim a renderer geometry or placement result.
+
 Lighting samples are zero in these raw, minimally initialized chunks. Height
 map values are retained, but this corpus does not reproduce a normally lit
 world and cannot establish the user's dark-shadow/lighting report. That native

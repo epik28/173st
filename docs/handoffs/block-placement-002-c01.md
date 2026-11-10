@@ -4,6 +4,13 @@ State: native placement corpus captured; lighting regression not reproduced.
 
 - Added a pinned-JAR native oracle and 16 exact, repeatable cases at
   `tests/fixtures/block-placement/`.
+- Added a separate 14-ray tallgrass (`ID 31/meta 0`) selection table with
+  off-center, outside, exact-boundary, and diagonal rays. Raw hit-position words
+  and JAR/class/method provenance are in the `grass-rays-*` fixtures; the
+  original 16 action rows remain unchanged.
+- Native ID 31 selection bounds are X/Z
+  `[0.09999999403953552, 0.8999999761581421]`, Y `[0, 0.800000011920929]`.
+  Exact X boundaries hit and adjacent representable outside points miss.
 - Original `fd.a(bt,bt,...)` ray tracing hits ID 31 from all six sampled sides.
   Thus the reported `unsupported 31` is the viewer's unsupported-state handling,
   not a native ray miss for the controlled ID-31 shape.

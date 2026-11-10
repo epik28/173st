@@ -2,6 +2,7 @@
 import unittest
 
 from tools.oracle import placement_corpus as corpus
+from tools.oracle import placement_grass_rays as grass_rays
 
 
 class BlockPlacementCorpusTests(unittest.TestCase):
@@ -48,6 +49,32 @@ class BlockPlacementCorpusTests(unittest.TestCase):
             corpus.parse(raw.replace(b"raycast_side", b"wrong_side", 1))
         with self.assertRaises(ValueError):
             corpus.parse(raw.replace(b"true\t0:0\t1:0", b"yes\t0:0\t1:0", 1))
+
+    def test_native_tallgrass_off_center_and_boundary_rays_repeat(self):
+        report = grass_rays.verify()
+        self.assertEqual(report["cases"], 14)
+        self.assertTrue(report["repeat_identical"])
+        rows = {row["id"]: row for row in grass_rays.parse_output(grass_rays.FIXTURE.read_bytes())}
+        self.assertEqual((rows["x_mid_inside"]["kind"], rows["x_mid_inside"]["side"]), ("block", "4"))
+        self.assertEqual(rows["x_above_height"]["kind"], "miss")
+        self.assertEqual(rows["x_min_exact_along_z"]["kind"], "block")
+        self.assertEqual(rows["x_min_below_along_z"]["kind"], "miss")
+        self.assertEqual(rows["x_max_exact_along_z"]["kind"], "block")
+        self.assertEqual(rows["x_max_above_along_z"]["kind"], "miss")
+        self.assertEqual(rows["vertical_x_min_exact"]["kind"], "block")
+        self.assertEqual(rows["vertical_x_below"]["kind"], "miss")
+        self.assertEqual(rows["diagonal_inside"]["kind"], "block")
+        self.assertEqual(rows["diagonal_above"]["kind"], "miss")
+
+    def test_grass_ray_parser_rejects_order_and_raw_word_mutations(self):
+        raw = grass_rays.FIXTURE.read_bytes()
+        with self.assertRaises(ValueError):
+            grass_rays.parse_output(raw.replace(b"x_mid_inside", b"x_min_below_along_z", 1))
+        with self.assertRaises(ValueError):
+            grass_rays.parse_output(raw.replace(b"3fb9999980000000", b"3fb9999980000001", 1))
+        inputs = grass_rays.INPUT.read_bytes()
+        with self.assertRaises(ValueError):
+            grass_rays.parse_input(inputs.replace(b"diagonal_above", b"diagonal_inside", 1))
 
 
 if __name__ == "__main__":

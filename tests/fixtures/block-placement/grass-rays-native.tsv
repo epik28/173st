@@ -1,0 +1,16 @@
+#BLOCK_GRASS_RAY_NATIVE	1	af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c
+#id	kind	x	y	z	side	px	py	pz	px_bits	py_bits	pz_bits
+x_mid_inside	block	0	10	0	4	0.09999999403953552	10.4	0.5	3fb9999980000000	4024cccccccccccd	3fe0000000000000
+x_above_height	miss	-	-	-	-	-	-	-	-	-	-
+x_min_exact_along_z	block	0	10	0	2	0.09999999403953552	10.4	0.09999999403953552	3fb9999980000000	4024cccccccccccd	3fb9999980000000
+x_min_below_along_z	miss	-	-	-	-	-	-	-	-	-	-
+x_max_exact_along_z	block	0	10	0	2	0.8999999761581421	10.4	0.09999999403953552	3fecccccc0000000	4024cccccccccccd	3fb9999980000000
+x_max_above_along_z	miss	-	-	-	-	-	-	-	-	-	-
+y_bottom_exact	block	0	10	0	0	0.5	10.0	0.5	3fe0000000000000	4024000000000000	3fe0000000000000
+y_top_exact	block	0	10	0	1	0.5	10.800000011920929	0.5	3fe0000000000000	402599999a000000	3fe0000000000000
+vertical_x_below	miss	-	-	-	-	-	-	-	-	-	-
+vertical_x_min_exact	block	0	10	0	0	0.09999999403953552	10.0	0.5	3fb9999980000000	4024000000000000	3fe0000000000000
+vertical_x_max_exact	block	0	10	0	0	0.8999999761581421	10.0	0.5	3fecccccc0000000	4024000000000000	3fe0000000000000
+vertical_x_above	miss	-	-	-	-	-	-	-	-	-	-
+diagonal_inside	block	0	10	0	4	0.09999999403953552	10.5	0.09999999403953552	3fb9999980000000	4025000000000000	3fb9999980000000
+diagonal_above	miss	-	-	-	-	-	-	-	-	-	-
