@@ -8,6 +8,7 @@ const GUI_ORIGIN: (u32, u32) = (0, 32);
 const LOGO_ORIGIN: (u32, u32) = (256, 0);
 const FONT_ORIGIN: (u32, u32) = (256, 256);
 const WHITE_PIXEL: (u32, u32) = (511, 511);
+const FONT_GLYPH_DRAW_WIDTH: f32 = 7.99;
 
 #[derive(Clone)]
 pub struct MenuAssets {
@@ -18,7 +19,6 @@ pub struct MenuAssets {
 
 #[derive(Clone, Copy, Debug, Default)]
 struct Glyph {
-    start: u8,
     width: u8,
 }
 
@@ -76,7 +76,7 @@ impl MenuAssets {
         Self {
             atlas,
             labels,
-            glyphs: [Glyph { start: 0, width: 8 }; 256],
+            glyphs: [Glyph { width: 8 }; 256],
         }
     }
 
@@ -95,18 +95,19 @@ fn blit(destination: &mut image::RgbaImage, source: &image::RgbaImage, at: (u32,
 
 fn glyph(font: &image::RgbaImage, character: u8) -> Glyph {
     if character == b' ' {
-        return Glyph { start: 0, width: 4 };
+        return Glyph { width: 4 };
     }
     let x0 = u32::from(character % 16) * 8;
     let y0 = u32::from(character / 16) * 8;
     let right = (0..8)
         .rev()
         .find(|x| (0..8).any(|y| font.get_pixel(x0 + x, y0 + y).0[3] != 0));
+    // The native sj constructor leaves i at -1 for a fully transparent cell,
+    // then stores i + 2. Such a glyph therefore advances by one pixel.
     let Some(right) = right else {
-        return Glyph::default();
+        return Glyph { width: 1 };
     };
     Glyph {
-        start: 0,
         width: (right + 2) as u8,
     }
 }
@@ -347,6 +348,29 @@ fn draw_main_menu(
             true,
         );
     }
+
+    // Pinned fu.a draws these two shadowed strings after the logo/buttons.
+    draw_shadowed_text_at(
+        out,
+        size,
+        layout,
+        assets,
+        2.0,
+        2.0,
+        "Minecraft Beta 1.7.3",
+        [80.0 / 255.0, 80.0 / 255.0, 80.0 / 255.0, 1.0],
+    );
+    let copyright = "Copyright Mojang AB. Do not distribute.";
+    draw_shadowed_text_at(
+        out,
+        size,
+        layout,
+        assets,
+        w - text_width(assets, copyright) as f32 - 2.0,
+        h - 10.0,
+        copyright,
+        [1.0; 4],
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -553,17 +577,42 @@ fn draw_centered_text(
     let width = text_width(assets, text) as f32;
     let x = (center_x - width / 2.0).floor();
     if shadow {
-        draw_text(
-            out,
-            size,
-            layout,
-            assets,
-            x + 1.0,
-            y + 1.0,
-            text,
-            [0.25, 0.25, 0.25, color[3]],
-        );
+        draw_shadowed_text_at(out, size, layout, assets, x, y, text, color);
+    } else {
+        draw_text(out, size, layout, assets, x, y, text, color);
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_shadowed_text_at(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    x: f32,
+    y: f32,
+    text: &str,
+    color: [f32; 4],
+) {
+    let channel = |component: f32| {
+        let byte = (component * 255.0).round() as u8;
+        f32::from((byte & 0xfc) >> 2) / 255.0
+    };
+    draw_text(
+        out,
+        size,
+        layout,
+        assets,
+        x + 1.0,
+        y + 1.0,
+        text,
+        [
+            channel(color[0]),
+            channel(color[1]),
+            channel(color[2]),
+            color[3],
+        ],
+    );
     draw_text(out, size, layout, assets, x, y, text, color);
 }
 
@@ -618,18 +667,18 @@ fn draw_text(
         };
         let glyph = assets.glyphs[byte as usize];
         let width = f32::from(glyph.width);
-        if width > 0.0 {
-            let uv_x = FONT_ORIGIN.0 as f32 + f32::from(byte % 16) * 8.0 + f32::from(glyph.start);
-            let uv_y = FONT_ORIGIN.1 as f32 + f32::from(byte / 16) * 8.0;
-            quad(
-                out,
-                size,
-                layout.scale as f32,
-                [x, y, width, 8.0],
-                [uv_x, uv_y, 8.0, 8.0],
-                color,
-            );
-        }
+        let uv_x = FONT_ORIGIN.0 as f32 + f32::from(byte % 16) * 8.0;
+        let uv_y = FONT_ORIGIN.1 as f32 + f32::from(byte / 16) * 8.0;
+        // Native sj display lists draw a 7.99×7.99 quad for every codepoint;
+        // the independently scanned glyph metric controls only the next x.
+        quad(
+            out,
+            size,
+            layout.scale as f32,
+            [x, y, FONT_GLYPH_DRAW_WIDTH, FONT_GLYPH_DRAW_WIDTH],
+            [uv_x, uv_y, FONT_GLYPH_DRAW_WIDTH, FONT_GLYPH_DRAW_WIDTH],
+            color,
+        );
         x += width;
     }
 }
@@ -733,6 +782,86 @@ mod tests {
                 .any(|v| v.uv[0] >= GUI_ORIGIN.0 as f32 / 512.0
                     && v.uv[1] >= (GUI_ORIGIN.1 + 46) as f32 / 512.0)
         );
+    }
+
+    #[test]
+    fn native_font_draws_full_cell_while_advancing_by_scanned_metrics() {
+        let mut assets = MenuAssets::synthetic();
+        assets.glyphs[b'A' as usize].width = 5;
+        assets.glyphs[b'B' as usize].width = 3;
+        let layout = Layout {
+            width: 100,
+            height: 100,
+            scale: 1,
+        };
+        let mut vertices = Vec::new();
+        draw_text(
+            &mut vertices,
+            (100, 100),
+            layout,
+            &assets,
+            10.0,
+            20.0,
+            "AB",
+            [1.0; 4],
+        );
+        assert_eq!(vertices.len(), 12);
+
+        let ndc_x = |x: f32| 2.0 * x / 100.0 - 1.0;
+        let ndc_y = |y: f32| 1.0 - 2.0 * y / 100.0;
+        assert_eq!(vertices[0].position, [ndc_x(10.0), ndc_y(20.0)]);
+        assert_eq!(vertices[1].position[0], ndc_x(10.0 + FONT_GLYPH_DRAW_WIDTH));
+        assert_eq!(vertices[6].position, [ndc_x(15.0), ndc_y(20.0)]);
+        assert_eq!(vertices[7].position[0], ndc_x(15.0 + FONT_GLYPH_DRAW_WIDTH));
+        assert_eq!(vertices[0].uv, [264.0 / 512.0, 288.0 / 512.0]);
+        assert_eq!(vertices[6].uv, [272.0 / 512.0, 288.0 / 512.0]);
+    }
+
+    #[test]
+    fn blank_font_cells_keep_the_native_one_pixel_advance() {
+        let blank = image::RgbaImage::new(128, 128);
+        assert_eq!(glyph(&blank, b'A').width, 1);
+        assert_eq!(glyph(&blank, b' ').width, 4);
+    }
+
+    #[test]
+    fn main_menu_includes_pinned_version_and_copyright_decorations() {
+        let assets = MenuAssets::synthetic();
+        let layout = Layout::with_gui_scale(854, 480, 1);
+        let vertices = vertices(
+            (854, 480),
+            layout,
+            &assets,
+            &[],
+            None,
+            0,
+            Page::MainMenu,
+            (0.0, 0.0),
+        );
+        let at = |x: f32, y: f32, color: [f32; 4]| {
+            let position = [2.0 * x / 854.0 - 1.0, 1.0 - 2.0 * y / 480.0];
+            vertices
+                .iter()
+                .any(|vertex| vertex.position == position && vertex.color == color)
+        };
+        assert!(at(
+            2.0,
+            2.0,
+            [80.0 / 255.0, 80.0 / 255.0, 80.0 / 255.0, 1.0]
+        ));
+        assert!(at(
+            3.0,
+            3.0,
+            [20.0 / 255.0, 20.0 / 255.0, 20.0 / 255.0, 1.0]
+        ));
+        let footer_x =
+            854.0 - text_width(&assets, "Copyright Mojang AB. Do not distribute.") as f32 - 2.0;
+        assert!(at(footer_x, 470.0, [1.0; 4]));
+        assert!(at(
+            footer_x + 1.0,
+            471.0,
+            [63.0 / 255.0, 63.0 / 255.0, 63.0 / 255.0, 1.0]
+        ));
     }
 
     #[test]
