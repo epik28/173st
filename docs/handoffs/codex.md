@@ -1943,3 +1943,10 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - Принят reviewable Agy commit `606ce8a` как Codex `afd10ae`. Добавлен fixed 50 ms logical clock, bounded queue batch processing, candidate scene/relight/mesh publication и атомарное поведение при ошибке. Viewer меняет только in-memory snapshot.
 - Это **не завершённая A02**: live-world start/edit scheduling пока не подключён, default queue пуст. Native callback/seed oracle поручен отдельно; до его приёмки A02 остаётся in progress и fluid gameplay parity не заявляется.
 - Проверки на объединённой ревизии: `cargo test --locked --offline -p beta-viewer --all-targets` → PASS (34 library, 58 binary, 4 example tests); `cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings` → PASS; `cargo fmt --all -- --check` → PASS. Core water fixture ранее PASS (3 test functions, все 13 сцен).
+
+
+## WATER-SIM-001-C01 — bounded schedule seeding captured
+
+- Integrated native fixture commit `6aae7d9` as `7db22f8`. Separate versioned `water-tick-seeding-1` corpus captures direct ID 8 placement, adjacent solid placement beside still water, and support removal beneath still water. It records native neighbor callback order, duplicate schedule requests, and the single deduplicated delay-5 queue entry. Nine loaded synthetic byte-array chunks, three scenes, no due ticks.
+- Two independent JVM captures are byte-identical; native output SHA-256 `25e2b65c7b96bcbdfb5f9c8197e6e45ffb5df6142d1921a4ccb42839681d965e`. `python3 tools/oracle/water_schedule_corpus.py` → PASS. Combined water oracle/runner Python tests → 19 PASS. `python3 tools/parity/run.py water-tick --strict` → PASS for all 13 transition/source cases; schedule-trigger cases still await Rust A02 integration.
+- The trigger evidence is limited to these three synthetic actions. Chunk-load initialization, arbitrary neighbor blocks, randomized ticking, lava and persistence remain unclaimed.

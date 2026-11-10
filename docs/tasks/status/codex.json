@@ -964,13 +964,14 @@
     },
     "WATER-SIM-001-C01": {
       "state": "done",
-      "summary": "Pinned bounded native water update and source-formation behavior across 13 synthetic loaded-chunk scenes. The original nine-row C01 corpus remains byte-identical; four source cases have an independently versioned fixture. Strict runner compares ordered native/Rust events, scheduler queues, and full 100-cell state.",
+      "summary": "Pinned bounded native water updates, source formation, and tick seeding across 16 synthetic loaded-chunk cases (9 base + 4 source + 3 edit/placement seeding). Exact queue event requests, duplicate request/deduplicated queue behavior, ordered neighbor events and full transition state are reproducible.",
       "checks": [
-        "python3 tools/oracle/water_tick_corpus.py --live --write → PASS: two identical native captures for nine base scenes; original fixture SHA remains pinned",
-        "python3 tools/oracle/water_tick_corpus.py --source-live --write → PASS: two identical native captures for four separate source-formation cases",
-        "python3 tools/parity/run.py water-tick --strict → PASS: all bounded water-tick transcripts match across 13 scenes; report artifacts/parity/water-tick/run-scs93bp4/report.json",
-        "python3 -m unittest tests.python.test_water_tick_corpus tests.python.test_water_tick_runner -v → PASS: 15 tests",
-        "Native scope remains synthetic loaded chunks; no world-wide random ticks, unloaded-neighbor behavior, lava, persistence, bucket interactions, viewer scheduler, or movement physics claim."
+        "python3 tools/oracle/water_tick_corpus.py --live --write → PASS: two identical native captures for nine base scenes; original fixture bytes remain pinned",
+        "python3 tools/oracle/water_tick_corpus.py --source-live --write → PASS: two identical captures for four separate bounded source cases",
+        "python3 tools/oracle/water_schedule_corpus.py → PASS: two fresh JVM captures match; 3 edit/placement seed cases, 16 ordered events; native SHA-256 25e2b65c7b96bcbdfb5f9c8197e6e45ffb5df6142d1921a4ccb42839681d965e",
+        "python3 -m unittest tests.python.test_water_schedule_corpus tests.python.test_water_tick_corpus tests.python.test_water_tick_runner -v → PASS: 19 tests",
+        "python3 tools/parity/run.py water-tick --strict → PASS: Rust matches all frozen scheduled-tick transcripts in the 13 transition/source scenes; report artifacts/parity/water-tick/run-2gzzh59m/report.json",
+        "Scheduling extension is limited to direct flowing-water placement, adjacent block placement beside still water, and support removal beside still water in synthetic loaded chunks; no universal neighbor, chunk-load, random-tick, lava, persistence, or world-wide rule is claimed."
       ]
     },
     "WATER-SIM-001-C02": {
