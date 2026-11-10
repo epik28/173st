@@ -61,12 +61,18 @@ public final class WaterTickOracle {
     new Scene("two-adjacent-sources",8,0,17309,new int[][]{{0,64,0,8,0},{-1,64,0,9,0},{1,64,0,9,0},{0,63,0,1,0},{-1,63,0,1,0},{1,63,0,1,0}},1),
     new Scene("two-tick-spread",8,0,17308,new int[][]{{0,64,0,8,0},{-1,63,0,1,0},{1,63,0,1,0},{0,63,-1,1,0},{0,63,1,1,0}},2)
   );}
+  static List<Scene> sourceScenes(){return List.of(
+    new Scene("two-neighbors-supported-meta1",8,1,17311,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,9,0},{0,63,0,1,0},{0,64,-1,1,0},{0,64,1,1,0}},2),
+    new Scene("one-neighbor-supported-meta1",8,1,17312,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,1,0},{0,63,0,1,0},{0,64,-1,1,0},{0,64,1,1,0}},1),
+    new Scene("two-neighbors-unsupported-meta1",8,1,17313,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,9,0},{0,64,-1,1,0},{0,64,1,1,0}},1),
+    new Scene("two-neighbors-source-below-meta1",8,1,17314,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,9,0},{0,63,0,9,0},{0,64,-1,1,0},{0,64,1,1,0}},1)
+  );}
   static String queue(fd world)throws Exception{
     Field f=fd.class.getDeclaredField("E");f.setAccessible(true);TreeSet<?> queue=(TreeSet<?>)f.get(world);StringJoiner rows=new StringJoiner(",");
     for(Object event:queue){Class<?> c=event.getClass();StringJoiner j=new StringJoiner(":");for(String name:new String[]{"a","b","c","d","e"}){Field p=c.getDeclaredField(name);p.setAccessible(true);j.add(String.valueOf(p.get(event)));}rows.add(j.toString());}
     return rows.toString();
   }
-  static byte[] capture(Path jar)throws Exception{
+  static byte[] capture(Path jar,boolean sourcesOnly)throws Exception{
     if(!hex(Files.readAllBytes(jar)).equals(JAR_SHA))throw new IOException("wrong pinned client JAR SHA");
     PrintStream report=System.out;System.setOut(new PrintStream(OutputStream.nullOutputStream()));
     Class.forName("uu");Class.forName("om");Class.forName("nx");
@@ -79,7 +85,7 @@ public final class WaterTickOracle {
     out.println("#bounds\tstate snapshot x,z=-2..2 y=62..65; loaded chunks are synthetic and all loaded; no unloaded-neighbor result is claimed");
     out.println("#loaded_chunks\t-1,-1;-1,0;-1,1;0,-1;0,0;0,1;1,-1;1,0;1,1");
     Field randomField=fd.class.getDeclaredField("r");randomField.setAccessible(true);
-    for(Scene s:scenes()){
+    for(Scene s:(sourcesOnly?sourceScenes():scenes())){
       TrackedWorld w=world();randomField.set(w,new Random(s.rngSeed()));
       EVENTS.clear();for(int[] p:s.setup())put(w,p[0],p[1],p[2],p[3],p[4]);
       if(s.name().equals("still-source")){w.c(CX,CY,CZ,s.id(),0);EVENTS.add("probe_schedule\t"+CX+"\t"+CY+"\t"+CZ+"\t"+s.id()+"\t0");}
@@ -98,5 +104,5 @@ public final class WaterTickOracle {
     }
     out.flush();System.setOut(report);return output.toByteArray();
   }
-  public static void main(String[] args)throws Exception{if(args.length!=1)throw new IllegalArgumentException("WaterTickOracle CLIENT_JAR");Path jar=Path.of(args[0]).toRealPath();byte[] a=capture(jar),b=capture(jar);if(!Arrays.equals(a,b))throw new AssertionError("native water tick captures differ");System.out.write(a);}
+  public static void main(String[] args)throws Exception{boolean sources=args.length==2&&args[1].equals("--sources");if(args.length<1||args.length>2||(args.length==2&&!sources))throw new IllegalArgumentException("WaterTickOracle CLIENT_JAR [--sources]");Path jar=Path.of(args[0]).toRealPath();byte[] a=capture(jar,sources),b=capture(jar,sources);if(!Arrays.equals(a,b))throw new AssertionError("native water tick captures differ");System.out.write(a);}
 }

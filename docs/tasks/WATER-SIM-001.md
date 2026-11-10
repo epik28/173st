@@ -85,3 +85,34 @@ random ticking, lava, neighbor edits beyond the fixtures, or save/runtime
 integration. In the `two-adjacent-sources` input, the center remains flowing
 water for this exact arrangement; do not generalize that row into a source
 creation rule.
+
+## C01 source-formation extension (2026-11-10)
+
+A separate `tests/fixtures/water_tick_sources/` extension exercises the original
+`om.a(fd,int,int,int,Random)` update without changing the nine frozen C01 native
+rows (`native.tsv` SHA-256 remains
+`cf829ee9aa63bdf2ace25104c36e9cc84eb9c6b1e92c1607573e8f18008f5276`). The
+adapter has a `--sources` mode; it still verifies the same pinned client and
+liquid/scheduler class hashes, uses only the nine synthetic byte-array chunks,
+and performs two independent byte-identical captures. The extension fixture has
+its own inputs, transcript, audit, and SHA-256.
+
+In the bounded supported case, center `(0,64,0)` begins as flowing water ID 8,
+metadata 1; west and east are still water ID 9, metadata 0; below and the north
+and south neighbors are stone ID 1. After the first due tick, center and both
+side water blocks are ID 8, metadata 0. The transcript queues all three for the
+next due time. After the second due tick, center is ID 9, metadata 0; the exact
+queue and edits are frozen in the extension. With one west source, the same
+supported/enclosed scene leaves the center at ID 9, metadata 1 after one due
+tick. With two side sources but air below, water flows down to `(0,63,0)` as ID
+8, metadata 9, and center remains ID 8, metadata 1. With ID 9, metadata 0 below,
+the center becomes ID 9, metadata 1. These are exact observed transitions for
+these inputs; the ID 9/meta 1 controls are not evidence for a level-zero source.
+
+The extension supports a bounded claim about the observed two-tick supported
+transition and its recorded neighbor/scheduler effects. It does not establish a
+universal source-formation threshold, arbitrary geometry, unloaded-neighbor
+behavior, or world-wide random ticking. Reproduce and test with
+`MINECRAFT_BETA_173_JAR=/path/to/pinned/client.jar python3 tools/oracle/water_tick_corpus.py --source-live --write`
+to recapture, or run `python3 tools/oracle/water_tick_corpus.py --sources` to
+audit the committed extension.

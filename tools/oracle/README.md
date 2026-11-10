@@ -27,3 +27,11 @@ JAR/class provenance and hotbar, selected slot, crosshair, and full-health heart
 layout. Original assets and disassembly are not copied into Git. `GuiIngame` is
 the MCP name; the pinned JAR itself contains obfuscated class `uq` and no usable
 Java source file.
+
+WATER-SIM-001 captures the original `om`/`nx` liquid block updates through
+`tools/oracle/water_tick_corpus.py`. Its nine C01 cases remain frozen separately
+from the source-formation extension in `tests/fixtures/water_tick_sources/`.
+With the pinned client JAR configured, `--live --write` recaptures the original
+C01 fixture and `--source-live --write` captures the extension with two
+independent runs; `--sources` audits the committed extension without starting
+Java.

@@ -75,6 +75,39 @@ class WaterTickCorpusTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             CORPUS.fixture_check(raw[:-1])
 
+    def test_source_extension_is_separate_and_keeps_c01_bytes_frozen(self):
+        sources = CORPUS.source_fixture_check()
+        self.assertEqual(sources["case_count"], 4)
+        self.assertEqual(sources["extension_version"], "water-source-formation-1")
+        self.assertEqual(sources["native_sha256"], "267fe2da3d911c30ebbc457ab1217ba3cefba1b409089fa06d2f12a14294108f")
+        self.assertEqual(CORPUS.fixture_check()["native_sha256"],
+                         "cf829ee9aa63bdf2ace25104c36e9cc84eb9c6b1e92c1607573e8f18008f5276")
+        self.assertTrue(sources["repeatable"])
+
+    def test_supported_two_neighbor_flow_becomes_level_zero_then_still_water(self):
+        case = {row["name"]: row for row in CORPUS.source_fixture_check()["cases"]}["two-neighbors-supported-meta1"]
+        self.assertEqual(case["inputs"], [
+            (0, 64, 0, 8, 1), (-1, 64, 0, 9, 0), (1, 64, 0, 9, 0),
+            (0, 63, 0, 1, 0), (0, 64, -1, 1, 0), (0, 64, 1, 1, 0),
+        ])
+        self.assertEqual(case["steps"][0]["state"]["0,64,0"], (8, 0))
+        self.assertEqual(case["steps"][0]["state"]["-1,64,0"], (8, 0))
+        self.assertEqual(case["steps"][0]["state"]["1,64,0"], (8, 0))
+        self.assertEqual(case["steps"][1]["state"]["0,64,0"], (9, 0))
+        self.assertEqual(case["steps"][1]["queue_before"], [
+            (-1, 64, 0, 8, 11), (1, 64, 0, 8, 11), (0, 64, 0, 8, 11),
+        ])
+
+    def test_one_neighbor_and_unsupported_controls_are_frozen(self):
+        cases = {row["name"]: row for row in CORPUS.source_fixture_check()["cases"]}
+        one = cases["one-neighbor-supported-meta1"]["steps"][0]["state"]
+        self.assertEqual(one["0,64,0"], (9, 1))
+        unsupported = cases["two-neighbors-unsupported-meta1"]["steps"][0]["state"]
+        self.assertEqual(unsupported["0,64,0"], (8, 1))
+        self.assertEqual(unsupported["0,63,0"], (8, 9))
+        below_source = cases["two-neighbors-source-below-meta1"]["steps"][0]["state"]
+        self.assertEqual(below_source["0,64,0"], (9, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/water_tick"
+SOURCE_FIXTURES = ROOT / "tests/fixtures/water_tick_sources"
 ORACLE = ROOT / "tools/oracle/src/WaterTickOracle.java"
 JAR_SHA = "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c"
 CLASS_HASHES = {
@@ -27,6 +28,8 @@ BOUNDS = "#bounds\tstate snapshot x,z=-2..2 y=62..65; loaded chunks are syntheti
 LOADED = "#loaded_chunks\t-1,-1;-1,0;-1,1;0,-1;0,0;0,1;1,-1;1,0;1,1"
 CASES = ["still-source", "flow-open", "flow-decay", "downward-open", "horizontal-basin",
          "blocked-down-and-sides", "source-neighbor-water", "two-adjacent-sources", "two-tick-spread"]
+SOURCE_CASES = ["two-neighbors-supported-meta1", "one-neighbor-supported-meta1",
+                "two-neighbors-unsupported-meta1", "two-neighbors-source-below-meta1"]
 SETUP = "#setup\tfd copy-constructor over Unsafe seed; custom wt/bf with byte-array lm chunks only; fixed origin (0,64,0); nine in-memory chunks (-1..1); no save/provider reads"
 
 
@@ -52,7 +55,7 @@ def _queue(value: str) -> list[tuple[int, int, int, int, int]]:
     return out
 
 
-def parse_native(raw: bytes) -> dict:
+def parse_native(raw: bytes, expected_cases: list[str] = CASES) -> dict:
     lines = raw.decode("ascii", errors="strict").splitlines()
     if len(lines) < 7 or not lines[0].startswith("#WATER_TICK_NATIVE\t1\t"):
         raise ValueError("native water tick header missing")
@@ -73,7 +76,7 @@ def parse_native(raw: bytes) -> dict:
         name = head[1]
         all_input_rows.append(lines[cursor])
         attrs = dict(item.split("=", 1) for item in head[2:])
-        if name not in CASES or name in {case["name"] for case in cases}:
+        if name not in expected_cases or name in {case["name"] for case in cases}:
             raise ValueError("unknown or duplicate water scene")
         required_attrs = {"seed_id", "input_meta", "ticks", "rng_seed"}
         if set(attrs) != required_attrs:
@@ -145,7 +148,7 @@ def parse_native(raw: bytes) -> dict:
         cursor += 1
         cases.append({"name": name, "attrs": attrs, "inputs": inputs,
                       "setup_queue": initial_queue, "setup_events": setup_events, "steps": steps})
-    if [case["name"] for case in cases] != CASES:
+    if [case["name"] for case in cases] != expected_cases:
         raise ValueError("native water scene matrix is incomplete or out of order")
     return {"cases": cases, "case_count": len(cases),
             "input_sha256": digest(("\n".join(all_input_rows) + "\n").encode("ascii")),
@@ -165,19 +168,22 @@ def configured_jar() -> Path:
     raise ValueError("config/local.toml has no client_jar")
 
 
-def one_live(jar: Path, run_dir: Path) -> bytes:
+def one_live(jar: Path, run_dir: Path, sources: bool = False) -> bytes:
     classes = run_dir / "classes"
     classes.mkdir(parents=True)
     compiled = subprocess.run(["javac", "-Xlint:none", "-cp", str(jar), "-d", str(classes), str(ORACLE)],
                               capture_output=True, timeout=45)
     if compiled.returncode:
         raise RuntimeError(compiled.stderr.decode(errors="replace")[-3000:])
-    result = subprocess.run(["java", "-XX:-UsePerfData", "-Xmx512m", "-cp",
-                             os.pathsep.join((str(classes), str(jar))), "WaterTickOracle", str(jar)],
+    command = ["java", "-XX:-UsePerfData", "-Xmx512m", "-cp",
+               os.pathsep.join((str(classes), str(jar))), "WaterTickOracle", str(jar)]
+    if sources:
+        command.append("--sources")
+    result = subprocess.run(command,
                             capture_output=True, timeout=90)
     if result.returncode or result.stderr:
         raise RuntimeError("native water oracle failed/noisy: " + result.stderr.decode(errors="replace")[-3000:])
-    parse_native(result.stdout)
+    parse_native(result.stdout, SOURCE_CASES if sources else CASES)
     return result.stdout
 
 
@@ -222,13 +228,71 @@ def verify_live(write: bool = False) -> dict:
     return audit
 
 
+def source_fixture_check(raw_override: bytes | None = None) -> dict:
+    raw = (SOURCE_FIXTURES / "native.tsv").read_bytes() if raw_override is None else raw_override
+    result = parse_native(raw, SOURCE_CASES)
+    audit = json.loads((SOURCE_FIXTURES / "audit.json").read_text(encoding="utf-8"))
+    if (audit.get("extension_version") != "water-source-formation-1" or
+            audit.get("native_sha256") != digest(raw) or audit.get("jar_sha256") != JAR_SHA):
+        raise ValueError("source-formation audit does not bind frozen native bytes and client JAR")
+    if audit.get("oracle_source_sha256") != digest(ORACLE.read_bytes()):
+        raise ValueError("source-formation audit does not bind the Java adapter source")
+    if (audit.get("captures") != 2 or audit.get("repeat_identical") is not True or
+            audit.get("repeatable") is not True or audit.get("save_access") is not False):
+        raise ValueError("source-formation audit does not prove two identical memory-only captures")
+    if digest((SOURCE_FIXTURES / "input.tsv").read_bytes()) != result["input_sha256"]:
+        raise ValueError("source-formation input file differs from native scene matrix")
+    if audit.get("input_sha256") != result["input_sha256"] or audit.get("case_count") != len(SOURCE_CASES):
+        raise ValueError("source-formation input matrix or case count does not match audit")
+    result["extension_version"] = audit["extension_version"]
+    return result
+
+
+def verify_sources_live(write: bool = False) -> dict:
+    if not all(shutil.which(name) for name in ("javac", "java")):
+        raise RuntimeError("live source-formation capture requires javac and java")
+    jar = configured_jar()
+    if digest(jar.read_bytes()) != JAR_SHA:
+        raise ValueError("configured original client JAR hash mismatch")
+    with tempfile.TemporaryDirectory(prefix="water-source-native-") as temporary:
+        temp = Path(temporary)
+        first, second = one_live(jar, temp / "first", sources=True), one_live(jar, temp / "second", sources=True)
+    if first != second:
+        raise AssertionError("independent native source-formation captures differ")
+    result = parse_native(first, SOURCE_CASES)
+    audit = {key: result[key] for key in ("case_count", "input_sha256", "native_sha256", "events", "repeatable")}
+    audit.update({"jar_sha256": JAR_SHA, "oracle_source_sha256": digest(ORACLE.read_bytes()),
+                  "captures": 2, "repeat_identical": True, "save_access": False,
+                  "extension_version": "water-source-formation-1"})
+    if write:
+        SOURCE_FIXTURES.mkdir(parents=True, exist_ok=True)
+        input_rows = [line for line in first.decode("ascii").splitlines() if line.startswith(("case\t", "input\t"))]
+        (SOURCE_FIXTURES / "input.tsv").write_text("\n".join(input_rows) + "\n", encoding="ascii")
+        (SOURCE_FIXTURES / "native.tsv").write_bytes(first)
+        (SOURCE_FIXTURES / "audit.json").write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    elif first != (SOURCE_FIXTURES / "native.tsv").read_bytes():
+        raise AssertionError("live source-formation output differs from committed fixture")
+    return audit
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="run the pinned original client in isolated memory worlds")
+    parser.add_argument("--source-live", action="store_true", help="capture source-formation scenes from the pinned original client")
     parser.add_argument("--write", action="store_true", help="freeze fixture after two independent identical captures")
+    parser.add_argument("--sources", action="store_true", help="verify source-formation extension fixture")
     args = parser.parse_args()
-    if args.write and not args.live:
-        parser.error("--write requires --live")
-    result = verify_live(write=args.write) if args.live else fixture_check()
+    if sum((args.live, args.source_live, args.sources)) > 1:
+        parser.error("choose only one of --live, --source-live or --sources")
+    if args.write and not (args.live or args.source_live):
+        parser.error("--write requires --live or --source-live")
+    if args.source_live:
+        result = verify_sources_live(write=args.write)
+    elif args.live:
+        result = verify_live(write=args.write)
+    elif args.sources:
+        result = source_fixture_check()
+    else:
+        result = fixture_check()
     print(json.dumps({key: value for key, value in result.items() if key != "cases"}, indent=2))
