@@ -944,12 +944,12 @@
     },
     "MENU-PARITY-001-C01": {
       "state": "in_progress",
-      "summary": "Pinned native menu resources, qq scaling, derived font metrics, four empty-menu/list frames and synthetic save/input captures are available. Native Return retains selection and Cancel/Escape return to main. Unexplained conversion-row omission at the larger profile and paired Rust/native presentation remain outstanding; C01 stays open.",
+      "summary": "Pinned native menu resources, qq scaling, derived font metrics, four empty-menu/list frames and synthetic save/input captures are available. A fresh controlled capture showed all three synthetic rows at GUI scales 1 and 3; earlier missing-row observation was intermittent and its cause is unknown. Paired Rust/native presentation remains outstanding; C01 stays open.",
       "checks": [
         "python3 tools/oracle/menu_parity_audit.py → PASS: pinned GUI/locale/resource/class evidence, nine direct native scaled-resolution cases and256 derived glyph metrics.",
         "python3 -m unittest tests.python.test_menu_parity_audit -q → PASS:4 scoped audit/mutation tests.",
         "Native capture helper uses local Java8/LWJGL, disposable JVM user.home under ignored artifacts, local HTTP/HTTPS proxies and isolated audio; it never opens user saves. Approved Xvfb rerun exited 0; coordinator confirmed main and empty Select World at 854x480/gui1 and 1280x720/gui3. All four hashes are recorded in the C01 handoff.",
-        "Synthetic native hi audit and nine focused menu tests pass. Twelve GUI frames captured; selected and Return PNGs are byte-identical at both scales, while larger-profile initial list has only two of three expected rows. Five metadata file hashes unchanged, no playable world or additional save files created. Missing conversion-row discrepancy remains unresolved."
+        "Synthetic native hi audit and nine focused menu tests pass. Fresh native menu-list rerun captured all three synthetic rows at GUI scales 1 and 3; all five metadata hashes stayed unchanged and no playable world or additional save was created. Native bytecode shows rq.l() loads/sorts Minecraft.c().b() and list drawing uses the model size, with no scale-specific filter. Earlier two-row capture is intermittent; its Bad file descriptor log has no proven connection or identified file. Paired Rust/native presentation remains outstanding."
       ]
     },
     "MENU-PARITY-001-C02": {
