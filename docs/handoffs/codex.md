@@ -1852,3 +1852,16 @@ entries. No engine behavior or readiness percentage changed.
 Validation: `python3 -m json.tool` accepted queue and both role status files;
 `git diff --check` passed. This documentation/queue preparation did not run the
 game test suite or native capture. No original assets or world saves changed.
+
+## 2026-11-10 — overhead block lighting probe
+
+Integrated `0d358f3` as `11acf0b`. Added a native synthetic place/remove stone
+case above an illuminated cell. Two original captures are byte-identical;
+native sky light is 15→14→15 and height-map column is 64→66→64. The Rust
+full-domain diagnostic reports zero block/sky, ID, and metadata differences for
+the new case across 294,912 cells per phase. I reran the native V2 audit and its
+seven Python tests; the Rust snapshot probe matches the new case but still exits
+with the pre-existing leaf/glowstone diagnostic failures. This synthetic scene
+does not reproduce the user's black screenshot and does not check Rust height
+maps, mesh/GPU vertex light, or cumulative engine edits. The
+`LIGHT-UPDATE-002-C01` investigation remains open; readiness is unchanged.

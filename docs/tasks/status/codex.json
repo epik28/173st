@@ -917,7 +917,7 @@
     },
     "LIGHT-UPDATE-002-C01": {
       "state": "in_progress",
-      "summary": "Settled V3 separated fresh-chunk y=0 initialization; block-light propagation now matches all eight synthetic edit phases across the full 9-chunk light domain. A dark-neighborhood fast path keeps benchmarked canopy/water edits near 0.6ms. The exact user-save screenshot reproduction, height-map/metadata behavior and paired frames remain outstanding; parent issue stays open.",
+      "summary": "Settled V3 and the new opaque-overhead place/remove probe match Rust block/sky light across their complete synthetic domains. The user's dark screenshot is still not reproduced; general leaf/glowstone propagation, exact user-save sequence, height-map/mesh/GPU behavior and paired frames remain outstanding, so C01 stays open.",
       "checks": [
         "python3 tools/oracle/light_material_audit.py → PASS: two identical captures of all256 original uu.m/q/s entries, pinned JAR/source/class/bootstrap/output hashes.",
         "python3 tools/oracle/light_material_edit_audit.py → PASS: two identical8159-row captures for three synthetic edits, with complete native pre-edit state/height exceptions and before/after samples.",
@@ -926,7 +926,8 @@
         "V2 audit → PASS: two identical 44806-row native captures; complete reconstructed state SHA-256 and every cell/height delta verified. light_snapshot_probe → FAIL as expected: leaf-place 2107, glowstone-place 6195, glowstone-remove 3852 light mismatches; canopy/water light zero, canopy-remove metadata12. Each step starts from preceding native state.",
         "Column-opacity cache accepted from 60dd38e as c622882: complete scene/RelightResult unchanged across eight old fixture cases, and V2 mismatch report identical before/after. Release fixture medians 1237/1273/1286us → 520/533/683us; no general FPS claim.",
         "Settled V3 oracle → PASS: two identical 1,434,350-byte native captures, SHA-256 7582860cf08809550eebe8adb4db307ad9857f58a45863a39da8e42b96399d4c; nine native full-height chunk relights settle y=0 sky before seeds/edits. After 9ad5f4c, Rust full-domain probe reports 0 block/sky mismatches across all eight phases; 12 canopy leaf metadata differences remain outside light API. User screenshot repro and paired native/Rust frames remain unconfirmed.",
-        "Release relight_bench after dark-neighborhood guard 2be09f3 → unchanged scene/result digests; median p50 canopy-log removal/water removal/water placement 635/638/640µs and material calls 1703/1738/1737. Unguarded radius recomputation measured 8672/8501/8504µs; timing remains a focused synthetic workload only."
+        "Release relight_bench after dark-neighborhood guard 2be09f3 → unchanged scene/result digests; median p50 canopy-log removal/water removal/water placement 635/638/640µs and material calls 1703/1738/1737. Unguarded radius recomputation measured 8672/8501/8504µs; timing remains a focused synthetic workload only.",
+        "2026-11-10 opaque overhead stone place/remove native probe: two captures byte-identical, fixture SHA ad1f583d56a5d267a64c935778db2998b5e8f934f77947c945d01f61089e3d18; native sky 15→14→15 and height-map 64→66→64. Rust full-domain probe → 0/294912 block/sky, ID, metadata mismatches for each phase; overall corpus remains FAIL on pre-existing leaf/glowstone differences. Python V2 audit 7/7 PASS; exact screenshot, Rust height-map parity, mesh/GPU and cumulative state remain unverified."
       ]
     },
     "LIGHT-UPDATE-002-C02": {
