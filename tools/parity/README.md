@@ -121,3 +121,12 @@ The report retains every probe input/output and binds the runner, sources,
 fixtures, client JAR, and Rust revision. Native evidence covers only synthetic
 loaded chunks and the captured water IDs 8/9 scenes; it does not claim unloaded
 neighbor rules, general source thresholds, lava, or player swimming physics.
+
+`python3 tools/parity/run.py water-schedule --strict` verifies the separate
+native `water-tick-seeding-1` fixture and its two independent JVM captures,
+then runs `water_schedule_probe` over the three frozen placement/neighbor
+operations. It compares ordered block edits, duplicate scheduling requests,
+neighbor callbacks, the deduplicated due queue, and all 36 bounded block states.
+These cases cover direct flowing-water placement, a solid placed east of a still
+source, and removal of its support. They do not establish scheduling for other
+faces, arbitrary neighboring blocks, chunk loading, or world-wide random ticks.
