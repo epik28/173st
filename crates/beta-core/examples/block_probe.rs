@@ -31,6 +31,7 @@ fn shape_for(id: u8, metadata: u8) -> RayShape {
     match (id, metadata) {
         (1, 0) => RayShape::FullCube,
         (44, 0) => RayShape::LowerSlab,
+        (31, 0) => RayShape::TallGrass,
         (8, 0) => RayShape::Liquid,
         _ => RayShape::Unsupported,
     }
@@ -87,6 +88,7 @@ fn parse_case(line: &str, line_number: usize) -> Result<Case, String> {
     let shape = match shape_for(block_id, metadata) {
         RayShape::FullCube => "cube",
         RayShape::LowerSlab => "slab",
+        RayShape::TallGrass => "tallgrass",
         RayShape::Liquid => "liquid",
         RayShape::Unsupported => {
             return Err(format!(

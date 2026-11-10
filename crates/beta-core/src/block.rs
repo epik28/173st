@@ -28,6 +28,7 @@ pub trait FullCubeStates {
 pub enum RayShape {
     FullCube,
     LowerSlab,
+    TallGrass,
     Liquid,
     Unsupported,
 }
@@ -172,6 +173,7 @@ impl From<ChunkError> for BlockError {
 pub enum BlockHitKind {
     FullCube,
     LowerSlab,
+    TallGrass,
     Liquid,
 }
 
@@ -762,6 +764,18 @@ impl BlockScene {
                                 [f64::from(x), f64::from(y), f64::from(z)],
                                 [f64::from(x) + 1.0, f64::from(y) + 0.5, f64::from(z) + 1.0],
                             ),
+                            RayShape::TallGrass => {
+                                let min = f64::from(0.5_f32 - 0.4_f32);
+                                let max = f64::from(0.5_f32 + 0.4_f32);
+                                Aabb::new(
+                                    [f64::from(x) + min, f64::from(y), f64::from(z) + min],
+                                    [
+                                        f64::from(x) + max,
+                                        f64::from(y) + f64::from(0.8_f32),
+                                        f64::from(z) + max,
+                                    ],
+                                )
+                            }
                             _ => Aabb::new(
                                 [f64::from(x), f64::from(y), f64::from(z)],
                                 [f64::from(x) + 1.0, f64::from(y) + 1.0, f64::from(z) + 1.0],
@@ -787,6 +801,7 @@ impl BlockScene {
                                 kind: match shape {
                                     RayShape::FullCube => BlockHitKind::FullCube,
                                     RayShape::LowerSlab => BlockHitKind::LowerSlab,
+                                    RayShape::TallGrass => BlockHitKind::TallGrass,
                                     RayShape::Liquid => BlockHitKind::Liquid,
                                     RayShape::Unsupported => unreachable!("returned above"),
                                 },

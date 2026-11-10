@@ -1342,6 +1342,7 @@ fn interaction_shape(mappings: &[BlockMapping], id: u8, metadata: u8) -> RayShap
     } else {
         match (id, metadata) {
             (44, 0) => RayShape::LowerSlab,
+            (31, 0) => RayShape::TallGrass,
             (8, 0) => RayShape::Liquid,
             _ => RayShape::Unsupported,
         }
@@ -2906,6 +2907,8 @@ mod tests {
         assert_eq!(interaction_shape(&mappings, 1, 0), RayShape::FullCube);
         assert_eq!(interaction_shape(&mappings, 44, 0), RayShape::LowerSlab);
         assert_eq!(interaction_shape(&mappings, 8, 0), RayShape::Liquid);
+        assert_eq!(interaction_shape(&mappings, 31, 0), RayShape::TallGrass);
+        assert_eq!(interaction_shape(&mappings, 31, 1), RayShape::Unsupported);
         assert_eq!(interaction_shape(&mappings, 44, 1), RayShape::Unsupported);
         assert_eq!(interaction_shape(&mappings, 3, 0), RayShape::Unsupported);
     }
