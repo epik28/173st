@@ -65,3 +65,23 @@ Native capture и runner проходят с двумя идентичными �
 каждый тик и queue event совпадают точно. Rust transitions проходят все frozen
 сцены; viewer использует фиксированный tick scheduler и disposable copy.
 Оригинальный save/JAR и неподдержанные области явно остаются вне claim.
+
+## C01 bounded capture evidence (2026-11-10)
+
+The native probe in `tools/oracle/src/WaterTickOracle.java` invokes the pinned
+Beta 1.7.3 water block classes on a synthetic `fd` copy backed only by nine
+in-memory byte-array chunks. It captures still water, flowing water, decay,
+falling, a blocked basin, adjacent source/flow input, two adjacent sources, and
+one- and two-step horizontal flow. Each scene freezes its full setup, bounded
+state (`x/z=-2..2`, `y=62..65`), random seed, ordered edits, scheduler queue and
+neighbor callback transcript. The adapter runs separate byte-identical native
+captures and verifies the JAR plus `uu`, `om`, `nx`, `rp`, `fd`, and `qy` hashes.
+
+The synthetic loaded area is all-loaded, and the tick pump advances to each
+captured native due time before calling `fd.a(false)`. This establishes the
+captured block transitions and queue behavior for these controlled scenes. It
+does not establish unloaded-chunk behavior, source creation rules, world-wide
+random ticking, lava, neighbor edits beyond the fixtures, or save/runtime
+integration. In the `two-adjacent-sources` input, the center remains flowing
+water for this exact arrangement; do not generalize that row into a source
+creation rule.
