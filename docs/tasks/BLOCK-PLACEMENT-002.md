@@ -45,13 +45,15 @@ tracked in [LIGHT-UPDATE-002](LIGHT-UPDATE-002.md).
 
 ### C01 evidence boundary (2026-11-10)
 
-The controlled native corpus now covers 16 cases in fresh byte-array chunks.
-It confirms a native ray hit on ID 31 metadata 0 for each of six center-axis
-sample rays and records the result of the original placement action, stack
-delta, neighborhood, and height/light samples. It also covers six ordinary
-stone faces, repeat placement, an occupied destination, the east chunk edge,
-and the y=127 build limit. This is enough to start the bounded Rust follow-up;
-it does not establish arbitrary ID 31 ray geometry, all item orientations,
-inventory/UI integration, or general lighting behavior. Light values in these
-minimal worlds are zero, so the reported shadow/lighting refresh remains an
-independent unresolved issue under LIGHT-UPDATE-002.
+The controlled native action corpus covers 16 cases in fresh byte-array chunks.
+A separate 14-ray corpus for ID 31 metadata 0 records off-center and boundary
+hits/misses, face IDs, and raw hit-position words. The original registry and
+bytecode identify it as tall grass with local bounds X/Z 0.1..0.9 and Y 0..0.8
+(f32-converted values are pinned); it is not a full-cube or crossed-plane ray
+shape. The action corpus also records six ordinary stone faces, repeat
+placement, an occupied destination, the east chunk edge, and the y=127 build
+limit. This is enough to start the bounded Rust follow-up; other plant states,
+all item orientations, inventory/UI integration, and general lighting behavior
+remain out of scope. Light values in the minimal action worlds are zero, so the
+reported shadow/lighting refresh remains an independent unresolved issue under
+LIGHT-UPDATE-002.

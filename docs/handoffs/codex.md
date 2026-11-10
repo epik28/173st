@@ -1881,3 +1881,19 @@ are recorded. The minimal byte-array worlds have zero light, so this corpus
 cannot explain the user's black shadow. C01 is complete for the bounded action
 contract, while general light parity remains under LIGHT-UPDATE-002. The next
 eligible Rust implementation follows after the in-progress menu card clears.
+
+### BLOCK-PLACEMENT-002 C01 ray-shape extension
+
+Integrated `903b192` as `f3f1cfe`. The separate tall-grass ray corpus keeps the
+original 16 action rows untouched and adds 14 deterministic native rays with
+raw hit coordinates, including interior, outside and inclusive-boundary cases.
+The live runner checks pinned JAR and `fd/bt/vf/uu/ru` class/method evidence and
+repeats identical captures. Exact output SHA is
+`84e9e5f6f85450ba796b6dd935da529e0f7121403ddda8c101ab942ed4509e1d`; input SHA
+is `a16a944c25e838449a4fc9fb7e1b83d67a98a0f72f61b6dafdfbc05969711682`.
+Original registry/bytecode identifies ID31 as tallgrass (`uu.Y`, `ru`), whose
+selection box is X/Z [0.1, 0.9], Y [0, 0.8] with Java f32 boundary conversion.
+It is a cuboid. The coordinator reran both native corpus verifiers and seven
+focused tests; all passed. Generic item placement remains separately constrained
+by the 16 action rows; zero light in those minimal worlds does not settle the
+reported shadow.
