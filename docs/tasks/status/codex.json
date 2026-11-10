@@ -645,9 +645,15 @@
       ]
     },
     "BLOCK-PLACEMENT-002-C01": {
-      "state": "pending",
-      "summary": "",
-      "checks": []
+      "state": "done",
+      "summary": "Captured a bounded native placement contract in fresh in-memory chunks: ordinary stone faces, ID 31 ray/action cases, repeat/occupied behavior, chunk edge and build limit. This closes C01's action contract for the next bounded implementation; the fixture's zero light values do not resolve the reported lighting issue.",
+      "checks": [
+        "python3 tools/oracle/placement_corpus.py → PASS: 16 cases, two independent native captures (each internally repeated), identical byte output; fixture SHA-256 a345606c7428cef80c91f1ade70f089cd08939283fd273dec2f01b8343f9d9ef; pinned JAR SHA and eight native class hashes checked.",
+        "python3 -m unittest tests.python.test_block_placement_corpus -v → PASS: 5 tests for six ordinary cube faces, ID 31 ray/action results, repeat/occupied/build-limit/chunk-edge behavior, fixture integrity and mutation rejection.",
+        "Native corpus records target/neighborhood, inventory count and damage, height-map, sky/block light. Two fresh byte-array-world captures are identical; no source save or player files are read or changed.",
+        "Scope limit: ID 31 coverage is metadata 0 at six center-axis rays only; light values are zero in the minimally initialized worlds and do not validate screenshot lighting, full shape geometry, general inventory behavior, or broader action parity.",
+        "git diff --check → PASS."
+      ]
     },
     "BLOCK-PLACEMENT-002-C02": {
       "state": "pending",

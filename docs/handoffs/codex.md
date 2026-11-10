@@ -1865,3 +1865,19 @@ with the pre-existing leaf/glowstone diagnostic failures. This synthetic scene
 does not reproduce the user's black screenshot and does not check Rust height
 maps, mesh/GPU vertex light, or cumulative engine edits. The
 `LIGHT-UPDATE-002-C01` investigation remains open; readiness is unchanged.
+
+## 2026-11-10 — BLOCK-PLACEMENT-002 C01 native action corpus
+
+Integrated native corpus commit `52895e9` as `ac468ab` and independently reran
+`python3 tools/oracle/placement_corpus.py` plus
+`python3 -m unittest tests.python.test_block_placement_corpus -v`: 16 cases,
+five tests pass. The live runner uses the pinned Beta 1.7.3 JAR, captures twice
+per native process and verifies a second fresh JVM capture; exact fixture hash
+is `a345606c7428cef80c91f1ade70f089cd08939283fd273dec2f01b8343f9d9ef`.
+Native ray trace hits ID 31 on six center-axis probes; the native placement
+controller removes it and consumes the item in these exact setups. Ordinary
+stone placement, repeated click, occupied target, chunk edge and y=127 limit
+are recorded. The minimal byte-array worlds have zero light, so this corpus
+cannot explain the user's black shadow. C01 is complete for the bounded action
+contract, while general light parity remains under LIGHT-UPDATE-002. The next
+eligible Rust implementation follows after the in-progress menu card clears.

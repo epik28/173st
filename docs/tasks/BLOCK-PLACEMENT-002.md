@@ -42,3 +42,16 @@ Compare Rust with the pinned native action and state corpus, exercise repeated
 edits and chunk edges, and confirm visual refresh. Keep placement compatibility
 claims limited to captured cases; the separate general shadow issue remains
 tracked in [LIGHT-UPDATE-002](LIGHT-UPDATE-002.md).
+
+### C01 evidence boundary (2026-11-10)
+
+The controlled native corpus now covers 16 cases in fresh byte-array chunks.
+It confirms a native ray hit on ID 31 metadata 0 for each of six center-axis
+sample rays and records the result of the original placement action, stack
+delta, neighborhood, and height/light samples. It also covers six ordinary
+stone faces, repeat placement, an occupied destination, the east chunk edge,
+and the y=127 build limit. This is enough to start the bounded Rust follow-up;
+it does not establish arbitrary ID 31 ray geometry, all item orientations,
+inventory/UI integration, or general lighting behavior. Light values in these
+minimal worlds are zero, so the reported shadow/lighting refresh remains an
+independent unresolved issue under LIGHT-UPDATE-002.
