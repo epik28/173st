@@ -1570,15 +1570,21 @@ impl App {
             next_block_scene.place_block(hit, 1, 0, &supported)?
         };
         let (x, y, z) = edit.changed;
-        let relight = next_block_scene.relight(
-            edit.changed,
-            beta_core::block::MAX_RELIGHT_CELLS,
-            |id, _metadata| {
-                let emission = beta_core::light::emission_level(id);
-                (beta_core::light::opacity_level(id), emission)
-            },
-        )?;
-        let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight.dirty_chunks);
+        let mut relight_dirty_chunks = Vec::new();
+        let mut relight_updates = Vec::new();
+        for &changed in std::iter::once(&edit.changed).chain(&edit.additional_changed) {
+            let relight = next_block_scene.relight(
+                changed,
+                beta_core::block::MAX_RELIGHT_CELLS,
+                |id, _metadata| {
+                    let emission = beta_core::light::emission_level(id);
+                    (beta_core::light::opacity_level(id), emission)
+                },
+            )?;
+            relight_dirty_chunks.extend(relight.dirty_chunks);
+            relight_updates.extend(relight.light_updates);
+        }
+        let dirty_chunks = dirty_chunk_union(&edit.dirty_chunks, &relight_dirty_chunks);
         let (chunk_x, local_x) = split_block_coord(x);
         let (chunk_z, local_z) = split_block_coord(z);
         let value: BlockData = next_block_scene
@@ -1593,7 +1599,7 @@ impl App {
             .data
             .set(local_x, y as u8, local_z, value)
             .map_err(|error| format!("chunk update failed: {error}"))?;
-        for &((lx_world, ly, lz_world), block_light, sky_light) in &relight.light_updates {
+        for &((lx_world, ly, lz_world), block_light, sky_light) in &relight_updates {
             let (cx, lx) = split_block_coord(lx_world);
             let (cz, lz) = split_block_coord(lz_world);
             let target = next_scene_chunks

@@ -210,6 +210,8 @@ pub enum RayResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockEdit {
     pub changed: (i32, i32, i32),
+    /// Additional cells changed by the same atomic action.
+    pub additional_changed: Vec<(i32, i32, i32)>,
     /// Chunks whose mesh may need rebuilding, in deterministic coordinate order.
     pub dirty_chunks: Vec<(i32, i32)>,
     /// Incremented only after a successful mutation.
@@ -935,7 +937,26 @@ impl BlockScene {
         let mut placed = target;
         placed.id = if matches!(hit.face, 2 | 4) { 13 } else { 1 };
         placed.metadata = 0;
-        self.set_block(x, y, z, placed)
+        let revision = self
+            .revision
+            .checked_add(1)
+            .ok_or(BlockError::RevisionExhausted)?;
+        let mut staged = self.clone();
+        let mut cleared = current;
+        cleared.id = 0;
+        cleared.metadata = 0;
+        let removed = staged.set_block(hit.x, hit.y, hit.z, cleared)?;
+        // Both writes form one user action and therefore share one revision.
+        staged.revision = self.revision;
+        let mut edit = staged.set_block(x, y, z, placed)?;
+        staged.revision = revision;
+        edit.revision = revision;
+        edit.additional_changed.push((hit.x, hit.y, hit.z));
+        edit.dirty_chunks.extend(removed.dirty_chunks);
+        edit.dirty_chunks.sort_unstable();
+        edit.dirty_chunks.dedup();
+        *self = staged;
+        Ok(edit)
     }
 
     fn set_block(
@@ -979,6 +1000,7 @@ impl BlockScene {
         dirty.sort_unstable();
         Ok(BlockEdit {
             changed: (x, y, z),
+            additional_changed: Vec::new(),
             dirty_chunks: dirty,
             revision: self.revision,
         })
@@ -1619,6 +1641,7 @@ mod tests {
             let edit = world.place_from_tallgrass_hit(hit, 1, 0).unwrap();
             let (dx, dy, dz) = face_offset(face).unwrap();
             assert_eq!(edit.changed, (x + dx, y + dy, z + dz), "{}", fields[0]);
+            assert_eq!(edit.additional_changed, vec![(x, y, z)], "{}", fields[0]);
             assert_eq!(edit.revision, 1, "{}", fields[0]);
             let expected: Vec<_> = fields[11].split(':').collect();
             let expected_id: u8 = expected[0].parse().unwrap();
@@ -1630,9 +1653,97 @@ mod tests {
                 "{}",
                 fields[0]
             );
+            let target_state = fields[23]
+                .split(',')
+                .find_map(|entry| {
+                    let (offset, state) = entry.split_once('=')?;
+                    (offset == "0:0:0").then_some(state)
+                })
+                .unwrap();
+            let target_expected: Vec<_> = target_state.split(':').collect();
+            let target_expected_id: u8 = target_expected[0].parse().unwrap();
+            let target_expected_metadata: u8 = target_expected[1].parse().unwrap();
+            let target_actual = world.block(x, y, z).unwrap().unwrap();
+            assert_eq!(
+                (target_actual.id, target_actual.metadata),
+                (target_expected_id, target_expected_metadata),
+                "{}",
+                fields[0]
+            );
             tested += 1;
         }
         assert_eq!(tested, 6);
+    }
+
+    #[test]
+    fn tallgrass_placement_keeps_target_when_adjacent_cell_is_occupied() {
+        let mut world = scene(
+            BlockSceneBounds::new(-1, -1, 3, 3).unwrap(),
+            vec![
+                BlockSceneChunk {
+                    x: 0,
+                    z: 0,
+                    data: chunk_with(&[(0, 10, 0, 31, 0), (0, 9, 0, 2, 0)]),
+                },
+                BlockSceneChunk {
+                    x: -1,
+                    z: -1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: -1,
+                    z: 0,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: -1,
+                    z: 1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 0,
+                    z: -1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 0,
+                    z: 1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 1,
+                    z: -1,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 1,
+                    z: 0,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 1,
+                    z: 1,
+                    data: ChunkData::new(),
+                },
+            ],
+        );
+        let hit = BlockHit {
+            x: 0,
+            y: 10,
+            z: 0,
+            face: 0,
+            position: Vec3::new(0.5, 10.0, 0.5),
+            kind: BlockHitKind::TallGrass,
+            id: 31,
+            metadata: 0,
+        };
+        assert_eq!(
+            world.place_from_tallgrass_hit(hit, 1, 0),
+            Err(BlockError::TargetOccupied)
+        );
+        assert_eq!(world.block(0, 10, 0).unwrap().unwrap().id, 31);
+        assert_eq!(world.block(0, 9, 0).unwrap().unwrap().id, 2);
+        assert_eq!(world.revision(), 0);
     }
 
     #[test]
