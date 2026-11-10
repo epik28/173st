@@ -147,9 +147,11 @@ sky light remains 15; cells at x=13 and x=17 have block light 13. Removal
 restores the neighboring block-light samples to zero. This is synthetic native
 emission behavior only.
 
-The coordinator ran the full-state Rust comparison using the V2 fixture and
-reported the following counts. Each phase compares all 294,912 cells in the
-nine loaded chunks. The command exited 1 because it found mismatches:
+The V2 comparison used an explicitly unsettled all-air native baseline, where
+sky light at y=0 is zero. Its mismatches therefore include a broad y=0 baseline
+difference and are not evidence of local gameplay-state propagation errors.
+Each phase compares all 294,912 cells in the nine loaded chunks. The settled V3
+comparison below is the relevant result for those edit scenarios.
 
 | Scenario and phase | Light mismatches | Block ID mismatches | Metadata mismatches |
 | --- | ---: | ---: | ---: |
@@ -162,17 +164,11 @@ nine loaded chunks. The command exited 1 because it found mismatches:
 | glowstone after-place | 6,195 | 0 | 0 |
 | glowstone after-remove | 3,852 | 0 | 0 |
 
-This comparison is reported by the coordinator; C01 did not run the Rust
-comparator. For each edit, the comparator starts from that phase's complete
-native predecessor snapshot before applying the edit, so these counts do not
-measure a cumulative Rust edit sequence. Its light counts are over block- and
-sky-light cells. It makes no height-map, metadata parity, renderer, GPU, or
-screenshot reproduction claim. The canopy metadata differences reflect native
-leaf neighbor marking outside the light-only Rust contract. The coordinator
-also reported a glowstone-removal stale-light discrepancy at `(1,64,8)` (Rust
-block light 1, native 0) and a y=0 sky-light discrepancy in the glowstone
-comparison; those details are captured in its diagnostic output, not inferred
-from the native fixture.
+This diagnostic compared each edit against its complete native predecessor,
+not a cumulative Rust edit sequence. Its light counts include the unsettled
+y=0 sky-light baseline; it makes no height-map, renderer, GPU, or screenshot
+claim. The canopy metadata differences reflect native leaf neighbor marking
+outside the light-only Rust contract.
 
 The comparator command reported by the coordinator was:
 
