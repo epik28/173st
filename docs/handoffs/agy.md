@@ -1067,3 +1067,38 @@ Open limits: no paired native/Rust pixel capture was performed; the
 date-dependent/random splash over the logo remains unimplemented; the
 GUI-scale-3 conversion-world row is still an unresolved C01 observation and
 is not treated as fixed. A01 is not done.
+
+### 2026-11-10 follow-up — scale1 smoke capture readiness
+
+The recorded all-black `artifacts/menu-parity-gui1/main-menu.png` was not
+repeatable in six fresh scale1 viewer starts using the old 0.4-second
+single-capture delay. With that delay removed, the readiness probe observed two
+black X11 captures before the first rendered menu pixels appeared. The black
+image SHA-256 is
+`f2d381d012b13db621e6f207006257cd49c8b4670cb2d7785e3f24774eda351d` (mean
+pixel intensity 0); the six fresh main-menu captures were byte-identical with
+SHA-256 `f29dd7b160804e277998464f12e5de851a1e7aa51238e5633766785c257f8617`
+(mean 0.388556). The profile was 854×480 physical/logical at GUI scale 1, so
+the layout dimensions are valid. The smoke harness originally treated a window
+title as readiness and captured once; it now retries until an X11 capture has
+nonzero mean pixel intensity or fails after five seconds. The report records
+capture attempts per page. Unit tests cover retry and persistent-black timeout.
+
+Checks: `cargo test --locked --offline -p beta-viewer --bin beta-viewer
+menu::tests` → 6 PASS; `cargo fmt --all -- --check` → PASS;
+`cargo clippy --locked --offline -p beta-viewer --bin beta-viewer -- -D
+warnings` → PASS; `cargo build --locked --offline -p beta-viewer --bin
+beta-viewer` → PASS; `python3 -m unittest tests.python.test_viewer_smoke -v`
+→ 2 PASS; `python3 -m py_compile tools/viewer_smoke.py
+tests/python/test_viewer_smoke.py` → PASS; full viewer all-target tests → 31
+library + 56 binary + 4 example tests PASS; scale1 Xvfb smoke → PASS for main
+menu → world list → cancel → quit. With the readiness loop enabled, the main
+menu required three captures before pixels appeared; world list and cancel
+each rendered on the first capture.
+
+This is treated as a capture-readiness race pending paired native/Rust frame
+comparison; it does not establish whether an end user can observe a transient
+black frame at startup. MENU-PARITY-001-A01 remains in progress: paired native
+pixels are still missing, the date-dependent splash remains unimplemented, and
+the scale3 conversion-world row remains unresolved. Other menu action buttons
+remain presentation-only.

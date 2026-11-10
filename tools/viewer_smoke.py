@@ -80,6 +80,25 @@ class Display:
         self.x.XCloseDisplay(self.display)
 
 
+def wait_for_rendered_frame(capture, is_rendered, timeout=5.0, interval=0.1,
+                           clock=time.monotonic, sleep=time.sleep):
+    """Retry captures until the window has presented visible pixels.
+
+    X11 can expose a newly-created window before its first wgpu presentation.
+    A title-only readiness check can therefore save the initial black buffer.
+    """
+    deadline = clock() + timeout
+    attempts = 0
+    while True:
+        attempts += 1
+        capture()
+        if is_rendered():
+            return attempts
+        if clock() >= deadline:
+            raise TimeoutError("viewer window did not present a rendered frame")
+        sleep(interval)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=Path("target/debug/beta-viewer"))
@@ -108,11 +127,21 @@ def main():
                 raise TimeoutError("expected viewer window did not appear")
 
             def capture(window, name):
-                time.sleep(0.4)
                 path = args.output / f"{name}.png"
-                subprocess.run(["import", "-window", str(window), str(path)],
-                               check=True, timeout=8)
+                def capture_frame():
+                    subprocess.run(["import", "-window", str(window), str(path)],
+                                   check=True, timeout=8)
+
+                def rendered_frame():
+                    result = subprocess.run(
+                        ["identify", "-format", "%[fx:mean]", str(path)],
+                        check=True, capture_output=True, text=True, timeout=8,
+                    )
+                    return float(result.stdout.strip()) > 0.0
+
+                attempts = wait_for_rendered_frame(capture_frame, rendered_frame)
                 report["captures"].append(str(path))
+                report.setdefault("capture_attempts", {})[name] = attempts
 
             menu = wait_for(lambda title: title == "Minecraft Beta 1.7.3")
             capture(menu, "main-menu")
