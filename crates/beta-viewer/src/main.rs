@@ -1564,6 +1564,8 @@ impl App {
         let mut next_block_scene = self.block_scene.clone();
         let edit = if breaking {
             next_block_scene.break_block(hit, &supported)?
+        } else if hit.id == 31 && hit.metadata == 0 {
+            next_block_scene.place_from_tallgrass_hit(hit, 1, 0)?
         } else {
             next_block_scene.place_block(hit, 1, 0, &supported)?
         };

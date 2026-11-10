@@ -895,6 +895,49 @@ impl BlockScene {
         self.set_block(x, y, z, placed)
     }
 
+    /// Applies the captured held-item ID 1 action against a native ID 31:0
+    /// target. The side-specific result is deliberately limited to the six
+    /// confirmed C01 setup faces.
+    pub fn place_from_tallgrass_hit(
+        &mut self,
+        hit: BlockHit,
+        held_id: u8,
+        held_metadata: u8,
+    ) -> Result<BlockEdit, BlockError> {
+        if hit.kind != BlockHitKind::TallGrass
+            || hit.id != 31
+            || hit.metadata != 0
+            || held_id != 1
+            || held_metadata != 0
+            || hit.face > 5
+        {
+            return Err(BlockError::UnsupportedPlacement {
+                id: held_id,
+                metadata: held_metadata,
+            });
+        }
+        let current = self
+            .block(hit.x, hit.y, hit.z)?
+            .ok_or(BlockError::StaleHit)?;
+        if current.id != hit.id || current.metadata != hit.metadata {
+            return Err(BlockError::StaleHit);
+        }
+        let (dx, dy, dz) = face_offset(hit.face).ok_or(BlockError::HitNotEditable)?;
+        let x = hit.x.checked_add(dx).ok_or(BlockError::HitNotEditable)?;
+        let y = hit.y.checked_add(dy).ok_or(BlockError::HitNotEditable)?;
+        let z = hit.z.checked_add(dz).ok_or(BlockError::HitNotEditable)?;
+        let target = self
+            .block(x, y, z)?
+            .ok_or(BlockError::TargetUnloaded { x, y, z })?;
+        if target.id != 0 {
+            return Err(BlockError::TargetOccupied);
+        }
+        let mut placed = target;
+        placed.id = if matches!(hit.face, 2 | 4) { 13 } else { 1 };
+        placed.metadata = 0;
+        self.set_block(x, y, z, placed)
+    }
+
     fn set_block(
         &mut self,
         x: i32,
@@ -1526,6 +1569,70 @@ mod tests {
         assert_eq!(edit.revision, 1);
         assert_eq!(place_world.block(16, 10, 8).unwrap().unwrap().id, 2);
         assert_eq!(edit.dirty_chunks, vec![(0, 0), (1, 0)]);
+    }
+
+    #[test]
+    fn tallgrass_placement_matches_every_captured_action_row() {
+        let rows = include_str!("../../../tests/fixtures/block-placement/native.tsv");
+        let mut tested = 0;
+        for line in rows
+            .lines()
+            .filter(|line| line.starts_with("target31_side"))
+        {
+            let fields: Vec<_> = line.split('\t').collect();
+            let id: u8 = fields[1].parse().unwrap();
+            let metadata: u8 = fields[2].parse().unwrap();
+            let x: i32 = fields[3].parse().unwrap();
+            let y: i32 = fields[4].parse().unwrap();
+            let z: i32 = fields[5].parse().unwrap();
+            let face: u8 = fields[6].parse().unwrap();
+            let action: bool = fields[9].parse().unwrap();
+            assert!(action, "{}", fields[0]);
+
+            let (chunk_x, local_x) = split_block_coord(x);
+            let (chunk_z, local_z) = split_block_coord(z);
+            let mut chunks = Vec::new();
+            for cx in -1..=1 {
+                for cz in -1..=1 {
+                    chunks.push(BlockSceneChunk {
+                        x: cx,
+                        z: cz,
+                        data: if (cx, cz) == (chunk_x, chunk_z) {
+                            chunk_with(&[(local_x, y as u8, local_z, id, metadata)])
+                        } else {
+                            ChunkData::new()
+                        },
+                    });
+                }
+            }
+            let mut world = scene(BlockSceneBounds::new(-1, -1, 3, 3).unwrap(), chunks);
+            let hit = BlockHit {
+                x,
+                y,
+                z,
+                face,
+                position: Vec3::new(f64::from(x) + 0.5, f64::from(y) + 0.5, f64::from(z) + 0.5),
+                kind: BlockHitKind::TallGrass,
+                id,
+                metadata,
+            };
+            let edit = world.place_from_tallgrass_hit(hit, 1, 0).unwrap();
+            let (dx, dy, dz) = face_offset(face).unwrap();
+            assert_eq!(edit.changed, (x + dx, y + dy, z + dz), "{}", fields[0]);
+            assert_eq!(edit.revision, 1, "{}", fields[0]);
+            let expected: Vec<_> = fields[11].split(':').collect();
+            let expected_id: u8 = expected[0].parse().unwrap();
+            let expected_metadata: u8 = expected[1].parse().unwrap();
+            let actual = world.block(x + dx, y + dy, z + dz).unwrap().unwrap();
+            assert_eq!(
+                (actual.id, actual.metadata),
+                (expected_id, expected_metadata),
+                "{}",
+                fields[0]
+            );
+            tested += 1;
+        }
+        assert_eq!(tested, 6);
     }
 
     #[test]
