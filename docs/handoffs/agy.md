@@ -1042,4 +1042,28 @@ The main menu now uses the audited 32px tiled background, two native logo region
 
 Checks: `cargo test --locked --offline -p beta-viewer --all-targets` → PASS (31 library, 53 binary, 4 example tests); `cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings`, `cargo fmt --all -- --check`, and `git diff --check` → PASS. `cargo build --locked --offline -p beta-viewer` → PASS. Matched-profile Xvfb smokes at 854×480/scale1 and 1280×720/scale3 both passed main menu → world list → Escape to menu → quit. Geometry was inspected against those native profiles. The labels still show visible glyph spacing/shape differences at scale1, and the logo birthday overlay plus title/version/footer decorations are not rendered. These are remaining A01 work; no native pixel-parity claim is made. Smoke images and logs remain ignored under `artifacts/`.
 
-Known limits: pinned C01 records Beta 1.7.3's tiled `/gui/background.png`, not a panorama; the renderer follows that native evidence. Small-font metrics/rendering and title/footer decorations remain incomplete, so A01 stays pending. The unresolved GUI-scale-3 world conversion row remains open. Multiplayer, Mods, Options, and world rename/delete/create buttons are presented but their actions are not implemented; they require separate tasks.
+Known limits: pinned C01 records Beta 1.7.3's tiled `/gui/background.png`, not a panorama; the renderer follows that native evidence. A01 remains in progress. The unresolved GUI-scale-3 world conversion row remains open. Multiplayer, Mods, Options, and world rename/delete/create buttons are presented but their actions are not implemented; they require separate tasks.
+
+### 2026-11-10 follow-up — confirmed native font and main-menu text
+
+The coordinator reviewed and cherry-picked the isolated font/title/footer fix
+as `706cef6` into `agy/development`. Pinned `sj` bytecode establishes that
+glyph display lists draw a 7.99×7.99 quad from the complete 8×8 atlas cell and
+advance independently by the alpha-scanned width; the Rust renderer had
+compressed each image quad to the advance width. The correction separates
+rendered cell size from advance and preserves the native one-pixel advance for
+transparent glyph cells. Pinned `fu.a` bytecode confirms the shadowed
+`Minecraft Beta 1.7.3` title at `(2,2)` in `0x505050`, and the white copyright
+footer at `(scaledWidth-stringWidth-2, scaledHeight-10)`; both are now drawn.
+
+On the equivalent isolated implementation commit `96c9f99`,
+`cargo test --locked --offline -p beta-viewer --bin beta-viewer menu::tests`
+passed all 6 menu tests, including exact glyph geometry/advance and
+title/footer geometry/color checks. `cargo fmt --all -- --check`,
+`cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings`,
+and `git diff --check` passed. The implementation in agy is commit `706cef6`.
+
+Open limits: no paired native/Rust pixel capture was performed; the
+date-dependent/random splash over the logo remains unimplemented; the
+GUI-scale-3 conversion-world row is still an unresolved C01 observation and
+is not treated as fixed. A01 is not done.
