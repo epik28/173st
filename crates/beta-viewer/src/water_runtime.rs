@@ -304,6 +304,138 @@ mod tests {
     }
 
     #[test]
+    fn native_flow_tick_changes_only_the_fluid_mesh_in_its_touched_chunk() {
+        use std::collections::BTreeMap;
+
+        use beta_core::{
+            chunk::{BlockData, ChunkData},
+            water::{WaterCell, WaterTick},
+        };
+        use beta_view::{MeshLimits, Scene, SceneBounds, SceneChunk};
+
+        fn scene(cells: &BTreeMap<(i32, i32, i32), WaterCell>) -> Scene {
+            let mut chunks = [
+                ((-1, -1), ChunkData::new()),
+                ((-1, 0), ChunkData::new()),
+                ((-1, 1), ChunkData::new()),
+                ((0, -1), ChunkData::new()),
+                ((0, 0), ChunkData::new()),
+                ((0, 1), ChunkData::new()),
+                ((1, -1), ChunkData::new()),
+                ((1, 0), ChunkData::new()),
+                ((1, 1), ChunkData::new()),
+            ]
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+            for (&(x, y, z), cell) in cells {
+                let WaterCell::Loaded(block) = cell else {
+                    continue;
+                };
+                if block.id == 0 {
+                    continue;
+                }
+                let (cx, lx) = beta_core::chunk::split_block_coord(x);
+                let (cz, lz) = beta_core::chunk::split_block_coord(z);
+                chunks
+                    .get_mut(&(cx, cz))
+                    .expect("fixture cell is in a loaded chunk")
+                    .set(
+                        lx,
+                        y as u8,
+                        lz,
+                        BlockData {
+                            id: block.id,
+                            metadata: block.metadata,
+                            ..BlockData::default()
+                        },
+                    )
+                    .unwrap();
+            }
+            Scene::new(
+                SceneBounds::new(-1, -1, 3, 3).unwrap(),
+                chunks
+                    .into_iter()
+                    .map(|((x, z), data)| SceneChunk { x, z, data })
+                    .collect(),
+                vec![],
+            )
+            .unwrap()
+        }
+
+        let mut cells = BTreeMap::new();
+        for x in -1..=1 {
+            for y in 63..=65 {
+                for z in -1..=1 {
+                    cells.insert(
+                        (x, y, z),
+                        WaterCell::Loaded(WaterBlock { id: 0, metadata: 0 }),
+                    );
+                }
+            }
+        }
+        for x in -1..=1 {
+            for z in -1..=1 {
+                if (x, z) != (0, 0) {
+                    cells.insert(
+                        (x, 63, z),
+                        WaterCell::Loaded(WaterBlock { id: 1, metadata: 0 }),
+                    );
+                }
+            }
+        }
+        for position in [(0, 63, 0), (-1, 64, 0), (1, 64, 0), (0, 64, -1), (0, 64, 1)] {
+            cells.insert(
+                position,
+                WaterCell::Loaded(WaterBlock { id: 1, metadata: 0 }),
+            );
+        }
+        cells.insert(
+            (0, 64, 0),
+            WaterCell::Loaded(WaterBlock { id: 8, metadata: 3 }),
+        );
+        cells.insert(
+            (16, 64, 0),
+            WaterCell::Loaded(WaterBlock { id: 9, metadata: 0 }),
+        );
+        let before = scene(&cells);
+        let before_touched = before
+            .fluid_mesh_chunks(MeshLimits::default(), &[(0, 0)])
+            .unwrap();
+        let before_unrelated = before
+            .fluid_mesh_chunks(MeshLimits::default(), &[(1, 0)])
+            .unwrap();
+
+        let mut runtime = WaterRuntime {
+            queue: vec![WaterTick {
+                position: (0, 64, 0),
+                id: 8,
+                due_time: 5,
+            }],
+            ..WaterRuntime::default()
+        };
+        let mut result = None;
+        for _ in 0..5 {
+            let step = runtime.step(cells).unwrap();
+            cells = step.cells.clone();
+            result = Some(step);
+        }
+        let result = result.unwrap();
+        assert_eq!(
+            result.cells[&(0, 64, 0)],
+            WaterCell::Loaded(WaterBlock { id: 0, metadata: 0 })
+        );
+        let after = scene(&result.cells);
+        let after_touched = after
+            .fluid_mesh_chunks(MeshLimits::default(), &[(0, 0)])
+            .unwrap();
+        let after_unrelated = after
+            .fluid_mesh_chunks(MeshLimits::default(), &[(1, 0)])
+            .unwrap();
+        assert_ne!(before_touched, after_touched);
+        assert_eq!(before_unrelated, after_unrelated);
+    }
+
+    #[test]
     fn a_failed_transition_preserves_time_queue_and_accumulator() {
         let mut runtime = WaterRuntime {
             queue: vec![WaterTick {
