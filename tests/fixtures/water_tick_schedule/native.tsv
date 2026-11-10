@@ -1,0 +1,45 @@
+#WATER_SCHEDULE_NATIVE	1	jar=af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c	uu=caeaf354357d66fc168c7f03bf62bb6c6a1fe459e9be6b537d4d5d1efabd0845	om=189fe9f8e3a363be62eefbbdd60052b811fb1d25a011f42df265f9a436e49fb2	nx=0a2191eee933fa9ae5207d9f6d085f5f93e006ec35459b0fa073ef859104d213	rp=659aba3f004ae066c05560529480f3f03db59a3dc1412325847ac01d2f1bbec6	fd=b91d4726c43ed2dad1a72fd8d925eaded8a7c365af5d9f37c3ad101b957a4100	qy=500a13a82592d4aa09a9b36de409138962f7a43e31f5bd6906976d4d01630c83
+#setup	fd Unsafe seed; custom wt/bf with nine byte-array lm chunks (-1..1); all synthetic chunks loaded; time starts at 0; no save/provider reads
+#methods	fd.a(int,int,int,int,int); fd.i(int,int,int,int); fd.c(int,int,int,int,int); om.b(fd,int,int,int,int); nx.b(fd,int,int,int,int)
+#bounds	state snapshot x,z=-1..1 y=62..65; only explicit fd.i neighbor notifications are exercised
+case	initial-flow-placement	rng_seed=17321	operation=0
+setup_queue	
+queue_before	
+action	place-flow	0	64	0	8	0
+schedule	0	64	0	8	5
+edit	0	64	0	0	0	8	0
+queue_after	0:64:0:8:5
+state	-1,65,-1=0:0;0,65,-1=0:0;1,65,-1=0:0;-1,65,0=0:0;0,65,0=0:0;1,65,0=0:0;-1,65,1=0:0;0,65,1=0:0;1,65,1=0:0;-1,64,-1=0:0;0,64,-1=0:0;1,64,-1=0:0;-1,64,0=0:0;0,64,0=8:0;1,64,0=0:0;-1,64,1=0:0;0,64,1=0:0;1,64,1=0:0;-1,63,-1=0:0;0,63,-1=0:0;1,63,-1=0:0;-1,63,0=0:0;0,63,0=0:0;1,63,0=0:0;-1,63,1=0:0;0,63,1=0:0;1,63,1=0:0;-1,62,-1=0:0;0,62,-1=0:0;1,62,-1=0:0;-1,62,0=0:0;0,62,0=0:0;1,62,0=0:0;-1,62,1=0:0;0,62,1=0:0;1,62,1=0:0;
+#case_end	initial-flow-placement
+case	place-adjacent-solid-neighbor	rng_seed=17322	operation=1
+input	0	63	0	1	0
+input	0	64	0	9	0
+setup_queue	
+setup_edit	0	63	0	0	0	1	0
+setup_edit	0	64	0	0	0	9	0
+queue_before	
+action	place-solid-and-notify	1	64	0	1	0
+edit	1	64	0	0	0	1	0
+neighbor	1	64	0	1
+schedule	0	64	0	8	5
+edit	0	64	0	9	0	8	0
+schedule	0	64	0	8	5
+queue_after	0:64:0:8:5
+state	-1,65,-1=0:0;0,65,-1=0:0;1,65,-1=0:0;-1,65,0=0:0;0,65,0=0:0;1,65,0=0:0;-1,65,1=0:0;0,65,1=0:0;1,65,1=0:0;-1,64,-1=0:0;0,64,-1=0:0;1,64,-1=0:0;-1,64,0=0:0;0,64,0=8:0;1,64,0=1:0;-1,64,1=0:0;0,64,1=0:0;1,64,1=0:0;-1,63,-1=0:0;0,63,-1=0:0;1,63,-1=0:0;-1,63,0=0:0;0,63,0=1:0;1,63,0=0:0;-1,63,1=0:0;0,63,1=0:0;1,63,1=0:0;-1,62,-1=0:0;0,62,-1=0:0;1,62,-1=0:0;-1,62,0=0:0;0,62,0=0:0;1,62,0=0:0;-1,62,1=0:0;0,62,1=0:0;1,62,1=0:0;
+#case_end	place-adjacent-solid-neighbor
+case	remove-still-water-support	rng_seed=17323	operation=2
+input	0	63	0	1	0
+input	0	64	0	9	0
+setup_queue	
+setup_edit	0	63	0	0	0	1	0
+setup_edit	0	64	0	0	0	9	0
+queue_before	
+action	remove-support-and-notify	0	63	0	0	0
+edit	0	63	0	1	0	0	0
+neighbor	0	63	0	0
+schedule	0	64	0	8	5
+edit	0	64	0	9	0	8	0
+schedule	0	64	0	8	5
+queue_after	0:64:0:8:5
+state	-1,65,-1=0:0;0,65,-1=0:0;1,65,-1=0:0;-1,65,0=0:0;0,65,0=0:0;1,65,0=0:0;-1,65,1=0:0;0,65,1=0:0;1,65,1=0:0;-1,64,-1=0:0;0,64,-1=0:0;1,64,-1=0:0;-1,64,0=0:0;0,64,0=8:0;1,64,0=0:0;-1,64,1=0:0;0,64,1=0:0;1,64,1=0:0;-1,63,-1=0:0;0,63,-1=0:0;1,63,-1=0:0;-1,63,0=0:0;0,63,0=0:0;1,63,0=0:0;-1,63,1=0:0;0,63,1=0:0;1,63,1=0:0;-1,62,-1=0:0;0,62,-1=0:0;1,62,-1=0:0;-1,62,0=0:0;0,62,0=0:0;1,62,0=0:0;-1,62,1=0:0;0,62,1=0:0;1,62,1=0:0;
+#case_end	remove-still-water-support

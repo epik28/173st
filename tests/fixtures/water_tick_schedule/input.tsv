@@ -1,0 +1,10 @@
+case	initial-flow-placement	rng_seed=17321	operation=0
+action	place-flow	0	64	0	8	0
+case	place-adjacent-solid-neighbor	rng_seed=17322	operation=1
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	1	64	0	1	0
+case	remove-still-water-support	rng_seed=17323	operation=2
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	remove-support-and-notify	0	63	0	0	0

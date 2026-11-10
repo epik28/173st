@@ -116,3 +116,31 @@ behavior, or world-wide random ticking. Reproduce and test with
 `MINECRAFT_BETA_173_JAR=/path/to/pinned/client.jar python3 tools/oracle/water_tick_corpus.py --source-live --write`
 to recapture, or run `python3 tools/oracle/water_tick_corpus.py --sources` to
 audit the committed extension.
+
+## C01 initial scheduling and neighbor callback extension (2026-11-10)
+
+The separately versioned `water-tick-seeding-1` fixture records three bounded
+native `fd.a`/`fd.i` edit paths. It uses a fresh synthetic world for each case,
+nine loaded byte-array chunks, world time 0, and a full 36-cell snapshot over
+`x/z=-1..1`, `y=62..65`. No world tick is dispatched. The adapter captures the
+ordered `fd.c` schedule calls, the resulting `qy` queue, edit and neighbor
+callbacks, and the post-edit state. Two fresh JVM captures are byte-identical.
+
+Placing flowing water ID 8/meta 0 at `(0,64,0)` invokes a schedule request for
+that coordinate and ID with delay 5, then records the block edit; the queue has
+one event due at world time 5. In a separate case, placing stone at `(1,64,0)`
+next to still water ID 9/meta 0 and explicitly calling native
+`fd.i(1,64,0,1)` records the neighbor callback, two schedule requests for
+`(0,64,0,8)` with delay 5, and the water edit 9→8; the native queue contains one
+event. Removing stone below a still source at `(0,64,0)` and calling
+`fd.i(0,63,0,0)` produces the same two schedule requests, flowing-water edit,
+and single queued event. Exact ordering and resulting state/queue are frozen in
+`tests/fixtures/water_tick_schedule/`.
+
+These rows establish only the explicit native setter and neighbor-notification
+calls above, including native duplicate-request deduplication in this empty
+queue. They do not establish a complete player interaction path, chunk-load
+seeding, behavior with pre-existing scheduled events, unloaded neighbors, or
+world-wide random ticks. Reproduce with
+`MINECRAFT_BETA_173_JAR=/path/to/pinned/client.jar python3 tools/oracle/water_schedule_corpus.py --live --write`
+or audit the frozen rows with `python3 tools/oracle/water_schedule_corpus.py`.

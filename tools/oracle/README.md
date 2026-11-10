@@ -35,3 +35,8 @@ With the pinned client JAR configured, `--live --write` recaptures the original
 C01 fixture and `--source-live --write` captures the extension with two
 independent runs; `--sources` audits the committed extension without starting
 Java.
+
+The separate `water-tick-seeding-1` extension records flowing-water placement
+and still-water neighbor callback scheduling through
+`tools/oracle/water_schedule_corpus.py`; `--live --write` compares two fresh JVM
+captures before writing `tests/fixtures/water_tick_schedule/`.

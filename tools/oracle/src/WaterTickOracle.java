@@ -50,6 +50,7 @@ public final class WaterTickOracle {
   static String classSha(Class<?> c)throws Exception{try(InputStream in=c.getResourceAsStream("/"+c.getName().replace('.','/')+".class")){return hex(in.readAllBytes());}}
   static void fromJar(Class<?> c,Path jar)throws Exception{if(!Path.of(c.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath().equals(jar))throw new IOException("class not loaded from pinned jar: "+c.getName());}
   record Scene(String name,int id,int metadata,long rngSeed,int[][] setup,int ticks){}
+  record ScheduleScene(String name,long rngSeed,int[][] setup,int operation){}
   static List<Scene> scenes(){return List.of(
     new Scene("still-source",9,0,17301,new int[][]{{0,64,0,9,0},{-1,63,-1,1,0},{0,63,-1,1,0},{1,63,-1,1,0},{-1,63,0,1,0},{1,63,0,1,0},{-1,63,1,1,0},{0,63,1,1,0},{1,63,1,1,0}},1),
     new Scene("flow-open",8,0,17302,new int[][]{{0,64,0,8,0},{-1,63,-1,1,0},{0,63,-1,1,0},{1,63,-1,1,0},{-1,63,0,1,0},{1,63,0,1,0},{-1,63,1,1,0},{0,63,1,1,0},{1,63,1,1,0}},1),
@@ -66,6 +67,11 @@ public final class WaterTickOracle {
     new Scene("one-neighbor-supported-meta1",8,1,17312,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,1,0},{0,63,0,1,0},{0,64,-1,1,0},{0,64,1,1,0}},1),
     new Scene("two-neighbors-unsupported-meta1",8,1,17313,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,9,0},{0,64,-1,1,0},{0,64,1,1,0}},1),
     new Scene("two-neighbors-source-below-meta1",8,1,17314,new int[][]{{0,64,0,8,1},{-1,64,0,9,0},{1,64,0,9,0},{0,63,0,9,0},{0,64,-1,1,0},{0,64,1,1,0}},1)
+  );}
+  static List<ScheduleScene> scheduleScenes(){return List.of(
+    new ScheduleScene("initial-flow-placement",17321,new int[][]{},0),
+    new ScheduleScene("place-adjacent-solid-neighbor",17322,new int[][]{{0,63,0,1,0},{0,64,0,9,0}},1),
+    new ScheduleScene("remove-still-water-support",17323,new int[][]{{0,63,0,1,0},{0,64,0,9,0}},2)
   );}
   static String queue(fd world)throws Exception{
     Field f=fd.class.getDeclaredField("E");f.setAccessible(true);TreeSet<?> queue=(TreeSet<?>)f.get(world);StringJoiner rows=new StringJoiner(",");
@@ -104,5 +110,32 @@ public final class WaterTickOracle {
     }
     out.flush();System.setOut(report);return output.toByteArray();
   }
-  public static void main(String[] args)throws Exception{boolean sources=args.length==2&&args[1].equals("--sources");if(args.length<1||args.length>2||(args.length==2&&!sources))throw new IllegalArgumentException("WaterTickOracle CLIENT_JAR [--sources]");Path jar=Path.of(args[0]).toRealPath();byte[] a=capture(jar,sources),b=capture(jar,sources);if(!Arrays.equals(a,b))throw new AssertionError("native water tick captures differ");System.out.write(a);}
+  static byte[] captureSchedule(Path jar)throws Exception{
+    if(!hex(Files.readAllBytes(jar)).equals(JAR_SHA))throw new IOException("wrong pinned client JAR SHA");
+    PrintStream report=System.out;System.setOut(new PrintStream(OutputStream.nullOutputStream()));
+    Class.forName("uu");Class.forName("om");Class.forName("nx");
+    String omHash=classSha(om.class),nxHash=classSha(nx.class),rpHash=classSha(rp.class),fdHash=classSha(fd.class),qyHash=classSha(qy.class);
+    for(Class<?> c:new Class<?>[]{uu.class,om.class,nx.class,rp.class,fd.class,qy.class,lm.class})fromJar(c,jar);
+    ByteArrayOutputStream output=new ByteArrayOutputStream();PrintStream out=new PrintStream(output,true,"US-ASCII");
+    out.println("#WATER_SCHEDULE_NATIVE\t1\tjar="+JAR_SHA+"\tuu="+classSha(uu.class)+"\tom="+omHash+"\tnx="+nxHash+"\trp="+rpHash+"\tfd="+fdHash+"\tqy="+qyHash);
+    out.println("#setup\tfd Unsafe seed; custom wt/bf with nine byte-array lm chunks (-1..1); all synthetic chunks loaded; time starts at 0; no save/provider reads");
+    out.println("#methods\tfd.a(int,int,int,int,int); fd.i(int,int,int,int); fd.c(int,int,int,int,int); om.b(fd,int,int,int,int); nx.b(fd,int,int,int,int)");
+    out.println("#bounds\tstate snapshot x,z=-1..1 y=62..65; only explicit fd.i neighbor notifications are exercised");
+    Field randomField=fd.class.getDeclaredField("r");randomField.setAccessible(true);
+    for(ScheduleScene s:scheduleScenes()){
+      TrackedWorld w=world();randomField.set(w,new Random(s.rngSeed()));EVENTS.clear();
+      for(int[] p:s.setup())put(w,p[0],p[1],p[2],p[3],p[4]);
+      out.println("case\t"+s.name()+"\trng_seed="+s.rngSeed()+"\toperation="+s.operation());
+      for(int[] p:s.setup())out.println("input\t"+p[0]+"\t"+p[1]+"\t"+p[2]+"\t"+p[3]+"\t"+p[4]);
+      out.println("setup_queue\t"+queue(w));for(String event:EVENTS)out.println("setup_"+event);
+      EVENTS.clear();out.println("queue_before\t"+queue(w));
+      if(s.operation()==0){out.println("action\tplace-flow\t0\t64\t0\t8\t0");w.a(0,64,0,8,0);}
+      else if(s.operation()==1){out.println("action\tplace-solid-and-notify\t1\t64\t0\t1\t0");w.a(1,64,0,1,0);w.i(1,64,0,1);}
+      else {out.println("action\tremove-support-and-notify\t0\t63\t0\t0\t0");w.a(0,63,0,0,0);w.i(0,63,0,0);}
+      for(String event:EVENTS)out.println(event);
+      out.println("queue_after\t"+queue(w));out.println("state\t"+region(w,1));out.println("#case_end\t"+s.name());
+    }
+    out.flush();System.setOut(report);return output.toByteArray();
+  }
+  public static void main(String[] args)throws Exception{boolean sources=args.length==2&&args[1].equals("--sources"),schedule=args.length==2&&args[1].equals("--schedule");if(args.length<1||args.length>2||(args.length==2&&!sources&&!schedule))throw new IllegalArgumentException("WaterTickOracle CLIENT_JAR [--sources|--schedule]");Path jar=Path.of(args[0]).toRealPath();byte[] a=schedule?captureSchedule(jar):capture(jar,sources),b=schedule?captureSchedule(jar):capture(jar,sources);if(!Arrays.equals(a,b))throw new AssertionError("native water captures differ");System.out.write(a);}
 }
