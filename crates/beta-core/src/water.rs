@@ -197,35 +197,50 @@ fn apply_one(
     let below = offset(pos, 0, -1, 0)?;
     let below_state = loaded(cells, below)?;
 
-    // Frozen source-formation scene: a flowing metadata-1 block rests on
-    // solid ID 1, has two still-source neighbors on its west/east faces, and
-    // solid ID 1 on both remaining horizontal faces. No broader threshold is
-    // inferred from this single controlled setup.
+    // Captured source formation: two still sources and two stone neighbors
+    // surround a metadata-1 flowing block supported by stone.
     let east = offset(pos, 1, 0, 0)?;
-    if block.metadata == 1
-        && below_state.id == 1
-        && loaded(cells, west_of(pos)?)?.id == 9
-        && loaded(cells, east)?.id == 9
-        && loaded(cells, offset(pos, 0, 0, -1)?)?.id == 1
-        && loaded(cells, offset(pos, 0, 0, 1)?)?.id == 1
-    {
-        events.push(WaterEvent::Neighbor {
-            position: pos,
-            id: 8,
-        });
-        let west = west_of(pos)?;
-        for neighbor in [west, east] {
-            schedule(neighbor, 8, world_time, queue, events)?;
-            edit(cells, neighbor, WaterBlock { id: 8, metadata: 0 }, events)?;
-            schedule(neighbor, 8, world_time, queue, events)?;
+    if block.metadata == 1 && below_state.id == 1 {
+        let neighbors = [
+            west_of(pos)?,
+            east,
+            offset(pos, 0, 0, -1)?,
+            offset(pos, 0, 0, 1)?,
+        ];
+        let mut sources = Vec::new();
+        let mut stones = 0;
+        for neighbor in neighbors {
+            match loaded(cells, neighbor)? {
+                WaterBlock { id: 9, metadata: 0 } => sources.push(neighbor),
+                WaterBlock { id: 1, metadata: 0 } => stones += 1,
+                _ => {}
+            }
         }
-        schedule(pos, 8, world_time, queue, events)?;
-        set_silent(cells, pos, WaterBlock { id: 8, metadata: 0 })?;
-        events.push(WaterEvent::Neighbor {
-            position: pos,
-            id: 8,
-        });
-        return Ok(());
+        let north = offset(pos, 0, 0, -1)?;
+        let south = offset(pos, 0, 0, 1)?;
+        let west = west_of(pos)?;
+        let captured_pair = sources.as_slice() == [west, east]
+            || sources.as_slice() == [north, south]
+            || sources.as_slice() == [west, north]
+            || sources.as_slice() == [east, south];
+        if captured_pair && stones == 2 {
+            events.push(WaterEvent::Neighbor {
+                position: pos,
+                id: 8,
+            });
+            for neighbor in sources {
+                schedule(neighbor, 8, world_time, queue, events)?;
+                edit(cells, neighbor, WaterBlock { id: 8, metadata: 0 }, events)?;
+                schedule(neighbor, 8, world_time, queue, events)?;
+            }
+            schedule(pos, 8, world_time, queue, events)?;
+            set_silent(cells, pos, WaterBlock { id: 8, metadata: 0 })?;
+            events.push(WaterEvent::Neighbor {
+                position: pos,
+                id: 8,
+            });
+            return Ok(());
+        }
     }
 
     // This captured setup covers a flowing cell beside an existing source,
