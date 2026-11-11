@@ -805,7 +805,25 @@ fn mapping_for_state(state: State) -> Option<BlockMapping> {
     native_registry().0.get(&state).cloned()
 }
 fn mapping_registry() -> Vec<BlockMapping> {
-    native_registry().0.values().cloned().collect()
+    let mut mappings: Vec<_> = native_registry().0.values().cloned().collect();
+    // Native uu instances with full [0,1] bounds and opaque terrain tiles.
+    // Keep these viewer-only additions out of the strict observed-scene registry.
+    for (id, tile) in [(4, 16), (5, 4), (22, 144), (45, 7), (48, 36)] {
+        mappings.push(BlockMapping {
+            key: BlockStateKey {
+                id,
+                metadata: 0,
+                above_id: None,
+            },
+            render_type: 0,
+            opaque: true,
+            full_cube: true,
+            alpha_opaque_faces: [true; 6],
+            tiles: [tile; 6],
+            supported: true,
+        });
+    }
+    mappings
 }
 
 fn native_registry() -> &'static (BTreeMap<State, BlockMapping>, BTreeMap<Neighbor, u8>) {
@@ -2831,6 +2849,70 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn viewer_extra_cubes_cull_shared_faces_without_expanding_strict_registry() {
+        let mappings = mapping_registry();
+        let fixture = include_str!("../../../tests/fixtures/view/block-cubes-meta0.tsv");
+        let rows: Vec<_> = fixture
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(rows.len(), 5);
+        for row in rows {
+            let fields: Vec<_> = row.split('\t').collect();
+            assert_eq!(fields.len(), 9);
+            let id = fields[0].parse::<u8>().unwrap();
+            let key = BlockStateKey {
+                id,
+                metadata: 0,
+                above_id: None,
+            };
+            let mapping = mappings.iter().find(|mapping| mapping.key == key).unwrap();
+            assert!(mapping.is_renderable_cube());
+            assert_eq!(mapping.render_type.to_string(), fields[1]);
+            assert_eq!(u8::from(mapping.opaque).to_string(), fields[2]);
+            assert_eq!(fields[3], "0.0,0.0,0.0,1.0,1.0,1.0");
+            assert_eq!(
+                mapping.tiles.map(|tile| tile.to_string()).join(","),
+                fields[4]
+            );
+            assert_eq!(fields[5], "111111");
+            assert_eq!(fields[6], "000000");
+            assert_eq!(fields[7], "000000");
+            assert_eq!(fields[8], "000000,000000,000000,000000,000000");
+            assert!(
+                mapping_for_state(State {
+                    id,
+                    meta: 0,
+                    above: -1
+                })
+                .is_none()
+            );
+            let mut data = beta_core::chunk::ChunkData::new();
+            for (x, block_id) in [(1, 1), (2, id)] {
+                data.set(
+                    x,
+                    1,
+                    1,
+                    BlockData {
+                        id: block_id,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            }
+            let scene = Scene::new(
+                SceneBounds::new(0, 0, 1, 1).unwrap(),
+                vec![SceneChunk { x: 0, z: 0, data }],
+                mappings.clone(),
+            )
+            .unwrap();
+            let mesh = scene.mesh(MeshLimits::default()).unwrap();
+            assert_eq!(mesh.unsupported_blocks, 0);
+            assert_eq!(mesh.visible_faces, 10, "stone adjacent to {id}");
+        }
     }
 
     #[test]
