@@ -1,5 +1,23 @@
 # Отчёт Codex
 
+## Локальный пакет ≈44% (2026-11-11)
+
+- Codex с тремя исполнителями gpt-6.1-terra добавил native-backed поддержку
+  item ID 256–359 при damage 0, пять обычных кубов metadata 0, исправил меню,
+  ограниченно восстановил saved player position и добавил выбор backend в
+  `config/local.toml`. Динамические иконки, повреждённые предметы, position вне
+  5×5, pixel parity и физическая проверка Vulkan/OpenGL остаются открыты.
+- Вода: 10 synthetic native-сцен edits/очереди, полные события и состояния
+  совпадают; `water-schedule --strict` PASS. Отдельная native fixture удержания
+  прыжка включает 3 сцены / 22 состояния; Rust сравнивает raw state, предыдущая
+  fixture не утверждала полную игровую обработку прыжка.
+- Проверены оригинальные oracle inventory, water schedule, swim, block registry
+  и saved-position; `cargo test -p beta-viewer --all-targets`, тесты core items
+  и water movement, clippy viewer, fmt и diff-check прошли на момент пакета.
+  Полный workspace check и интерактивное GUI сравнение не выполнялись.
+- Локальные коммиты: `53ff235`, `f6b155f`, `a824e13`, `1106879`, `7a04195`,
+  `caa0378`. Оценка ≈44%, пользовательский дефект тёмной тени не исправлен.
+
 ## Локальное улучшение выбора мира
 
 - Codex самостоятельно добавил прокрутку списка миров колёсиком и запуск
