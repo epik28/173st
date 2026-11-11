@@ -1,5 +1,6 @@
 //! Native Beta 1.7.3 main-menu and world-list presentation primitives.
 
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, error::Error, path::Path};
 
 const SHEET_SIZE: u32 = 512;
@@ -10,6 +11,56 @@ const FONT_ORIGIN: (u32, u32) = (256, 256);
 const WHITE_PIXEL: (u32, u32) = (511, 511);
 const FONT_GLYPH_DRAW_WIDTH: f32 = 7.99;
 const NATIVE_BACKGROUND_TINT: f32 = 64.0 / 255.0;
+
+pub fn parse_splashes(resource: &str) -> Vec<String> {
+    resource
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+pub fn choose_splash(lines: &[String], choice: usize) -> String {
+    if lines.is_empty() {
+        return "missingno".to_owned();
+    }
+    lines[choice % lines.len()].clone()
+}
+
+pub fn date_override(month: u32, day: u32) -> Option<&'static str> {
+    match (month, day) {
+        (11, 9) => Some("Happy birthday, ez!"),
+        (6, 1) => Some("Happy birthday, Notch!"),
+        (12, 24) => Some("Merry X-mas!"),
+        (1, 1) => Some("Happy new year!"),
+        _ => None,
+    }
+}
+
+pub fn splash_for_date(random: String, month: u32, day: u32) -> String {
+    date_override(month, day).unwrap_or(&random).to_owned()
+}
+
+pub fn splash_scale(text_width: u32, epoch_millis: u128) -> f32 {
+    let phase = (epoch_millis % 1000) as f32 / 1000.0 * std::f32::consts::TAU;
+    (100.0 / (text_width as f32 + 32.0)) * (1.8 - 0.1 * phase.sin().abs())
+}
+
+pub fn splash_transform(width: u32, text_width: u32, epoch_millis: u128) -> ([f32; 2], f32) {
+    (
+        [width as f32 / 2.0 + 90.0, 70.0],
+        splash_scale(text_width, epoch_millis),
+    )
+}
+
+#[allow(dead_code)]
+pub fn system_epoch_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
 
 #[derive(Clone)]
 pub struct MenuAssets {
@@ -736,6 +787,34 @@ fn quad(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn splash_resource_matches_java_trim_filter_and_order() {
+        let parsed = parse_splashes("  first\r\n\t\r\nsecond  \n third\n");
+        assert_eq!(parsed, ["first", "second", "third"]);
+        assert_eq!(choose_splash(&parsed, 0), "first");
+        assert_eq!(choose_splash(&parsed, 4), "second");
+        assert_eq!(choose_splash(&[], 0), "missingno");
+    }
+
+    #[test]
+    fn splash_date_overrides_use_native_month_day_contract() {
+        assert_eq!(date_override(11, 9), Some("Happy birthday, ez!"));
+        assert_eq!(date_override(6, 1), Some("Happy birthday, Notch!"));
+        assert_eq!(date_override(12, 24), Some("Merry X-mas!"));
+        assert_eq!(date_override(1, 1), Some("Happy new year!"));
+        assert_eq!(splash_for_date("random".into(), 2, 29), "random");
+    }
+
+    #[test]
+    fn splash_transform_has_native_anchor_and_bounded_wave() {
+        let (anchor, scale) = splash_transform(427, 100, 0);
+        assert_eq!(anchor, [303.5, 70.0]);
+        assert!((scale - 1.363_636_4).abs() < 1e-6);
+        let (_, peak) = splash_transform(427, 100, 250);
+        assert!(peak < scale);
+        assert!((splash_scale(100, 750) - peak).abs() < 1e-6);
+    }
 
     #[test]
     fn auto_scaled_resolution_matches_pinned_native_profiles_and_resize() {
