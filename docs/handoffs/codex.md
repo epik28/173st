@@ -1976,3 +1976,9 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - Raised the still-bounded cap to 512, matching `MAX_WATER_MOTION_CELLS`. Added a regression that accepts 129 colliders and retains atomic rejection at 513. Native movement fixture remains exact.
 - `cargo fmt --all -- --check`, `cargo test --locked --offline -p beta-core --test water_movement_fixture`, `cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings`, and `python3 tools/check.py` → PASS (284 Python tests, 18 opt-in skips, workspace check/clippy/all-target/doc tests).
 - This is a bounded error-path fix; no underwater movement screenshot or post-fix interactive retest has been captured. It does not add a completion percentage.
+
+## LIGHT-UPDATE-002 — Wayland repro captured
+
+- On 2026-11-11 the user reproduced the black band under a horizontal row of placed stone blocks in the Rust viewer. The 867×336 capture is `docs/bug-reports/light-update-002-wayland-repro.png`, SHA-256 `7e9766500003c6d163b08e2ae9ba3738539dce4be811e3020ab24f8d086cafb8`.
+- This establishes a Rust-side visual symptom, not its cause or native mismatch. Coordinates, exact edit sequence, light/height-map/mesh/GPU state and a matching original-client frame remain unrecorded. The viewer ended before a diagnostic log was retained; the source world was not edited.
+- Next useful interactive capture: note the targeted block coordinates before each placement, then replay the same row in a disposable copy in original Beta 1.7.3 and compare underside lighting. Keep the screenshot as the repro input; do not change the relight algorithm until that native comparison identifies a mismatch.
