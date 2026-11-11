@@ -41,6 +41,19 @@ The four tests cover a clean live-native audit, rejected row-height/layout mutat
 
 Remaining C01 work: visually review the new synthetic save-list and input frames, document their exact hashes, and provide paired Rust/native comparisons if the card requires them. The accepted screenshots establish native views at two resolutions/scales but do not establish pixel parity or the complete input contract. Treat this evidence as geometry/resource/API guidance, not completion of the full C01 card.
 
+## Native tiled background tint
+
+Pinned `javap -c -p da` evidence shows the no-world background path binds
+`/gui/background.png`, tiles it in 32-pixel quads, then calls
+`nw.b(4210752)` before emitting the vertices. `4210752` is `0x404040`, so
+the native background vertices multiply the texture RGB by `(64,64,64)` and
+keep alpha 255. A fresh paired capture at 1280×720 / GUI scale 3 reproduced
+the visible mismatch: the Rust background was full-bright while the native
+tile was tinted. Codex applied this confirmed tint to the viewer and added a
+vertex-color regression. This closes only the background-color mismatch; the
+paired capture still shows independent hover/splash differences and is not a
+pixel-parity acceptance.
+
 ## Synthetic native metadata and save-list contract
 
 `tests/fixtures/menu_parity/synthetic_saves.json` defines metadata-only NBT worlds written only beneath the disposable capture runtime. `MenuCurrent` uses native version 19132, `MenuConvert` uses version 0, `MenuFallback` has corrupt `level.dat` plus a valid `level.dat_old`, and `MenuInvalid` has corrupt metadata with no fallback. These are compressed NBT metadata files only: they have no `region/` directory or chunks, and the capture never presses Play or constructs a world.

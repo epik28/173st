@@ -9,6 +9,7 @@ const LOGO_ORIGIN: (u32, u32) = (256, 0);
 const FONT_ORIGIN: (u32, u32) = (256, 256);
 const WHITE_PIXEL: (u32, u32) = (511, 511);
 const FONT_GLYPH_DRAW_WIDTH: f32 = 7.99;
+const NATIVE_BACKGROUND_TINT: f32 = 64.0 / 255.0;
 
 #[derive(Clone)]
 pub struct MenuAssets {
@@ -244,7 +245,12 @@ pub fn vertices(
                     tile_width / 2.0,
                     tile_height / 2.0,
                 ],
-                [1.0; 4],
+                [
+                    NATIVE_BACKGROUND_TINT,
+                    NATIVE_BACKGROUND_TINT,
+                    NATIVE_BACKGROUND_TINT,
+                    1.0,
+                ],
             );
         }
     }
@@ -784,6 +790,24 @@ mod tests {
                 .any(|v| v.uv[0] >= GUI_ORIGIN.0 as f32 / 512.0
                     && v.uv[1] >= (GUI_ORIGIN.1 + 46) as f32 / 512.0)
         );
+    }
+
+    #[test]
+    fn native_tiled_menu_background_uses_the_original_tessellator_tint() {
+        let assets = MenuAssets::synthetic();
+        let layout = Layout::with_gui_scale(854, 480, 1);
+        let vertices = vertices(
+            (854, 480),
+            layout,
+            &assets,
+            &[],
+            None,
+            0,
+            Page::MainMenu,
+            (0.0, 0.0),
+        );
+        let expected = [64.0 / 255.0, 64.0 / 255.0, 64.0 / 255.0, 1.0];
+        assert!(vertices[..6].iter().all(|vertex| vertex.color == expected));
     }
 
     #[test]
