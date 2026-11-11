@@ -459,6 +459,7 @@ fn draw_splash(
                 continue;
             };
             let advance = f32::from(assets.glyphs[byte as usize].width) * scale;
+            let start = out.len();
             quad(
                 out,
                 size,
@@ -477,8 +478,37 @@ fn draw_splash(
                 ],
                 color,
             );
+            rotate_vertices(
+                &mut out[start..],
+                size,
+                layout.scale as f32,
+                [center + 90.0, 70.0],
+                -20.0_f32.to_radians(),
+            );
             cursor += advance;
         }
+    }
+}
+
+fn rotate_vertices(
+    vertices: &mut [Vertex],
+    size: (u32, u32),
+    scale: f32,
+    anchor: [f32; 2],
+    angle: f32,
+) {
+    let pivot = [
+        2.0 * anchor[0] * scale / size.0 as f32 - 1.0,
+        1.0 - 2.0 * anchor[1] * scale / size.1 as f32,
+    ];
+    let (sin, cos) = angle.sin_cos();
+    for vertex in vertices {
+        let dx = vertex.position[0] - pivot[0];
+        let dy = vertex.position[1] - pivot[1];
+        vertex.position = [
+            pivot[0] + dx * cos - dy * sin,
+            pivot[1] + dx * sin + dy * cos,
+        ];
     }
 }
 
