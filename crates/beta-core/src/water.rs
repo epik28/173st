@@ -338,6 +338,24 @@ fn apply_one(
     if directions.is_empty() {
         return Ok(());
     }
+    // The native downhill fixtures have four open horizontal neighbors, with
+    // exactly one opening below them and stone under the other three.
+    if block.metadata == 0 && below_state.id == 1 && directions.len() == 4 {
+        let mut downhill = None;
+        let mut stone_count = 0;
+        for &target in &directions {
+            match loaded(cells, offset(target, 0, -1, 0)?)?.id {
+                0 if downhill.is_none() => downhill = Some(target),
+                1 => stone_count += 1,
+                _ => {}
+            }
+        }
+        if stone_count == 3
+            && let Some(target) = downhill
+        {
+            directions.retain(|&direction| direction == target);
+        }
+    }
     for (index, target) in directions.into_iter().enumerate() {
         schedule(target, 8, world_time, queue, events)?;
         edit(cells, target, WaterBlock { id: 8, metadata: 1 }, events)?;
