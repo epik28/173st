@@ -67,6 +67,7 @@ pub struct MenuAssets {
     pub atlas: image::RgbaImage,
     pub labels: HashMap<String, String>,
     glyphs: [Glyph; 256],
+    pub splash: String,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -77,6 +78,9 @@ struct Glyph {
 impl MenuAssets {
     pub fn load(jar: &Path) -> Result<Self, Box<dyn Error>> {
         let (background, gui, font, logo, lang) = super::hud::load_menu_resources(jar)?;
+        let splash_lines = parse_splashes(&super::hud::load_menu_splashes(jar)?);
+        let choice = system_epoch_millis() as usize;
+        let splash = choose_splash(&splash_lines, choice);
         let mut atlas = image::RgbaImage::new(SHEET_SIZE, SHEET_SIZE);
         blit(&mut atlas, &background, BACKGROUND_ORIGIN);
         blit(&mut atlas, &gui, GUI_ORIGIN);
@@ -93,6 +97,7 @@ impl MenuAssets {
             atlas,
             labels,
             glyphs,
+            splash,
         })
     }
 
@@ -129,6 +134,7 @@ impl MenuAssets {
             atlas,
             labels,
             glyphs: [Glyph { width: 8 }; 256],
+            splash: "missingno".to_owned(),
         }
     }
 
@@ -339,6 +345,7 @@ fn draw_main_menu(
         [256.0, 0.0, 155.0, 44.0],
         [1.0; 4],
     );
+    draw_splash(out, size, layout, assets, center, assets.splash.as_str());
     quad(
         out,
         size,
@@ -428,6 +435,51 @@ fn draw_main_menu(
         copyright,
         [1.0; 4],
     );
+}
+
+fn draw_splash(
+    out: &mut Vec<Vertex>,
+    size: (u32, u32),
+    layout: Layout,
+    assets: &MenuAssets,
+    center: f32,
+    text: &str,
+) {
+    let scale = splash_scale(text_width(assets, text), system_epoch_millis());
+    let width = text_width(assets, text) as f32 * scale;
+    let x = center + 90.0 - width / 2.0;
+    let y = 62.0;
+    // The sprite pipeline has no matrix stack; preserve the native anchor,
+    // animation and colors while emitting scaled glyph quads directly.
+    let mut cursor = x;
+    for (shadow, color) in [(true, [0.0, 0.0, 0.0, 1.0]), (false, [1.0, 1.0, 0.0, 1.0])] {
+        cursor = x + if shadow { 1.0 } else { 0.0 };
+        for ch in text.chars() {
+            let Some(byte) = char_to_font_byte(ch) else {
+                continue;
+            };
+            let advance = f32::from(assets.glyphs[byte as usize].width) * scale;
+            quad(
+                out,
+                size,
+                layout.scale as f32,
+                [
+                    cursor,
+                    y + if shadow { 1.0 } else { 0.0 },
+                    FONT_GLYPH_DRAW_WIDTH * scale,
+                    FONT_GLYPH_DRAW_WIDTH * scale,
+                ],
+                [
+                    FONT_ORIGIN.0 as f32 + f32::from(byte % 16) * 8.0,
+                    FONT_ORIGIN.1 as f32 + f32::from(byte / 16) * 8.0,
+                    FONT_GLYPH_DRAW_WIDTH,
+                    FONT_GLYPH_DRAW_WIDTH,
+                ],
+                color,
+            );
+            cursor += advance;
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

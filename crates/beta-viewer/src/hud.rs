@@ -93,6 +93,17 @@ pub fn load_menu_resources(client_jar: &Path) -> Result<MenuResourceImages, Box<
     Ok((background, gui, font, logo, lang))
 }
 
+pub const MENU_SPLASHES_SHA256: &str =
+    "47f63121551fb299c836642c5fd79e0e26771fdaba7689698fd703a25dd01c9e";
+
+pub fn load_menu_splashes(client_jar: &Path) -> Result<String, Box<dyn Error>> {
+    let jar = fs::read(client_jar)?;
+    verify_hash(&jar, CLIENT_JAR_SHA256, "pinned client JAR")?;
+    let bytes = extract_zip_resource(&jar, "title/splashes.txt")?;
+    verify_hash(&bytes, MENU_SPLASHES_SHA256, "native menu splashes")?;
+    Ok(String::from_utf8(bytes)?)
+}
+
 fn verify_hash(bytes: &[u8], expected: &str, label: &str) -> Result<(), Box<dyn Error>> {
     use sha2::Digest;
     let actual = format!("{:x}", sha2::Sha256::digest(bytes));
