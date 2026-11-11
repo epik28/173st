@@ -222,7 +222,9 @@ fn apply_one(
         let captured_pair = sources.as_slice() == [west, east]
             || sources.as_slice() == [north, south]
             || sources.as_slice() == [west, north]
-            || sources.as_slice() == [east, south];
+            || sources.as_slice() == [east, south]
+            || sources.as_slice() == [west, south]
+            || sources.as_slice() == [east, north];
         if captured_pair && stones == 2 {
             events.push(WaterEvent::Neighbor {
                 position: pos,
