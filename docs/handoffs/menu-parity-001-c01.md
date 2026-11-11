@@ -54,6 +54,29 @@ vertex-color regression. This closes only the background-color mismatch; the
 paired capture still shows independent hover/splash differences and is not a
 pixel-parity acceptance.
 
+## Native splash selection and draw contract
+
+Read-only `fu`/`sj`/`ub` bytecode and the pinned `title/splashes.txt`
+(`226` lines, SHA-256
+`47f63121551fb299c836642c5fd79e0e26771fdaba7689698fd703a25dd01c9e`)
+establish that the splash is selected once per main-menu construction using
+the class-static, unseeded `java.util.Random`; so its exact ordinary string is
+not deterministic across launches. The constructor reads UTF-8 lines in file
+order, applies Java `String.trim()`, drops empty results, then chooses
+`nextInt(size)`. Any exception, including an empty list, leaves `missingno`.
+The asset stays in the pinned JAR and is not copied into the repository.
+
+On each menu initialization, `fu.b()` overrides the random value for local
+calendar dates Nov 9 (`Happy birthday, ez!`), Jun 1 (`Happy birthday, Notch!`),
+Dec 24 (`Merry X-mas!`), or Jan 1 (`Happy new year!`). It uses JVM default
+timezone/calendar, with no year check. Draw is centered, opaque yellow with a
+black one-pixel font shadow, translated to `(width/2+90,70)`, rotated `-20°`,
+and uniformly scaled by `100/(fontWidth+32) * (1.8 - 0.1*abs(sin(2π*(wallMillis%1000)/1000)))`.
+The renderer does not read `fu.i`; its tick counter does not drive this
+animation. The Nov 9 native reference image's `Happy birthday, ez!` is the date
+override, not a fixed logo decoration. Exact ordinary splash and exact phase
+require a captured random choice and wall-clock timestamp, respectively.
+
 ## Synthetic native metadata and save-list contract
 
 `tests/fixtures/menu_parity/synthetic_saves.json` defines metadata-only NBT worlds written only beneath the disposable capture runtime. `MenuCurrent` uses native version 19132, `MenuConvert` uses version 0, `MenuFallback` has corrupt `level.dat` plus a valid `level.dat_old`, and `MenuInvalid` has corrupt metadata with no fallback. These are compressed NBT metadata files only: they have no `region/` directory or chunks, and the capture never presses Play or constructs a world.
