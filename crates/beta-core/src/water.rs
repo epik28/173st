@@ -338,22 +338,24 @@ fn apply_one(
     if directions.is_empty() {
         return Ok(());
     }
-    // The native downhill fixtures have four open horizontal neighbors, with
-    // exactly one opening below them and stone under the other three.
+    // The native downhill fixtures have four open horizontal neighbors,
+    // with air or stone immediately below each of them. When at least one
+    // has air below, native chooses every such direction in native order.
     if block.metadata == 0 && below_state.id == 1 && directions.len() == 4 {
-        let mut downhill = None;
-        let mut stone_count = 0;
+        let mut downhill = Vec::new();
+        let mut known_count = 0;
         for &target in &directions {
             match loaded(cells, offset(target, 0, -1, 0)?)?.id {
-                0 if downhill.is_none() => downhill = Some(target),
-                1 => stone_count += 1,
+                0 => {
+                    downhill.push(target);
+                    known_count += 1;
+                }
+                1 => known_count += 1,
                 _ => {}
             }
         }
-        if stone_count == 3
-            && let Some(target) = downhill
-        {
-            directions.retain(|&direction| direction == target);
+        if known_count == 4 && !downhill.is_empty() {
+            directions = downhill;
         }
     }
     for (index, target) in directions.into_iter().enumerate() {

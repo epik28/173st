@@ -1,0 +1,10 @@
+{
+  "captures": 2,
+  "case_count": 6,
+  "events": 96,
+  "input_sha256": "47f8141a9f3c86b8ff5a137a81dfc4e052fdc275a2583e04e7498d33de8999b8",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "native_sha256": "9665690aabb44789ff2d921e4867c60470520b5d3b343c3888331b78f963e4a0",
+  "oracle_sha256": "5fa2bc3a7b9fef2b63999e5b8ae96596ff25838007a15113f146b35d0eb1d6c6",
+  "repeat_identical": true
+}
