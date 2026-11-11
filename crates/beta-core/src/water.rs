@@ -358,6 +358,71 @@ fn apply_one(
             directions = downhill;
         }
     }
+    // A completely specified 5x5 stone floor with one opening two steps
+    // away is the bounded native fixture for searching a short route.
+    if block.metadata == 0 && below_state.id == 1 && directions.len() >= 3 {
+        let mut hole = None;
+        let mut known = true;
+        for dx in -2_i32..=2 {
+            for dz in -2_i32..=2 {
+                let floor = offset(pos, dx, -1, dz)?;
+                match cells.get(&floor) {
+                    Some(WaterCell::Loaded(WaterBlock { id: 1, .. })) => {}
+                    Some(WaterCell::Loaded(WaterBlock { id: 0, .. })) if hole.is_none() => {
+                        hole = Some((dx, dz))
+                    }
+                    _ => known = false,
+                }
+            }
+        }
+        if known
+            && let Some((hx, hz)) = hole
+            && hx.abs() + hz.abs() == 2
+        {
+            // Captured scenes contain air across the 5x5 plane except the
+            // source and at most one immediately adjacent stone obstacle.
+            let mut adjacent_stones = 0;
+            for dx in -2_i32..=2 {
+                for dz in -2_i32..=2 {
+                    if dx == 0 && dz == 0 {
+                        continue;
+                    }
+                    match cells.get(&offset(pos, dx, 0, dz)?) {
+                        Some(WaterCell::Loaded(WaterBlock { id: 0, .. })) => {}
+                        Some(WaterCell::Loaded(WaterBlock { id: 1, .. }))
+                            if dx.abs() + dz.abs() == 1 =>
+                        {
+                            adjacent_stones += 1
+                        }
+                        _ => known = false,
+                    }
+                }
+            }
+            if !known || adjacent_stones > 1 {
+                return Err(WaterError::UnsupportedTransition {
+                    position: pos,
+                    id: block.id,
+                    metadata: block.metadata,
+                });
+            }
+            let mut shortest = Vec::new();
+            for &target in &directions {
+                let dx = target.0 - pos.0;
+                let dz = target.2 - pos.2;
+                if (hx - dx).abs() + (hz - dz).abs() == 1 {
+                    shortest.push(target);
+                }
+            }
+            if shortest.is_empty() {
+                return Err(WaterError::UnsupportedTransition {
+                    position: pos,
+                    id: block.id,
+                    metadata: block.metadata,
+                });
+            }
+            directions = shortest;
+        }
+    }
     for (index, target) in directions.into_iter().enumerate() {
         schedule(target, 8, world_time, queue, events)?;
         edit(cells, target, WaterBlock { id: 8, metadata: 1 }, events)?;
