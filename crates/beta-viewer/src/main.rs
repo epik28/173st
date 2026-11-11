@@ -6,6 +6,8 @@
 mod backend;
 mod hotbar_input;
 mod hud;
+#[cfg(test)]
+mod inventory_cube;
 mod inventory_screen;
 mod menu;
 mod saved_player;

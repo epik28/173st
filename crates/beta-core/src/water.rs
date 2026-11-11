@@ -352,6 +352,22 @@ fn apply_one(
             directions.push(target);
         }
     }
+    // The captured vegetation scenes have a source on stone, three stone
+    // walls, and one flower or mushroom on stone to the east. Entity drops
+    // are outside this block-transition API.
+    if block.metadata == 0 && below_state.id == 1 && directions.is_empty() {
+        let target = offset(pos, 1, 0, 0)?;
+        let target_block = loaded(cells, target)?;
+        if matches!(target_block.id, 37..=39)
+            && target_block.metadata == 0
+            && loaded(cells, offset(target, 0, -1, 0)?)?.id == 1
+            && loaded(cells, west_of(pos)?)?.id == 1
+            && loaded(cells, offset(pos, 0, 0, -1)?)?.id == 1
+            && loaded(cells, offset(pos, 0, 0, 1)?)?.id == 1
+        {
+            directions.push(target);
+        }
+    }
     if directions.is_empty() {
         return Ok(());
     }

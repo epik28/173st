@@ -89,6 +89,7 @@ impl ItemKind {
     pub const fn max_stack_data(self) -> u16 {
         match self.id {
             17 | 35 | 351 => 15,
+            263 => 1,
             _ => self.max_damage(),
         }
     }
@@ -518,6 +519,55 @@ mod tests {
             assert!(usize::from(inventory.selected_hotbar()) < HOTBAR_SLOT_COUNT);
         }
         assert_eq!(inventory.slots().as_slice(), slots.as_slice());
+    }
+
+    #[test]
+    fn coal_and_charcoal_metadata_match_native_insertion() {
+        let mut cases = 0;
+        for row in include_str!("../../../tests/fixtures/item_variants/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<&str> = row.split('\t').collect();
+            if fields[0] != "263" {
+                continue;
+            }
+            let damage: u16 = fields[1].parse().unwrap();
+            if damage > 1 {
+                continue;
+            }
+            assert_eq!(fields[2], "7");
+            assert_eq!(fields[3], "true");
+            assert_eq!(
+                fields[8],
+                if damage == 0 {
+                    "item.coal"
+                } else {
+                    "item.charcoal"
+                }
+            );
+            let mut inventory = Inventory::new();
+            inventory
+                .set_slot(0, Some(ItemStack::new(263, 1, 0).unwrap()))
+                .unwrap();
+            let mut incoming = Some(ItemStack::new(263, 1, damage).unwrap());
+            assert!(inventory.insert(&mut incoming).unwrap());
+            assert_eq!(
+                inventory.stack_at(0).unwrap().unwrap().count(),
+                fields[6].parse::<u8>().unwrap()
+            );
+            assert_eq!(
+                inventory
+                    .stack_at(1)
+                    .unwrap()
+                    .map_or(0, |stack| stack.damage() + 1),
+                fields[7].parse::<u16>().unwrap()
+            );
+            cases += 1;
+        }
+        assert_eq!(cases, 2);
+        assert!(ItemStack::new(263, 1, 2).is_err());
+        assert_eq!(ItemKind::from_native_id(263).unwrap().max_damage(), 0);
     }
 
     #[test]
