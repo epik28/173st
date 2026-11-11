@@ -949,15 +949,16 @@
     },
     "MENU-PARITY-001-C01": {
       "state": "in_progress",
-      "summary": "Pinned native menu resources, qq scaling, derived font metrics, four empty-menu/list frames and synthetic save/input captures are available. A fresh controlled capture showed all three synthetic rows at GUI scales 1 and 3; earlier missing-row observation was intermittent and its cause is unknown. Paired Rust/native presentation remains outstanding; C01 stays open. Native da.b(int) bytecode additionally confirms the tiled background uses tessellator color 0x404040; Rust now applies the exact RGB tint and a regression pins vertex color. Fresh Rust menu flow captures at 854x480/scale1 and 1280x720/scale3 pass; background mean RGB at the larger profile is close to the native capture. Full pixel parity remains outstanding. Read-only `fu`/`sj`/`ub` audit pins splash resource parsing, nondeterministic one-time Java Random selection, four local-date overrides, font shadow, transform and wall-clock animation; no original splash asset was committed.",
+      "summary": "Pinned native menu resources, qq scaling, derived font metrics, four native empty-menu/list frames, and synthetic save/input captures are available. The Rust main menu now renders the checked native tiled background, logo, splash, buttons, and font at tested GUI scales 1 and 3. The splash asset is hash-checked from the pinned JAR at runtime and is not committed; Java trim semantics, local-date overrides, yellow text/shadow, rotation, anchor, and wall-clock scale are covered by tests. C01 stays open: full paired pixel parity and the intermittent scale-3 conversion-row discrepancy remain unresolved.",
       "checks": [
         "python3 tools/oracle/menu_parity_audit.py → PASS: pinned GUI/locale/resource/class evidence, nine direct native scaled-resolution cases and256 derived glyph metrics.",
         "python3 -m unittest tests.python.test_menu_parity_audit -q → PASS:4 scoped audit/mutation tests.",
         "Native capture helper uses local Java8/LWJGL, disposable JVM user.home under ignored artifacts, local HTTP/HTTPS proxies and isolated audio; it never opens user saves. Approved Xvfb rerun exited 0; coordinator confirmed main and empty Select World at 854x480/gui1 and 1280x720/gui3. All four hashes are recorded in the C01 handoff.",
         "Synthetic native hi audit and nine focused menu tests pass. Fresh native menu-list rerun captured all three synthetic rows at GUI scales 1 and 3; all five metadata hashes stayed unchanged and no playable world or additional save was created. Native bytecode shows rq.l() loads/sorts Minecraft.c().b() and list drawing uses the model size, with no scale-specific filter. Earlier two-row capture is intermittent; its Bad file descriptor log has no proven connection or identified file. Paired Rust/native presentation remains outstanding.",
-        "Pinned javap -c -p da: drawDefaultBackground emits nw.b(4210752 / 0x404040) before the 32px tiled quads; cargo test -p beta-viewer --bin beta-viewer menu::tests → PASS (8), including exact background tint; clippy -D warnings and diff-check → PASS.",
-        "cargo build --locked --offline -p beta-viewer; Xvfb viewer_smoke at 854x480/gui1 and 1280x720/gui3 → PASS for main menu, world list, Cancel/Escape and Quit. Paired native frames still show unimplemented dynamic splash/state differences; no pixel-parity claim.",
-        "Read-only javap audit of fu/sj/ub and `title/splashes.txt` → PASS: 226 ordered UTF-8 entries, Java trim/filter/fallback, unseeded nextInt choice, four calendar overrides using default timezone, yellow centered shadow and exact transform/phase formula; resource SHA-256 recorded in handoff."
+        "Pinned javap -c -p da: drawDefaultBackground emits nw.b(4210752 / 0x404040) before 32px tiled quads; Rust pins the exact vertex tint with a regression.",
+        "Pinned `fu`/`sj`/`ub` audit: 226 ordered UTF-8 splash lines, Java trim/filter/fallback, one-time random choice, four default-timezone date overrides, yellow centered shadow, -20-degree rotation, transform and wall-clock phase. Production reads the SHA-256-pinned splash resource directly from the client JAR.",
+        "Focused menu tests → PASS (14): native splash parsing, date override/date parsing, scale wave, rotation, draw order, exact background tint and layout. `cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings` → PASS.",
+        "Xvfb viewer_smoke at 854x480/gui1 and 1280x720/gui3 → PASS: main menu, world list, cancel and quit; inspected captures show the dynamic splash visible at both scales. This is UI flow evidence, not full pixel-parity acceptance."
       ]
     },
     "MENU-PARITY-001-C02": {
@@ -978,14 +979,15 @@
       ]
     },
     "WATER-SIM-001-C02": {
-      "state": "in_progress",
-      "summary": "Codex review проверил bounded simulation runtime: fixed 20 Hz schedule, native tick/seed parity, runtime water mesh меняется только в затронутом чанке. Полная карточка остаётся открытой до завершения owner-owned WATER-SIM-001-A02 handoff/status; не заявляется общая water-world simulation.",
+      "state": "done",
+      "summary": "Принят bounded viewer water runtime на Agy snapshot 328e629. Fixed 20 Hz scheduler и три зафиксированных seed/edit пути подключены атомарно; native tick/schedule transcripts точны, flow-decay меняет fluid mesh только в затронутом чанке. Общая water-world simulation не заявляется.",
       "checks": [
-        "python3 tools/parity/run.py water-tick --strict → PASS: 13 native transition/source scenes; report artifacts/parity/water-tick/run-tslldqag/report.json",
-        "python3 tools/parity/run.py water-schedule --strict → PASS: native edit/neighbor/schedule transcript and full state; report artifacts/parity/water-schedule/run-d0wc9kcw",
-        "cargo test --locked --offline -p beta-viewer native_flow_tick_changes_only_the_fluid_mesh_in_its_touched_chunk -- --nocapture → PASS: native flow-decay removes water from touched chunk mesh; unrelated chunk mesh is unchanged",
+        "python3 tools/parity/run.py water-tick --strict → PASS: 13 native transition/source scenes, 16 ordered tick executions, 0 mismatches; artifacts/parity/water-tick/run-wg746qah/report.json",
+        "python3 tools/parity/run.py water-schedule --strict → PASS: 3 native seed/edit scenarios, 16 ordered events, full state exact; artifacts/parity/water-schedule/run-ept6igw9/report.json",
+        "Agy snapshot 328e629: cargo fmt --all -- --check; cargo test --locked --offline -p beta-core --all-targets; cargo test --locked --offline -p beta-viewer --all-targets; cargo clippy --locked --offline -p beta-viewer --all-targets -- -D warnings; git diff --check → PASS",
+        "Codex viewer regression native_flow_tick_changes_only_the_fluid_mesh_in_its_touched_chunk → PASS: touched fluid mesh changes, unrelated loaded chunk mesh remains identical; production Agy runtime source matches the reviewed Codex snapshot",
         "python3 tools/check.py → PASS: 284 Python tests (18 opt-in skipped), fmt, workspace check, clippy -D warnings, all Rust targets and doc tests",
-        "Release light-edit benchmark repeated: canopy/water scenes p50 617–628 us; complete scene/result digests unchanged. This is a bounded edit benchmark, not overall FPS."
+        "Release light-edit benchmark: canopy/water scenes p50 617–628 us with unchanged scene/result digests; bounded edit workload only, not overall FPS."
       ]
     },
     "WATER-MOVE-001-C01": {

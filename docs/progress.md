@@ -10,21 +10,21 @@ guards, полный workspace check и реальные Xvfb-переходы �
 Cancel → меню → выход. Все шесть исходных файлов сохранения сохранили хеши.
 Оформление меню временное; [MENU-PARITY-001](tasks/MENU-PARITY-001.md) остаётся
 открытым. После bounded water simulation, lighting verification и measured relight
-optimization общая оценка — **≈40%**; пределы указаны ниже.
+optimization общая оценка — **≈41%**; пределы указаны ниже.
 
 На пользовательском кадре 2026-11-09 прежний build показывал однотонный синий
-фон и временные кнопки. Текущий экран уже использует terrain background, logo,
-button textures и font из pinned JAR; вращающийся native panorama и точный
-pixel parity ещё не приняты.
+фон и временные кнопки. Текущий экран использует native tiled dirt background,
+logo, button textures, font и анимированный splash из pinned JAR. В Beta 1.7.3
+здесь именно tiled background, не panorama. Полное pixel parity ещё не принято.
 MENU-PARITY-001-A01 открыт по уже подтверждённым native-кадрам; пропавшая запись
 conversion-world на GUI scale 3 расследуется отдельно. Вода теперь поддерживает
 ограниченную tick simulation. WATER-MOVE-001-C02 подключает native contact и
 плавание к fixed-step контроллеру: 72 native состояния совпадают, сухое движение
 не изменилось, итог не зависит от 20/30/60/144 Hz render partition. Strict water
 tick/schedule parity проходит; flow-decay меняет fluid mesh затронутого чанка, а
-mesh соседа остаётся прежним. `tools/check.py` прошёл полностью. Water simulation
-ограничена закреплёнными сценами и тремя seed/edit операциями; A02 handoff пока
-открыт. Общая оценка — **≈40%**.
+mesh соседа остаётся прежним. `tools/check.py` прошёл полностью. Owner A02 принят
+на Agy `328e629`, а Codex C02 закрыт; симуляция ограничена закреплёнными сценами
+и тремя seed/edit операциями. Общая оценка — **≈41%**.
 
 В [LIGHT-UPDATE-002](tasks/LIGHT-UPDATE-002.md) исправлены два подтверждённых
 расхождения: использование opacity=255 для любого non-air блока и присвоение

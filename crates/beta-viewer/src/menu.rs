@@ -1,7 +1,7 @@
 //! Native Beta 1.7.3 main-menu and world-list presentation primitives.
 
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{collections::HashMap, error::Error, path::Path};
+use std::{collections::HashMap, error::Error, path::Path, process::Command};
 
 const SHEET_SIZE: u32 = 512;
 const BACKGROUND_ORIGIN: (u32, u32) = (0, 0);
@@ -15,7 +15,9 @@ const NATIVE_BACKGROUND_TINT: f32 = 64.0 / 255.0;
 pub fn parse_splashes(resource: &str) -> Vec<String> {
     resource
         .lines()
-        .map(str::trim)
+        // java.lang.String.trim removes UTF-16 code units <= U+0020 rather
+        // than applying Unicode whitespace normalization.
+        .map(|line| line.trim_matches(|character: char| character <= '\u{20}'))
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
         .collect()
@@ -40,6 +42,41 @@ pub fn date_override(month: u32, day: u32) -> Option<&'static str> {
 
 pub fn splash_for_date(random: String, month: u32, day: u32) -> String {
     date_override(month, day).unwrap_or(&random).to_owned()
+}
+
+fn parse_month_day(output: &str) -> Option<(u32, u32)> {
+    let mut fields = output.split_whitespace();
+    let month = fields.next()?.parse::<u32>().ok()?;
+    let day = fields.next()?.parse::<u32>().ok()?;
+    if fields.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    Some((month, day))
+}
+
+fn local_month_day() -> Option<(u32, u32)> {
+    #[cfg(unix)]
+    let output = Command::new("date").arg("+%m %d").output().ok()?;
+    #[cfg(windows)]
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "[DateTime]::Now.ToString('MM dd')",
+        ])
+        .output()
+        .ok()?;
+    #[cfg(not(any(unix, windows)))]
+    return None;
+
+    #[cfg(any(unix, windows))]
+    {
+        if !output.status.success() {
+            return None;
+        }
+        parse_month_day(std::str::from_utf8(&output.stdout).ok()?)
+    }
 }
 
 pub fn splash_scale(text_width: u32, epoch_millis: u128) -> f32 {
@@ -80,7 +117,10 @@ impl MenuAssets {
         let (background, gui, font, logo, lang) = super::hud::load_menu_resources(jar)?;
         let splash_lines = parse_splashes(&super::hud::load_menu_splashes(jar)?);
         let choice = system_epoch_millis() as usize;
-        let splash = choose_splash(&splash_lines, choice);
+        let random_splash = choose_splash(&splash_lines, choice);
+        let splash = local_month_day()
+            .map(|(month, day)| splash_for_date(random_splash.clone(), month, day))
+            .unwrap_or(random_splash);
         let mut atlas = image::RgbaImage::new(SHEET_SIZE, SHEET_SIZE);
         blit(&mut atlas, &background, BACKGROUND_ORIGIN);
         blit(&mut atlas, &gui, GUI_ORIGIN);
@@ -345,7 +385,6 @@ fn draw_main_menu(
         [256.0, 0.0, 155.0, 44.0],
         [1.0; 4],
     );
-    draw_splash(out, size, layout, assets, center, assets.splash.as_str());
     quad(
         out,
         size,
@@ -354,6 +393,8 @@ fn draw_main_menu(
         [256.0, 45.0, 155.0, 44.0],
         [1.0; 4],
     );
+    // Native fu.a renders both logo quads before the splash layer.
+    draw_splash(out, size, layout, assets, assets.splash.as_str());
     let y = h / 4.0 + 48.0;
     for (index, key) in ["menu.singleplayer", "menu.multiplayer", "menu.mods"]
         .into_iter()
@@ -442,18 +483,20 @@ fn draw_splash(
     size: (u32, u32),
     layout: Layout,
     assets: &MenuAssets,
-    center: f32,
     text: &str,
 ) {
-    let scale = splash_scale(text_width(assets, text), system_epoch_millis());
+    let (anchor, scale) = splash_transform(
+        layout.width,
+        text_width(assets, text),
+        system_epoch_millis(),
+    );
     let width = text_width(assets, text) as f32 * scale;
-    let x = center + 90.0 - width / 2.0;
-    let y = 62.0;
+    let x = anchor[0] - width / 2.0;
+    let y = anchor[1] - 8.0;
     // The sprite pipeline has no matrix stack; preserve the native anchor,
     // animation and colors while emitting scaled glyph quads directly.
-    let mut cursor = x;
     for (shadow, color) in [(true, [0.0, 0.0, 0.0, 1.0]), (false, [1.0, 1.0, 0.0, 1.0])] {
-        cursor = x + if shadow { 1.0 } else { 0.0 };
+        let mut cursor = x + if shadow { 1.0 } else { 0.0 };
         for ch in text.chars() {
             let Some(byte) = char_to_font_byte(ch) else {
                 continue;
@@ -482,7 +525,7 @@ fn draw_splash(
                 &mut out[start..],
                 size,
                 layout.scale as f32,
-                [center + 90.0, 70.0],
+                anchor,
                 -20.0_f32.to_radians(),
             );
             cursor += advance;
@@ -874,6 +917,10 @@ mod tests {
     fn splash_resource_matches_java_trim_filter_and_order() {
         let parsed = parse_splashes("  first\r\n\t\r\nsecond  \n third\n");
         assert_eq!(parsed, ["first", "second", "third"]);
+        assert_eq!(
+            parse_splashes("\u{00a0}kept\u{00a0}\n"),
+            ["\u{00a0}kept\u{00a0}"]
+        );
         assert_eq!(choose_splash(&parsed, 0), "first");
         assert_eq!(choose_splash(&parsed, 4), "second");
         assert_eq!(choose_splash(&[], 0), "missingno");
@@ -889,6 +936,16 @@ mod tests {
     }
 
     #[test]
+    fn local_calendar_output_accepts_only_valid_month_and_day_fields() {
+        assert_eq!(parse_month_day("11 09\n"), Some((11, 9)));
+        assert_eq!(parse_month_day("6 1"), Some((6, 1)));
+        assert_eq!(parse_month_day("13 1"), None);
+        assert_eq!(parse_month_day("12 32"), None);
+        assert_eq!(parse_month_day("12 24 extra"), None);
+        assert_eq!(parse_month_day("not a date"), None);
+    }
+
+    #[test]
     fn splash_transform_has_native_anchor_and_bounded_wave() {
         let (anchor, scale) = splash_transform(427, 100, 0);
         assert_eq!(anchor, [303.5, 70.0]);
@@ -896,6 +953,45 @@ mod tests {
         let (_, peak) = splash_transform(427, 100, 250);
         assert!(peak < scale);
         assert!((splash_scale(100, 750) - peak).abs() < 1e-6);
+    }
+
+    #[test]
+    fn splash_rotation_uses_native_angle_around_logical_anchor() {
+        let mut vertex = Vertex {
+            position: [1.0, 0.0],
+            uv: [0.0; 2],
+            color: [1.0; 4],
+        };
+        rotate_vertices(
+            std::slice::from_mut(&mut vertex),
+            (100, 100),
+            1.0,
+            [50.0, 50.0],
+            -std::f32::consts::FRAC_PI_2,
+        );
+        assert!(vertex.position[0].abs() < 1e-6);
+        assert!((vertex.position[1] + 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn main_menu_draws_splash_after_both_native_logo_quads() {
+        let assets = MenuAssets::synthetic();
+        let layout = Layout::with_gui_scale(854, 480, 1);
+        let vertices = vertices(
+            (854, 480),
+            layout,
+            &assets,
+            &[],
+            None,
+            0,
+            Page::MainMenu,
+            (0.0, 0.0),
+        );
+        let first_yellow = vertices
+            .iter()
+            .position(|vertex| vertex.color == [1.0, 1.0, 0.0, 1.0])
+            .expect("synthetic splash emits yellow glyphs");
+        assert!(first_yellow >= 24, "both logo quads precede the splash");
     }
 
     #[test]

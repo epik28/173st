@@ -33,7 +33,7 @@ water motion режим по native tick traces; оставить dry-motion к�
 ## MENU-PARITY-001-A01 — native оформление меню
 
 Взять задачу после WORLD-SELECT-001-C02. По pinned C01 кадрам перенести
-panorama/title/gui ресурсы, native geometry/font/GUI scaling и меню states.
+  tiled background/title/gui/splash ресурсы, native geometry/font/GUI scaling и меню states.
 Ресурсы получать из локального JAR в runtime и не коммитить извлечённые assets.
 Не менять read-only save catalog/snapshot API; native GUI scale 3 conversion-row
 расхождение расследуется отдельным C01.

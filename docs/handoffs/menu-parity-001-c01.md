@@ -144,3 +144,27 @@ visual review remain in ignored `artifacts/menu-parity-capture/frames/`.
 
 Only disposable empty saves were opened. No user world, pixel-parity result,
 or complete input contract is claimed. C01 remains open for the other cases.
+
+## Rust menu splash integration
+
+Codex commits `47ec37f`, `ab324ca`, and `f2befae` implement the native splash
+contract in the production chooser. `/title/splashes.txt` is loaded from the
+verified client JAR at runtime, checked against SHA-256
+`47f63121551fb299c836642c5fd79e0e26771fdaba7689698fd703a25dd01c9e`, parsed
+with Java `String.trim()` semantics, and never copied into Git. The renderer
+draws the yellow glyphs and one-pixel black shadow after both logo quads, using
+the native `(width/2+90,70)` anchor, `-20°` rotation and wall-clock pulse formula.
+Date overrides use the host's default local timezone (`date` on Unix,
+PowerShell on Windows), with a random-resource fallback if the platform query
+fails. Ordinary splash selection uses epoch milliseconds as a nondeterministic
+proxy; it does not reproduce Java Random's exact distribution or sequence.
+
+The regression set checks Java trim/filter/order, date parsing and all four date
+overrides, scale waveform, rotation, and logo/splash draw order. Fourteen focused
+menu tests and viewer clippy pass. Xvfb `viewer_smoke` passed at 854×480 / GUI 1
+and 1280×720 / GUI 3; the coordinator inspected both Rust menu frames and
+confirmed the splash is visible. Captures are retained only under ignored
+`artifacts/menu-splash-smoke-gui1/` and `artifacts/menu-splash-smoke-gui3/`.
+These runs verify runtime loading and UI flow, not full paired pixel parity.
+The remaining conversion-row intermittency and full menu/list screenshot review
+keep MENU-PARITY-001-C01 open.

@@ -1960,10 +1960,12 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - GUI capture was unavailable, so no visual pixel claim. This acceptance covers supplied water ID 8/9 cells and solid colliders only; it does not cover lava, drowning, multiplayer, or full keyboard/client scheduling.
 
 
-## WATER-SIM-001-C02 — bounded runtime and mesh review (in progress)
+## WATER-SIM-001-C02 — bounded runtime and mesh review (accepted)
 
-- `python3 tools/parity/run.py water-tick --strict` → PASS on 13 native transition/source scenes; report `artifacts/parity/water-tick/run-tslldqag/report.json`.
-- `python3 tools/parity/run.py water-schedule --strict` → PASS on the ordered native edit/neighbor/schedule transcript and full state; report `artifacts/parity/water-schedule/run-d0wc9kcw`.
+- Accepted owner A02 status/handoff at clean Agy snapshot `328e629`. The runtime source matches the reviewed Codex production source; the Codex-only delta is the focused dirty-fluid-mesh regression.
+- `python3 tools/parity/run.py water-tick --strict` → PASS on 13 native transition/source scenes, 16 ordered tick executions, zero mismatches; report `artifacts/parity/water-tick/run-wg746qah/report.json`.
+- `python3 tools/parity/run.py water-schedule --strict` → PASS on three native edit/neighbor/schedule cases, 16 ordered events and full state; report `artifacts/parity/water-schedule/run-ept6igw9/report.json`.
 - Added `native_flow_tick_changes_only_the_fluid_mesh_in_its_touched_chunk`: a captured flow-decay tick removes water from the selected chunk mesh while the unrelated loaded chunk mesh stays exactly equal.
-- `python3 tools/check.py` → PASS: 284 Python tests (18 opt-in skipped), fmt, check, clippy `-D warnings`, all Rust targets and doc tests. A release relight run reproduced p50 617–628 µs on the three bounded material edit scenes, with unchanged state/result digests.
-- The Agy-owned A02 status/handoff remains open. This review does not claim world-load seeding, general neighbor behavior, lava, unloaded-chunk flow, persistence, or full visual parity.
+- On Agy `328e629`: `cargo fmt --all -- --check`, core and viewer all-target tests, viewer clippy `-D warnings`, and `git diff --check` → PASS. `python3 tools/check.py` on the matching Codex production source → PASS: 284 Python tests (18 opt-in skipped), workspace fmt/check/clippy, all targets and docs.
+- Agy's bounded release edit benchmark reports p50 617–628 µs on three material scenes with unchanged state/result digests; this is not an overall FPS claim.
+- Supported seeding remains limited to direct flowing-water placement, one captured east-adjacent solid placement, and removal of the directly-below support. World-load seeding, general neighbors, lava, unloaded-chunk flow, persistence, and full visual parity are not claimed.

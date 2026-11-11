@@ -155,7 +155,7 @@ snapshot, динамические spawn-centered 5×5 chunks и GUI smoke. Со
   relight не закрывают этот дефект. Исправлены opacity registry и direct-sky
   attenuation по новым native-сценам; пользовательский repro ещё открыт.
 - **MENU-PARITY-001 — C01 в работе:** привести однотонное синее главное меню к
-  panorama/title/gui ресурсам, оригинальному масштабу и раскладке, затем
+  tiled background/title/gui/splash ресурсам, оригинальному масштабу и раскладке, затем
   исправить список. Проверять пару native/Rust кадров при двух размерах окна.
   Реализация не ждёт расследования пропавшей native conversion-world строки на
   GUI scale 3. См. [задачу](tasks/MENU-PARITY-001.md).
