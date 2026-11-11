@@ -1,0 +1,44 @@
+case	place-west	rng_seed=17401	operation=3
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	-1	64	0	1	0
+case	place-north	rng_seed=17402	operation=4
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	0	64	-1	1	0
+case	place-south	rng_seed=17403	operation=5
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	0	64	1	1	0
+case	remove-east	rng_seed=17404	operation=6
+input	0	63	0	1	0
+input	0	64	0	9	0
+input	1	64	0	1	0
+action	remove-solid-and-notify	1	64	0	0	0
+case	remove-west	rng_seed=17405	operation=7
+input	0	63	0	1	0
+input	0	64	0	9	0
+input	-1	64	0	1	0
+action	remove-solid-and-notify	-1	64	0	0	0
+case	remove-north	rng_seed=17406	operation=8
+input	0	63	0	1	0
+input	0	64	0	9	0
+input	0	64	-1	1	0
+action	remove-solid-and-notify	0	64	-1	0	0
+case	remove-south	rng_seed=17407	operation=9
+input	0	63	0	1	0
+input	0	64	0	9	0
+input	0	64	1	1	0
+action	remove-solid-and-notify	0	64	1	0	0
+case	queued-earlier	rng_seed=17408	operation=10
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	1	64	0	1	0
+case	queued-later	rng_seed=17409	operation=11
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	1	64	0	1	0
+case	queued-same	rng_seed=17410	operation=12
+input	0	63	0	1	0
+input	0	64	0	9	0
+action	place-solid-and-notify	1	64	0	1	0

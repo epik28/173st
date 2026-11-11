@@ -190,6 +190,65 @@ impl WaterRuntime {
         })
     }
 
+    pub fn edit_horizontal_solid_and_notify(
+        &mut self,
+        cells: std::collections::BTreeMap<WaterPos, WaterCell>,
+        position: WaterPos,
+        water: WaterPos,
+        place: bool,
+    ) -> Result<WaterSeedResult, WaterError> {
+        let mut next_queue = self.queue.clone();
+        let mut next_cells = cells;
+        let mut events = Vec::new();
+
+        let dx = i64::from(position.0) - i64::from(water.0);
+        let dz = i64::from(position.2) - i64::from(water.2);
+        let before = loaded(&next_cells, position)?;
+        let source = loaded(&next_cells, water)?;
+        let support = (
+            water.0,
+            water
+                .1
+                .checked_sub(1)
+                .ok_or(WaterError::CoordinateOverflow)?,
+            water.2,
+        );
+        if position.1 != water.1
+            || dx.abs() + dz.abs() != 1
+            || before.id != if place { 0 } else { 1 }
+            || source != (WaterBlock { id: 9, metadata: 0 })
+            || loaded(&next_cells, support)?.id != 1
+        {
+            return Err(WaterError::UnsupportedTransition {
+                position,
+                id: before.id,
+                metadata: before.metadata,
+            });
+        }
+        let id = if place { 1 } else { 0 };
+        edit_cell(
+            &mut next_cells,
+            position,
+            WaterBlock { id, metadata: 0 },
+            &mut events,
+        )?;
+        events.push(WaterEvent::Neighbor { position, id });
+        schedule_request(water, 8, self.world_time, &mut next_queue, &mut events)?;
+        edit_cell(
+            &mut next_cells,
+            water,
+            WaterBlock { id: 8, metadata: 0 },
+            &mut events,
+        )?;
+        schedule_request(water, 8, self.world_time, &mut next_queue, &mut events)?;
+        self.queue = next_queue;
+        self.last_events = events.clone();
+        Ok(WaterSeedResult {
+            cells: next_cells,
+            events,
+        })
+    }
+
     /// Processes one fixed simulation tick. Clock and queue commit together
     /// with the candidate transition; errors leave all three unchanged.
     pub fn step(
@@ -261,7 +320,7 @@ fn schedule_request(
     });
     if !queue
         .iter()
-        .any(|tick| tick.position == position && tick.id == id && tick.due_time == due_time)
+        .any(|tick| tick.position == position && tick.id == id)
     {
         if queue.len() >= MAX_WATER_TICKS {
             return Err(WaterError::TickLimitExceeded {
@@ -524,6 +583,229 @@ mod tests {
         );
         assert_eq!(runtime.queue().len(), 1);
         assert_eq!(runtime.queue()[0].due_time, 5);
+    }
+
+    #[test]
+    fn extended_schedule_fixture_matches_complete_native_transcripts() {
+        let fixture =
+            include_str!("../../../tests/fixtures/water_tick_schedule_extended/native.tsv");
+        let mut count = 0;
+        for scene in fixture.split("case\t").skip(1) {
+            let lines: Vec<_> = scene.lines().collect();
+            let name = lines[0].split('\t').next().unwrap();
+            let mut cells = BTreeMap::new();
+            for y in 62..=65 {
+                for z in -1..=1 {
+                    for x in -1..=1 {
+                        cells.insert(
+                            (x, y, z),
+                            WaterCell::Loaded(WaterBlock { id: 0, metadata: 0 }),
+                        );
+                    }
+                }
+            }
+            let nums = |line: &str| -> Vec<i32> {
+                line.split('\t')
+                    .skip(1)
+                    .map(|value| value.parse().unwrap())
+                    .collect()
+            };
+            for line in lines.iter().filter(|line| line.starts_with("input\t")) {
+                let n = nums(line);
+                cells.insert(
+                    (n[0], n[1], n[2]),
+                    WaterCell::Loaded(WaterBlock {
+                        id: n[3] as u8,
+                        metadata: n[4] as u8,
+                    }),
+                );
+            }
+            let parse_queue = |line: &str| -> Vec<WaterTick> {
+                let value = line.split_once('\t').unwrap().1;
+                if value.is_empty() {
+                    return Vec::new();
+                }
+                value
+                    .split(',')
+                    .map(|item| {
+                        let n: Vec<i64> = item.split(':').map(|v| v.parse().unwrap()).collect();
+                        WaterTick {
+                            position: (n[0] as i32, n[1] as i32, n[2] as i32),
+                            id: n[3] as u8,
+                            due_time: n[4],
+                        }
+                    })
+                    .collect()
+            };
+            let mut runtime = WaterRuntime {
+                queue: parse_queue(
+                    lines
+                        .iter()
+                        .find(|line| line.starts_with("queue_before\t"))
+                        .unwrap(),
+                ),
+                ..WaterRuntime::default()
+            };
+            let action = lines
+                .iter()
+                .find(|line| line.starts_with("action\t"))
+                .unwrap();
+            let fields: Vec<_> = action.split('\t').collect();
+            let position = (
+                fields[2].parse().unwrap(),
+                fields[3].parse().unwrap(),
+                fields[4].parse().unwrap(),
+            );
+            let result = runtime
+                .edit_horizontal_solid_and_notify(cells, position, (0, 64, 0), fields[5] == "1")
+                .unwrap();
+            let events: Vec<String> = result
+                .events
+                .iter()
+                .map(|event| match event {
+                    WaterEvent::Edit {
+                        position: (x, y, z),
+                        before,
+                        after,
+                    } => format!(
+                        "edit\t{x}\t{y}\t{z}\t{}\t{}\t{}\t{}",
+                        before.id, before.metadata, after.id, after.metadata
+                    ),
+                    WaterEvent::Neighbor {
+                        position: (x, y, z),
+                        id,
+                    } => format!("neighbor\t{x}\t{y}\t{z}\t{id}"),
+                    WaterEvent::Schedule {
+                        position: (x, y, z),
+                        id,
+                        delay,
+                    } => format!("schedule\t{x}\t{y}\t{z}\t{id}\t{delay}"),
+                })
+                .collect();
+            let expected_events: Vec<_> = lines
+                .iter()
+                .filter(|line| {
+                    line.starts_with("edit\t")
+                        || line.starts_with("neighbor\t")
+                        || line.starts_with("schedule\t")
+                })
+                .copied()
+                .collect();
+            assert_eq!(events, expected_events, "events: {name}");
+            assert_eq!(
+                runtime.queue(),
+                parse_queue(
+                    lines
+                        .iter()
+                        .find(|line| line.starts_with("queue_after\t"))
+                        .unwrap()
+                ),
+                "queue: {name}"
+            );
+            let state = lines
+                .iter()
+                .find(|line| line.starts_with("state\t"))
+                .unwrap()
+                .split_once('\t')
+                .unwrap()
+                .1;
+            let mut expected = BTreeMap::new();
+            for cell in state.trim_end_matches(';').split(';') {
+                let (pos, block) = cell.split_once('=').unwrap();
+                let p: Vec<i32> = pos.split(',').map(|n| n.parse().unwrap()).collect();
+                let b: Vec<u8> = block.split(':').map(|n| n.parse().unwrap()).collect();
+                expected.insert(
+                    (p[0], p[1], p[2]),
+                    WaterCell::Loaded(WaterBlock {
+                        id: b[0],
+                        metadata: b[1],
+                    }),
+                );
+            }
+            assert_eq!(result.cells, expected, "state: {name}");
+            count += 1;
+        }
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn captured_horizontal_edits_and_existing_due_times_match_native() {
+        for (position, place) in [
+            ((-1, 64, 0), true),
+            ((0, 64, -1), true),
+            ((0, 64, 1), true),
+            ((1, 64, 0), false),
+            ((-1, 64, 0), false),
+            ((0, 64, -1), false),
+            ((0, 64, 1), false),
+        ] {
+            let cells = BTreeMap::from([
+                (
+                    position,
+                    WaterCell::Loaded(WaterBlock {
+                        id: if place { 0 } else { 1 },
+                        metadata: 0,
+                    }),
+                ),
+                (
+                    (0, 64, 0),
+                    WaterCell::Loaded(WaterBlock { id: 9, metadata: 0 }),
+                ),
+                (
+                    (0, 63, 0),
+                    WaterCell::Loaded(WaterBlock { id: 1, metadata: 0 }),
+                ),
+            ]);
+            let mut runtime = WaterRuntime::default();
+            let result = runtime
+                .edit_horizontal_solid_and_notify(cells, position, (0, 64, 0), place)
+                .unwrap();
+            assert_eq!(result.events.len(), 5);
+            assert_eq!(
+                result.cells[&(0, 64, 0)],
+                WaterCell::Loaded(WaterBlock { id: 8, metadata: 0 })
+            );
+            assert_eq!(
+                runtime.queue(),
+                &[WaterTick {
+                    position: (0, 64, 0),
+                    id: 8,
+                    due_time: 5
+                }]
+            );
+        }
+        for due_time in [2, 5, 9] {
+            let original = WaterTick {
+                position: (0, 64, 0),
+                id: 8,
+                due_time,
+            };
+            let mut runtime = WaterRuntime {
+                queue: vec![original],
+                ..WaterRuntime::default()
+            };
+            let cells = BTreeMap::from([
+                (
+                    (1, 64, 0),
+                    WaterCell::Loaded(WaterBlock { id: 0, metadata: 0 }),
+                ),
+                (
+                    (0, 64, 0),
+                    WaterCell::Loaded(WaterBlock { id: 9, metadata: 0 }),
+                ),
+                (
+                    (0, 63, 0),
+                    WaterCell::Loaded(WaterBlock { id: 1, metadata: 0 }),
+                ),
+            ]);
+            runtime
+                .apply_captured_seed(
+                    cells,
+                    CapturedSeedAction::PlaceAdjacentSolidAndNotify((1, 64, 0)),
+                )
+                .unwrap();
+            assert_eq!(runtime.queue(), &[original]);
+        }
     }
 
     #[test]

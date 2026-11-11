@@ -1444,6 +1444,38 @@ fn captured_seed_action_for_edit(
     None
 }
 
+fn captured_horizontal_water_edit(
+    before: &BlockScene,
+    after: &BlockScene,
+    breaking: bool,
+    edit: &BlockEdit,
+) -> Option<WaterPos> {
+    if !edit.additional_changed.is_empty() {
+        return None;
+    }
+    let (x, y, z) = edit.changed;
+    let old = before.block(x, y, z).ok().flatten()?;
+    let new = after.block(x, y, z).ok().flatten()?;
+    let expected = if breaking { (1, 0) } else { (0, 1) };
+    if (old.id, new.id) != expected || old.metadata != 0 || new.metadata != 0 {
+        return None;
+    }
+    let support_y = y.checked_sub(1)?;
+    let mut candidates = Vec::new();
+    for (dx, dz) in [(-1_i32, 0_i32), (1, 0), (0, -1), (0, 1)] {
+        let (Some(wx), Some(wz)) = (x.checked_add(dx), z.checked_add(dz)) else {
+            continue;
+        };
+        let water = before.block(wx, y, wz).ok().flatten();
+        let support = before.block(wx, support_y, wz).ok().flatten();
+        if water.is_some_and(|b| b.id == 9 && b.metadata == 0) && support.is_some_and(|b| b.id == 1)
+        {
+            candidates.push((wx, y, wz));
+        }
+    }
+    (candidates.len() == 1).then(|| candidates[0])
+}
+
 fn sync_edited_blocks(
     block_scene: &BlockScene,
     scene_chunks: &mut [SceneChunk],
@@ -1930,9 +1962,36 @@ impl App {
             hit.id,
             &edit,
         );
-        if let Some(action) = seed_action {
+        let seed = if let Some(action) = seed_action {
             let seed_input = self.water_seed_cells(action)?;
-            let seed = next_water_runtime.apply_captured_seed(seed_input, action)?;
+            Some(next_water_runtime.apply_captured_seed(seed_input, action)?)
+        } else if let Some(water) =
+            captured_horizontal_water_edit(&self.block_scene, &next_block_scene, breaking, &edit)
+        {
+            let support = (water.0, water.1 - 1, water.2);
+            let cells = [edit.changed, water, support]
+                .into_iter()
+                .map(|position @ (x, y, z)| {
+                    let cell = match self.block_scene.block(x, y, z) {
+                        Ok(Some(block)) => WaterCell::Loaded(beta_core::water::WaterBlock {
+                            id: block.id,
+                            metadata: block.metadata,
+                        }),
+                        _ => WaterCell::Unloaded,
+                    };
+                    (position, cell)
+                })
+                .collect();
+            Some(next_water_runtime.edit_horizontal_solid_and_notify(
+                cells,
+                edit.changed,
+                water,
+                !breaking,
+            )?)
+        } else {
+            None
+        };
+        if let Some(seed) = seed {
             water_seed_event_count = seed.events.len();
             if !seed.events.is_empty() {
                 eprintln!("beta-viewer water seed transcript: {:?}", seed.events);
@@ -3183,10 +3242,10 @@ impl ApplicationHandler for App {
 #[cfg(test)]
 mod tests {
     use super::{
-        LightDimension, Vertex, build_atlas_mips, captured_seed_action_for_edit,
-        fluid_frame_upload_bytes, interaction_shape, local_world_manifest_path,
-        native_packed_vertex_color, preferred_surface_format, saved_vertex_brightness,
-        sort_fluid_quad_indices, srgb_to_linear, sync_edited_blocks,
+        LightDimension, Vertex, build_atlas_mips, captured_horizontal_water_edit,
+        captured_seed_action_for_edit, fluid_frame_upload_bytes, interaction_shape,
+        local_world_manifest_path, native_packed_vertex_color, preferred_surface_format,
+        saved_vertex_brightness, sort_fluid_quad_indices, srgb_to_linear, sync_edited_blocks,
     };
     use beta_core::{
         block::{BlockEdit, BlockScene, BlockSceneBounds, BlockSceneChunk, RayShape},
@@ -3214,6 +3273,35 @@ mod tests {
             vec![BlockSceneChunk { x: 0, z: 0, data }],
         )
         .unwrap()
+    }
+
+    #[test]
+    fn horizontal_water_edit_finds_one_supported_source_in_each_direction() {
+        for (dx, dz) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+            for breaking in [false, true] {
+                let (wx, wz) = (8 + dx, 8 + dz);
+                let before = block_scene_with(&[
+                    (wx, 63, wz, 1),
+                    (wx, 64, wz, 9),
+                    (8, 64, 8, u8::from(breaking)),
+                ]);
+                let mut after = before.clone();
+                let edit = after
+                    .apply_block_states(&[(
+                        (8, 64, 8),
+                        BlockData {
+                            id: u8::from(!breaking),
+                            ..BlockData::default()
+                        },
+                    )])
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(
+                    captured_horizontal_water_edit(&before, &after, breaking, &edit),
+                    Some((wx, 64, wz))
+                );
+            }
+        }
     }
 
     #[test]

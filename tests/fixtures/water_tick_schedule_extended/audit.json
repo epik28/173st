@@ -1,0 +1,12 @@
+{
+  "captures": 2,
+  "case_count": 10,
+  "events": 77,
+  "extension_version": "water-tick-seeding-extended-1",
+  "input_sha256": "40d5ef1e99bb03bb21b17ac8282e7b4985cb208ad9f7a7795fc7397ee64d43e4",
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "native_sha256": "e85f1a2b9ca0cac63a22259ffb889db8facb36c04867702fefba9a7a08271899",
+  "oracle_source_sha256": "4fac383d89c29b36ea4df9c8c0db969af9072613c10d5e6ca8a22f6c38471f1d",
+  "repeat_identical": true,
+  "save_access": false
+}
