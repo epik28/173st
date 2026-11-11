@@ -806,9 +806,24 @@ fn mapping_for_state(state: State) -> Option<BlockMapping> {
 }
 fn mapping_registry() -> Vec<BlockMapping> {
     let mut mappings: Vec<_> = native_registry().0.values().cloned().collect();
-    // Native uu instances with full [0,1] bounds and opaque terrain tiles.
+    // Native context-independent cubes with full [0,1] bounds and opaque tiles.
     // Keep these viewer-only additions out of the strict observed-scene registry.
-    for (id, tile) in [(4, 16), (5, 4), (22, 144), (45, 7), (48, 36)] {
+    for (id, tiles) in [
+        (4, [16; 6]),
+        (5, [4; 6]),
+        (22, [144; 6]),
+        (41, [23; 6]),
+        (42, [22; 6]),
+        (45, [7; 6]),
+        (47, [4, 4, 35, 35, 35, 35]),
+        (48, [36; 6]),
+        (57, [24; 6]),
+        (58, [4, 43, 60, 59, 60, 59]),
+        (80, [66; 6]),
+        (82, [72; 6]),
+        (87, [103; 6]),
+        (89, [105; 6]),
+    ] {
         mappings.push(BlockMapping {
             key: BlockStateKey {
                 id,
@@ -819,7 +834,7 @@ fn mapping_registry() -> Vec<BlockMapping> {
             opaque: true,
             full_cube: true,
             alpha_opaque_faces: [true; 6],
-            tiles: [tile; 6],
+            tiles,
             supported: true,
         });
     }
@@ -2859,7 +2874,7 @@ mod tests {
             .lines()
             .filter(|line| !line.starts_with('#'))
             .collect();
-        assert_eq!(rows.len(), 5);
+        assert_eq!(rows.len(), 14);
         for row in rows {
             let fields: Vec<_> = row.split('\t').collect();
             assert_eq!(fields.len(), 9);
@@ -2881,7 +2896,7 @@ mod tests {
             assert_eq!(fields[5], "111111");
             assert_eq!(fields[6], "000000");
             assert_eq!(fields[7], "000000");
-            assert_eq!(fields[8], "000000,000000,000000,000000,000000");
+            assert_eq!(fields[8], vec!["000000"; 14].join(","));
             assert!(
                 mapping_for_state(State {
                     id,

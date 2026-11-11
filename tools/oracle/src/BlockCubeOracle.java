@@ -20,13 +20,23 @@ public final class BlockCubeOracle {
     for (Class<?> type : List.of(uu.class, xp.class, ln.class))
       report.println("# class_sha256\t" + type.getName() + "\t" + ViewOracle.classSha(type));
     report.println("# id\trender_type\topaque\tbounds\ttiles\talpha\tstone_to_cube\tcube_to_stone\tcube_to_each_added");
-    int[] ids = {4, 5, 22, 45, 48};
+    int[] ids = {4, 5, 22, 41, 42, 45, 47, 48, 57, 58, 80, 82, 87, 89};
     for (int id : ids) {
       uu block = uu.m[id];
-      if (block == null || block.getClass() != uu.class) throw new IOException("unexpected class for " + id);
+      if (block == null) throw new IOException("missing block " + id);
+      Class<?> type = block.getClass();
+      ViewOracle.requireFromJar(type, jar);
+      if (type.getMethod("a", xp.class, int.class, int.class, int.class, int.class).getDeclaringClass() != uu.class ||
+          type.getMethod("a", xp.class, int.class, int.class, int.class).getDeclaringClass() != uu.class ||
+          type.getMethod("b", xp.class, int.class, int.class, int.class, int.class).getDeclaringClass() != uu.class)
+        throw new IOException("context override for " + id);
+      report.println("# class_sha256\t" + type.getName() + "\t" + ViewOracle.classSha(type));
       int[] tiles = new int[6]; StringBuilder alpha = new StringBuilder(), stoneTo = new StringBuilder(), toStone = new StringBuilder(), pairs = new StringBuilder();
       for (int face = 0; face < 6; face++) {
         tiles[face] = block.a(ViewOracle.probeWorld(0, false, ln.a), 0, 0, 0, face);
+        for (int meta = 1; meta < 16; meta++)
+          if (block.a(ViewOracle.probeWorld(meta, false, ln.a), 0, 0, 0, face) != tiles[face])
+            throw new IOException("metadata texture variation for " + id);
         alpha.append(ViewOracle.alphaMask(image, tiles[face]));
         stoneTo.append(ViewOracle.visible(uu.m[1], face, block) ? '1' : '0');
         toStone.append(ViewOracle.visible(block, face, uu.m[1]) ? '1' : '0');
