@@ -69,3 +69,22 @@ struct VertexOut {
     if color.a <= 0.0 { discard; }
     return vec4<f32>(0.2470588, 0.2470588, 0.2470588, color.a);
 }
+
+struct SolidHudIn {
+    @location(0) position: vec2<f32>,
+    @location(1) color: vec3<f32>,
+};
+struct SolidHudOut {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) color: vec3<f32>,
+};
+@vertex fn vs_solid_hud(input: SolidHudIn) -> SolidHudOut {
+    var out: SolidHudOut;
+    out.clip = vec4<f32>(input.position, 0.0, 1.0);
+    out.color = input.color;
+    return out;
+}
+@fragment fn fs_solid_hud(input: SolidHudOut) -> @location(0) vec4<f32> {
+    if OUTPUT_SRGB != 0u { return vec4<f32>(srgb_to_linear(input.color), 1.0); }
+    return vec4<f32>(input.color, 1.0);
+}

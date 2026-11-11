@@ -1259,6 +1259,7 @@ struct Gpu {
     fluid_pipeline: wgpu::RenderPipeline,
     hud_pipeline: wgpu::RenderPipeline,
     hud_shadow_pipeline: wgpu::RenderPipeline,
+    durability_pipeline: wgpu::RenderPipeline,
     chunk_meshes: BTreeMap<(i32, i32), GpuChunkMesh>,
     fluid_vertex: wgpu::Buffer,
     fluid_vertex_count: u32,
@@ -1279,6 +1280,7 @@ struct Gpu {
     cursor_items_vertex: wgpu::Buffer,
     hotbar_terrain_vertex: wgpu::Buffer,
     hotbar_items_vertex: wgpu::Buffer,
+    durability_vertex: wgpu::Buffer,
     count_shadow_vertex: wgpu::Buffer,
     count_foreground_vertex: wgpu::Buffer,
     font_bind: wgpu::BindGroup,
@@ -2442,6 +2444,45 @@ impl App {
             cache: None,
         });
 
+        let durability_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("native durability overlay pipeline"),
+            layout: Some(&pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_solid_hud"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 20,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x2,1=>Float32x3],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_solid_hud"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &output_srgb_constant,
+                    ..Default::default()
+                },
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::Always),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
         let create_hud_view = |label: &'static str, image: &image::RgbaImage| {
             let (width, height) = image.dimensions();
             let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -2563,15 +2604,22 @@ impl App {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        // 36 inventory stacks plus the cursor, each with three six-vertex quads.
+        let durability_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native durability overlay vertices"),
+            size: 37 * 3 * 6 * 20,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let count_shadow_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native item count shadow vertices"),
-            size: 36 * 12 * 16,
+            size: 37 * 12 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let count_foreground_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native item count foreground vertices"),
-            size: 36 * 12 * 16,
+            size: 37 * 12 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -2602,6 +2650,7 @@ impl App {
             fluid_pipeline,
             hud_pipeline,
             hud_shadow_pipeline,
+            durability_pipeline,
             chunk_meshes: gpu_chunk_meshes,
             fluid_vertex,
             fluid_vertex_count,
@@ -2622,6 +2671,7 @@ impl App {
             cursor_items_vertex,
             hotbar_terrain_vertex,
             hotbar_items_vertex,
+            durability_vertex,
             count_shadow_vertex,
             count_foreground_vertex,
             font_bind,
@@ -2836,6 +2886,40 @@ impl App {
                 },
             )
         };
+        let mut durability = if inventory_open || show_hud {
+            inventory_screen::durability_vertices(
+                &self.inventory,
+                g.config.width,
+                g.config.height,
+                hud::gui_scale(g.config.width, g.config.height),
+                !inventory_open,
+            )
+        } else {
+            Vec::new()
+        };
+        let inventory_durability_count = durability.len() as u32;
+        if inventory_open
+            && let (Some(stack), Some(mouse)) =
+                (self.inventory_screen.cursor_stack(), self.cursor_position)
+        {
+            let scale = hud::gui_scale(g.config.width, g.config.height);
+            let layout = inventory_screen::native_layout(g.config.width, g.config.height, scale);
+            let s = scale.max(1) as f32;
+            inventory_screen::append_durability_vertices(
+                &mut durability,
+                stack,
+                mouse.0 - layout.panel.x - 8.0 * s,
+                mouse.1 - layout.panel.y - 8.0 * s,
+                scale,
+                (g.config.width, g.config.height),
+            );
+        }
+        let durability_count = durability.len() as u32;
+        assert!(durability.len() <= 37 * 3 * 6);
+        if !durability.is_empty() {
+            g.queue
+                .write_buffer(&g.durability_vertex, 0, bytemuck::cast_slice(&durability));
+        }
         let count_pass = if inventory_open || show_hud {
             let counts = inventory_screen::count_vertices(
                 &self.inventory,
@@ -2941,6 +3025,12 @@ impl App {
                             p.set_vertex_buffer(0, g.inventory_icons_vertex.slice(..));
                             p.draw(0..inventory_icon_count, 0..1);
                         }
+                        if inventory_durability_count > 0 {
+                            p.set_pipeline(&g.durability_pipeline);
+                            p.set_vertex_buffer(0, g.durability_vertex.slice(..));
+                            p.draw(0..inventory_durability_count, 0..1);
+                            p.set_pipeline(&g.hud_pipeline);
+                        }
                         if cursor_terrain_count > 0 {
                             p.set_bind_group(0, &g.bind, &[]);
                             p.set_vertex_buffer(0, g.cursor_terrain_vertex.slice(..));
@@ -2950,6 +3040,11 @@ impl App {
                             p.set_bind_group(0, &g.items_bind, &[]);
                             p.set_vertex_buffer(0, g.cursor_items_vertex.slice(..));
                             p.draw(0..cursor_items_count, 0..1);
+                        }
+                        if durability_count > inventory_durability_count {
+                            p.set_pipeline(&g.durability_pipeline);
+                            p.set_vertex_buffer(0, g.durability_vertex.slice(..));
+                            p.draw(inventory_durability_count..durability_count, 0..1);
                         }
                         if count_pass.0 > 0 {
                             p.set_pipeline(&g.hud_shadow_pipeline);
@@ -2977,6 +3072,11 @@ impl App {
                             p.set_bind_group(0, &g.items_bind, &[]);
                             p.set_vertex_buffer(0, g.hotbar_items_vertex.slice(..));
                             p.draw(0..hotbar_items_count, 0..1);
+                        }
+                        if durability_count > 0 {
+                            p.set_pipeline(&g.durability_pipeline);
+                            p.set_vertex_buffer(0, g.durability_vertex.slice(..));
+                            p.draw(0..durability_count, 0..1);
                         }
                         if count_pass.0 > 0 {
                             p.set_pipeline(&g.hud_shadow_pipeline);

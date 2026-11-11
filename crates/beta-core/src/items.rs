@@ -18,7 +18,7 @@ pub struct ItemKind {
 impl ItemKind {
     pub fn from_native_id(id: u16) -> Result<Self, ItemError> {
         let max_stack = match id {
-            1 | 3 => 64, // stone, dirt
+            1 | 3 | 17 | 35 => 64, // stone, dirt, logs, wool
             // Queried through iz.c() in the pinned Beta 1.7.3 client.
             256..=359 => match id {
                 262..=266
@@ -84,6 +84,14 @@ impl ItemKind {
     pub const fn max_stack(self) -> u8 {
         self.max_stack
     }
+
+    /// Largest supported stack data value; variants are not durability.
+    pub const fn max_stack_data(self) -> u16 {
+        match self.id {
+            17 | 35 => 15,
+            _ => self.max_damage(),
+        }
+    }
 }
 
 /// A supported native item stack with bounded durable-item damage.
@@ -97,7 +105,7 @@ pub struct ItemStack {
 impl ItemStack {
     pub fn new(id: u16, count: u8, damage: u16) -> Result<Self, ItemError> {
         let kind = ItemKind::from_native_id(id)?;
-        if damage > kind.max_damage() {
+        if damage > kind.max_stack_data() {
             return Err(ItemError::UnsupportedDamage(damage));
         }
         if count == 0 || count > kind.max_stack {
@@ -127,6 +135,28 @@ impl ItemStack {
 
     pub const fn max_stack(self) -> u8 {
         self.kind.max_stack
+    }
+
+    /// Native block face tiles for the supported log and wool item variants.
+    /// The caller chooses how to project the six faces into an inventory icon.
+    pub fn variant_block_face_tiles(self) -> Option<[u16; 6]> {
+        match self.id() {
+            17 => {
+                let side = match self.damage {
+                    1 => 116,
+                    2 => 117,
+                    _ => 20,
+                };
+                Some([21, 21, side, side, side, side])
+            }
+            35 => {
+                let tile = [
+                    64, 210, 194, 178, 162, 146, 130, 114, 225, 209, 193, 177, 161, 145, 129, 113,
+                ][usize::from(self.damage)];
+                Some([tile; 6])
+            }
+            _ => None,
+        }
     }
 
     /// Split `amount` items off this stack, preserving the receiver on error.
@@ -394,6 +424,46 @@ impl Inventory {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_log_and_wool_stack_variants_match_face_texture_fixture() {
+        let rows: Vec<_> = include_str!("../../../tests/fixtures/inventory_variants/native.tsv")
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(rows.len(), 32);
+        for row in rows {
+            let fields: Vec<_> = row.split('\t').collect();
+            assert_eq!(fields.len(), 5);
+            let id = fields[0].parse().unwrap();
+            let data = fields[1].parse().unwrap();
+            let stack = ItemStack::new(id, 1, data).unwrap();
+            assert_eq!(stack.max_stack().to_string(), fields[2]);
+            assert_eq!(
+                ItemKind::from_native_id(id)
+                    .unwrap()
+                    .max_damage()
+                    .to_string(),
+                fields[3]
+            );
+            assert_eq!(
+                stack
+                    .variant_block_face_tiles()
+                    .unwrap()
+                    .map(|tile| tile.to_string())
+                    .join(","),
+                fields[4]
+            );
+        }
+        for id in [17, 35] {
+            assert!(ItemStack::new(id, 1, 16).is_err());
+            assert_eq!(ItemKind::from_native_id(id).unwrap().max_damage(), 0);
+        }
+        assert_eq!(
+            ItemStack::new(1, 1, 0).unwrap().variant_block_face_tiles(),
+            None
+        );
+    }
     use std::collections::BTreeMap;
 
     type NativeState = (i32, Option<ItemStack>, Vec<Option<ItemStack>>);

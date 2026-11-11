@@ -25,6 +25,104 @@ pub enum ItemAtlas {
     Items,
 }
 
+/// One solid-color native durability overlay rectangle, in GUI pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DurabilityQuad {
+    pub rect: Rect,
+    pub rgb: [u8; 3],
+}
+
+/// Emit the native three layers in draw order at the icon's physical origin.
+/// A zero-width final layer is retained, matching the native tessellator calls.
+pub fn durability_quads(stack: ItemStack, x: f32, y: f32, scale: u32) -> Vec<DurabilityQuad> {
+    let damage = stack.damage();
+    let max = beta_core::items::ItemKind::from_native_id(stack.id())
+        .unwrap()
+        .max_damage();
+    if damage == 0 || max == 0 || item_icon_uv(stack.id(), damage).is_err() {
+        return Vec::new();
+    }
+    let damage = f64::from(damage);
+    let max = f64::from(max);
+    let width = (13.0 - damage * 13.0 / max).round() as u32;
+    let green = (255.0 - damage * 255.0 / max).round() as u8;
+    let red = 255 - green;
+    let s = scale.max(1) as f32;
+    let rect = |width: u32, height: u32| Rect {
+        x: x + 2.0 * s,
+        y: y + 13.0 * s,
+        width: width as f32 * s,
+        height: height as f32 * s,
+    };
+    vec![
+        DurabilityQuad {
+            rect: rect(13, 2),
+            rgb: [0, 0, 0],
+        },
+        DurabilityQuad {
+            rect: rect(12, 1),
+            rgb: [red / 4, 63, 0],
+        },
+        DurabilityQuad {
+            rect: rect(width, 1),
+            rgb: [red, green, 0],
+        },
+    ]
+}
+
+/// Build ordered colored vertices for the visible inventory or hotbar overlays.
+pub fn durability_vertices(
+    inventory: &Inventory,
+    width: u32,
+    height: u32,
+    scale: u32,
+    hotbar: bool,
+) -> Vec<[f32; 5]> {
+    let s = scale.max(1) as f32;
+    let layout = super::hud::layout_with_selection(width, height, scale, 0);
+    let slots = native_layout(width, height, scale);
+    let mut result = Vec::new();
+    for slot in 0..if hotbar { 9 } else { MAIN_SLOT_COUNT } {
+        if let Ok(Some(stack)) = inventory.stack_at(slot) {
+            let (x, y) = if hotbar {
+                (
+                    layout.hotbar.x + (3 + slot * 20) as f32 * s,
+                    layout.hotbar.y + 3.0 * s,
+                )
+            } else {
+                (slots.slots[slot].x, slots.slots[slot].y)
+            };
+            append_durability_vertices(&mut result, stack, x, y, scale, (width, height));
+        }
+    }
+    result
+}
+
+pub fn append_durability_vertices(
+    result: &mut Vec<[f32; 5]>,
+    stack: ItemStack,
+    x: f32,
+    y: f32,
+    scale: u32,
+    viewport: (u32, u32),
+) {
+    for quad in durability_quads(stack, x, y, scale) {
+        let color = quad.rgb.map(|v| f32::from(v) / 255.0);
+        for vertex in quad_vertices(
+            quad.rect,
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: 0.0,
+            },
+            viewport,
+        ) {
+            result.push([vertex[0], vertex[1], color[0], color[1], color[2]]);
+        }
+    }
+}
+
 pub struct CountVertices {
     pub shadow: Vec<[f32; 4]>,
     pub foreground: Vec<[f32; 4]>,
@@ -148,7 +246,8 @@ pub fn native_layout(width: u32, height: u32, scale: u32) -> InventoryLayout {
 
 /// Return the audited 16x16 item-atlas tile for a supported stack identity.
 pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
-    ItemStack::new(id, 1, damage).map_err(|_| "unsupported inventory item identity or damage")?;
+    let stack = ItemStack::new(id, 1, damage)
+        .map_err(|_| "unsupported inventory item identity or damage")?;
     // Registry indices queried through iz.b() in the pinned Beta 1.7.3 client.
     // The array covers item IDs 256 through 359, at damage zero.
     const ITEM_TILES: [u8; 104] = [
@@ -161,6 +260,9 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
     let tile = match id {
         1 => 1,
         3 => 2,
+        // Current block icons are flat; use the verified side texture until
+        // the native three-dimensional item rendering path is available.
+        17 | 35 => stack.variant_block_face_tiles().unwrap()[2] as u8,
         // Compass and clock textures depend on world state; dye uses damage variants.
         345 | 347 | 351 => return Err("contextual or variant inventory icon"),
         256..=359 => ITEM_TILES[usize::from(id - 256)],
@@ -178,7 +280,7 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
 
 pub fn item_atlas(id: u16) -> Result<ItemAtlas, &'static str> {
     match id {
-        1 | 3 => Ok(ItemAtlas::Terrain),
+        1 | 3 | 17 | 35 => Ok(ItemAtlas::Terrain),
         345 | 347 | 351 => Err("contextual or variant inventory icon"),
         256..=359 => Ok(ItemAtlas::Items),
         _ => Err("unsupported inventory item ID"),
@@ -489,8 +591,8 @@ impl InventoryScreen {
 mod tests {
     use super::{InventoryScreen, Transition};
     use super::{
-        MAIN_SLOT_COUNT, Rect, count_vertices, cursor_vertices, hotbar_vertices, item_icon_uv,
-        native_layout, native_vertices,
+        ItemAtlas, MAIN_SLOT_COUNT, Rect, count_vertices, cursor_vertices, hotbar_vertices,
+        item_atlas, item_icon_uv, native_layout, native_vertices,
     };
     use beta_core::items::{Inventory, ItemStack};
 
@@ -630,6 +732,58 @@ mod tests {
         }
         assert!(item_icon_uv(999, 0).is_err());
         assert!(item_icon_uv(1, 1).is_err());
+        for id in [17, 35] {
+            for metadata in 0..=15 {
+                let tile = ItemStack::new(id, 1, metadata)
+                    .unwrap()
+                    .variant_block_face_tiles()
+                    .unwrap()[2];
+                let uv = item_icon_uv(id, metadata).unwrap();
+                assert_eq!(
+                    (uv.x, uv.y),
+                    ((tile % 16) as f32 * 16.0, (tile / 16) as f32 * 16.0)
+                );
+                assert_eq!(item_atlas(id).unwrap(), ItemAtlas::Terrain);
+            }
+        }
+    }
+
+    #[test]
+    fn durability_quads_match_native_tessellator_capture() {
+        for row in include_str!("../../../tests/fixtures/inventory_durability/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<&str> = row.split('\t').collect();
+            let id = fields[0].parse().unwrap();
+            let damage = fields[1].parse().unwrap();
+            let quads =
+                super::durability_quads(ItemStack::new(id, 1, damage).unwrap(), 10.0, 20.0, 1);
+            assert_eq!(quads.len(), fields.len() - 2);
+            for (quad, expected) in quads.iter().zip(&fields[2..]) {
+                let parts: Vec<&str> = expected.split(',').collect();
+                let coords: Vec<f32> = parts[..4].iter().map(|p| p.parse().unwrap()).collect();
+                let color = u32::from_str_radix(parts[4], 16).unwrap();
+                assert_eq!(
+                    [quad.rect.x, quad.rect.y, quad.rect.width, quad.rect.height],
+                    coords.as_slice()
+                );
+                assert_eq!(
+                    quad.rgb,
+                    [(color >> 16) as u8, (color >> 8) as u8, color as u8]
+                );
+            }
+        }
+        let scaled = super::durability_quads(ItemStack::new(267, 1, 1).unwrap(), 10.0, 20.0, 3);
+        assert_eq!(
+            (
+                scaled[0].rect.x,
+                scaled[0].rect.y,
+                scaled[0].rect.width,
+                scaled[0].rect.height
+            ),
+            (16.0, 59.0, 39.0, 6.0)
+        );
     }
 
     #[test]
