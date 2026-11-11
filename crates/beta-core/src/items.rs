@@ -43,6 +43,40 @@ impl ItemKind {
         Ok(Self { id, max_stack })
     }
 
+    /// Maximum native durability damage, zero for non-durable items.
+    pub const fn max_damage(self) -> u16 {
+        match self.id {
+            256..=258 | 267 | 292 => 250,
+            259 | 346 => 64,
+            268..=271 | 290 => 59,
+            272..=275 | 291 => 131,
+            276..=279 | 293 => 1561,
+            283..=286 | 294 => 32,
+            298 => 33,
+            299 => 48,
+            300 => 45,
+            301 => 39,
+            302 => 66,
+            303 => 96,
+            304 => 90,
+            305 => 78,
+            306 => 132,
+            307 => 192,
+            308 => 180,
+            309 => 156,
+            310 => 264,
+            311 => 384,
+            312 => 360,
+            313 => 312,
+            314 => 66,
+            315 => 96,
+            316 => 90,
+            317 => 78,
+            359 => 238,
+            _ => 0,
+        }
+    }
+
     pub const fn id(self) -> u16 {
         self.id
     }
@@ -52,8 +86,7 @@ impl ItemKind {
     }
 }
 
-/// A supported native item stack. Only damage value zero is currently covered
-/// by this model; other values are rejected explicitly.
+/// A supported native item stack with bounded durable-item damage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ItemStack {
     kind: ItemKind,
@@ -64,7 +97,7 @@ pub struct ItemStack {
 impl ItemStack {
     pub fn new(id: u16, count: u8, damage: u16) -> Result<Self, ItemError> {
         let kind = ItemKind::from_native_id(id)?;
-        if damage != 0 {
+        if damage > kind.max_damage() {
             return Err(ItemError::UnsupportedDamage(damage));
         }
         if count == 0 || count > kind.max_stack {
@@ -259,7 +292,9 @@ impl Inventory {
             .iter()
             .map(|slot| match slot {
                 None => u16::from(stack.max_stack()),
-                Some(existing) if existing.kind == stack.kind => {
+                Some(existing)
+                    if existing.kind == stack.kind && existing.damage == stack.damage =>
+                {
                     u16::from(existing.max_stack() - existing.count)
                 }
                 Some(_) => 0,
@@ -277,6 +312,7 @@ impl Inventory {
             }
             if let Some(existing) = slot.as_mut()
                 && existing.kind == stack.kind
+                && existing.damage == stack.damage
             {
                 let moved = remaining.min(existing.max_stack() - existing.count);
                 existing.count += moved;
@@ -412,6 +448,25 @@ mod tests {
             assert!(usize::from(inventory.selected_hotbar()) < HOTBAR_SLOT_COUNT);
         }
         assert_eq!(inventory.slots().as_slice(), slots.as_slice());
+    }
+
+    #[test]
+    fn durability_limits_match_native_registry_fixture() {
+        for row in include_str!("../../../tests/fixtures/inventory_damage/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<&str> = row.split('\t').collect();
+            let id: u16 = fields[0].parse().unwrap();
+            let max: u16 = fields[1].parse().unwrap();
+            assert_eq!(
+                ItemKind::from_native_id(id).unwrap().max_damage(),
+                max,
+                "ID {id}"
+            );
+            assert!(ItemStack::new(id, 1, max).is_ok());
+            assert!(ItemStack::new(id, 1, max + 1).is_err());
+        }
     }
 
     #[test]

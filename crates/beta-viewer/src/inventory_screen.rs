@@ -148,9 +148,7 @@ pub fn native_layout(width: u32, height: u32, scale: u32) -> InventoryLayout {
 
 /// Return the audited 16x16 item-atlas tile for a supported stack identity.
 pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
-    if damage != 0 {
-        return Err("unsupported inventory item damage");
-    }
+    ItemStack::new(id, 1, damage).map_err(|_| "unsupported inventory item identity or damage")?;
     // Registry indices queried through iz.b() in the pinned Beta 1.7.3 client.
     // The array covers item IDs 256 through 359, at damage zero.
     const ITEM_TILES: [u8; 104] = [
@@ -632,6 +630,31 @@ mod tests {
         }
         assert!(item_icon_uv(999, 0).is_err());
         assert!(item_icon_uv(1, 1).is_err());
+    }
+
+    #[test]
+    fn durable_item_icons_match_native_damage_range() {
+        for row in include_str!("../../../tests/fixtures/inventory_damage/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<&str> = row.split('\t').collect();
+            let id: u16 = fields[0].parse().unwrap();
+            let max: u16 = fields[1].parse().unwrap();
+            if max == 0 {
+                continue;
+            }
+            assert_eq!(fields[3], "true");
+            let base = item_icon_uv(id, 0).unwrap();
+            for damage in 0..=max {
+                assert_eq!(
+                    item_icon_uv(id, damage).unwrap(),
+                    base,
+                    "ID {id} damage {damage}"
+                );
+            }
+            assert!(item_icon_uv(id, max + 1).is_err());
+        }
     }
 
     #[test]
