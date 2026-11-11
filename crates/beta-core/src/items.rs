@@ -1,7 +1,7 @@
 //! Bounded, in-memory model of the native-confirmed Beta 1.7.3 main inventory.
 //!
-//! This intentionally knows only the four item IDs exercised by the committed
-//! native corpus. It performs no I/O and does not persist state.
+//! Stack limits come from the pinned client registry. This model performs no I/O
+//! and does not persist state.
 
 use std::{error::Error, fmt};
 
@@ -19,8 +19,25 @@ impl ItemKind {
     pub fn from_native_id(id: u16) -> Result<Self, ItemError> {
         let max_stack = match id {
             1 | 3 => 64, // stone, dirt
-            332 => 16,   // snowball
-            267 => 1,    // iron sword
+            // Queried through iz.c() in the pinned Beta 1.7.3 client.
+            256..=359 => match id {
+                262..=266
+                | 280..=281
+                | 287..=289
+                | 295..=296
+                | 318
+                | 321
+                | 331
+                | 334
+                | 336..=341
+                | 345
+                | 347..=348
+                | 351..=353
+                | 356 => 64,
+                332 | 344 => 16,
+                357 => 8,
+                _ => 1,
+            },
             other => return Err(ItemError::UnsupportedItem(other)),
         };
         Ok(Self { id, max_stack })
@@ -36,7 +53,7 @@ impl ItemKind {
 }
 
 /// A supported native item stack. Only damage value zero is currently covered
-/// by the original-JAR fixture; other values are rejected explicitly.
+/// by this model; other values are rejected explicitly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ItemStack {
     kind: ItemKind,
@@ -395,6 +412,35 @@ mod tests {
             assert!(usize::from(inventory.selected_hotbar()) < HOTBAR_SLOT_COUNT);
         }
         assert_eq!(inventory.slots().as_slice(), slots.as_slice());
+    }
+
+    #[test]
+    fn stack_limits_match_native_registry_fixture() {
+        let rows = include_str!("../../../tests/fixtures/inventory_registry/native.tsv");
+        for row in rows.lines().skip(1) {
+            let values: Vec<u16> = row.split('\t').map(|s| s.parse().unwrap()).collect();
+            assert_eq!(
+                u16::from(ItemKind::from_native_id(values[0]).unwrap().max_stack()),
+                values[4],
+                "ID {}",
+                values[0]
+            );
+        }
+    }
+
+    #[test]
+    fn additional_native_stack_limits_are_enforced() {
+        for (id, max) in [
+            (256, 1),
+            (262, 64),
+            (332, 16),
+            (344, 16),
+            (357, 8),
+            (359, 1),
+        ] {
+            assert!(ItemStack::new(id, max, 0).is_ok());
+            assert!(ItemStack::new(id, max + 1, 0).is_err());
+        }
     }
 
     #[test]

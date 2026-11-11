@@ -151,13 +151,25 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
     if damage != 0 {
         return Err("unsupported inventory item damage");
     }
-    let (x, y) = match id {
-        1 => (16.0, 0.0),
-        3 => (32.0, 0.0),
-        332 => (224.0, 0.0),
-        267 => (32.0, 64.0),
+    // Registry indices queried through iz.b() in the pinned Beta 1.7.3 client.
+    // The array covers item IDs 256 through 359, at damage zero.
+    const ITEM_TILES: [u8; 104] = [
+        82, 98, 114, 5, 10, 21, 37, 7, 55, 23, 39, 66, 64, 80, 96, 112, 65, 81, 97, 113, 67, 83,
+        99, 115, 53, 71, 72, 68, 84, 100, 116, 8, 24, 40, 128, 129, 130, 131, 132, 9, 25, 41, 0,
+        16, 32, 48, 1, 17, 33, 49, 2, 18, 34, 50, 3, 19, 35, 51, 4, 20, 36, 52, 6, 87, 88, 26, 11,
+        42, 43, 74, 75, 76, 135, 104, 44, 56, 14, 136, 103, 77, 22, 57, 27, 58, 59, 30, 151, 167,
+        12, 54, 69, 70, 73, 89, 90, 78, 28, 13, 29, 45, 86, 92, 60, 93,
+    ];
+    let tile = match id {
+        1 => 1,
+        3 => 2,
+        // Compass and clock textures depend on world state; dye uses damage variants.
+        345 | 347 | 351 => return Err("contextual or variant inventory icon"),
+        256..=359 => ITEM_TILES[usize::from(id - 256)],
         _ => return Err("unsupported inventory item ID"),
     };
+    let x = f32::from(tile % 16) * 16.0;
+    let y = f32::from(tile / 16) * 16.0;
     Ok(Rect {
         x,
         y,
@@ -169,7 +181,8 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
 pub fn item_atlas(id: u16) -> Result<ItemAtlas, &'static str> {
     match id {
         1 | 3 => Ok(ItemAtlas::Terrain),
-        332 | 267 => Ok(ItemAtlas::Items),
+        345 | 347 | 351 => Err("contextual or variant inventory icon"),
+        256..=359 => Ok(ItemAtlas::Items),
         _ => Err("unsupported inventory item ID"),
     }
 }
@@ -619,6 +632,52 @@ mod tests {
         }
         assert!(item_icon_uv(999, 0).is_err());
         assert!(item_icon_uv(1, 1).is_err());
+    }
+
+    #[test]
+    fn item_tiles_match_native_registry_fixture() {
+        let rows = include_str!("../../../tests/fixtures/inventory_registry/native.tsv");
+        for row in rows.lines().skip(1) {
+            let values: Vec<u16> = row.split('\t').map(|s| s.parse().unwrap()).collect();
+            let id = values[0];
+            if [345, 347, 351].contains(&id) {
+                assert!(item_icon_uv(id, 0).is_err());
+                continue;
+            }
+            let tile = values[1];
+            let uv = item_icon_uv(id, 0).unwrap();
+            assert_eq!(
+                (uv.x, uv.y),
+                (f32::from(tile % 16) * 16.0, f32::from(tile / 16) * 16.0),
+                "ID {id}"
+            );
+        }
+    }
+
+    #[test]
+    fn additional_native_items_render_in_inventory_hotbar_and_cursor() {
+        let mut inventory = Inventory::new();
+        for (slot, id) in [(0, 256), (1, 344), (2, 357), (3, 359)] {
+            inventory
+                .set_slot(slot, Some(ItemStack::new(id, 1, 0).unwrap()))
+                .unwrap();
+        }
+        let vertices = native_vertices(&inventory, 320, 240, 1).unwrap();
+        let (_, hotbar) = hotbar_vertices(&inventory, 320, 240, 1);
+        for (quad, tile) in [82, 12, 92, 93].into_iter().enumerate() {
+            let expected = [(tile % 16) as f32 / 16.0, (tile / 16) as f32 / 16.0];
+            assert_eq!(&vertices.items[quad * 6][2..], &expected);
+            assert_eq!(&hotbar[quad * 6][2..], &expected);
+        }
+        let (_, cursor, _) = cursor_vertices(
+            Some(ItemStack::new(359, 1, 0).unwrap()),
+            320,
+            240,
+            1,
+            (10.0, 10.0),
+            (0.0, 0.0),
+        );
+        assert_eq!(&cursor[0][2..], &[13.0 / 16.0, 5.0 / 16.0]);
     }
 
     #[test]
