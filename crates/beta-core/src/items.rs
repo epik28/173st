@@ -88,7 +88,7 @@ impl ItemKind {
     /// Largest supported stack data value; variants are not durability.
     pub const fn max_stack_data(self) -> u16 {
         match self.id {
-            17 | 35 => 15,
+            17 | 35 | 351 => 15,
             _ => self.max_damage(),
         }
     }
@@ -521,6 +521,42 @@ mod tests {
     }
 
     #[test]
+    fn dye_metadata_matches_native_merges() {
+        let mut icon_rows = 0;
+        let mut merge_rows = 0;
+        for row in include_str!("../../../tests/fixtures/dye_inventory/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<&str> = row.split('\t').collect();
+            let damage: u16 = fields[1].parse().unwrap();
+            if fields[0] == "icon" {
+                let stack = ItemStack::new(351, 1, damage).unwrap();
+                assert_eq!(stack.damage(), damage);
+                assert_eq!(stack.max_stack(), 64);
+                icon_rows += 1;
+                continue;
+            }
+            let other: u16 = fields[2].parse().unwrap();
+            let mut inv = Inventory::new();
+            inv.set_slot(0, Some(ItemStack::new(351, 10, damage).unwrap()))
+                .unwrap();
+            let mut incoming = Some(ItemStack::new(351, 5, other).unwrap());
+            assert!(inv.insert(&mut incoming).unwrap());
+            assert_eq!(
+                inv.stack_at(0).unwrap().unwrap().count(),
+                fields[3].parse::<u8>().unwrap()
+            );
+            let second = inv.stack_at(1).unwrap().map_or(0, |s| s.damage() + 1);
+            assert_eq!(second, fields[4].parse::<u16>().unwrap());
+            merge_rows += 1;
+        }
+        assert_eq!((icon_rows, merge_rows), (16, 256));
+        assert!(ItemStack::new(351, 1, 16).is_err());
+        assert_eq!(ItemKind::from_native_id(351).unwrap().max_damage(), 0);
+    }
+
+    #[test]
     fn durability_limits_match_native_registry_fixture() {
         for row in include_str!("../../../tests/fixtures/inventory_damage/native.tsv")
             .lines()
@@ -535,7 +571,9 @@ mod tests {
                 "ID {id}"
             );
             assert!(ItemStack::new(id, 1, max).is_ok());
-            assert!(ItemStack::new(id, 1, max + 1).is_err());
+            if max > 0 {
+                assert!(ItemStack::new(id, 1, max + 1).is_err());
+            }
         }
     }
 

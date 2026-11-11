@@ -263,8 +263,9 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
         // Current block icons are flat; use the verified side texture until
         // the native three-dimensional item rendering path is available.
         17 | 35 => stack.variant_block_face_tiles().unwrap()[2] as u8,
-        // Compass and clock textures depend on world state; dye uses damage variants.
-        345 | 347 | 351 => return Err("contextual or variant inventory icon"),
+        // Compass and clock textures depend on world state.
+        345 | 347 => return Err("contextual inventory icon"),
+        351 => (78 + (damage % 8) * 16 + damage / 8) as u8,
         256..=359 => ITEM_TILES[usize::from(id - 256)],
         _ => return Err("unsupported inventory item ID"),
     };
@@ -281,7 +282,7 @@ pub fn item_icon_uv(id: u16, damage: u16) -> Result<Rect, &'static str> {
 pub fn item_atlas(id: u16) -> Result<ItemAtlas, &'static str> {
     match id {
         1 | 3 | 17 | 35 => Ok(ItemAtlas::Terrain),
-        345 | 347 | 351 => Err("contextual or variant inventory icon"),
+        345 | 347 => Err("contextual inventory icon"),
         256..=359 => Ok(ItemAtlas::Items),
         _ => Err("unsupported inventory item ID"),
     }
@@ -812,12 +813,30 @@ mod tests {
     }
 
     #[test]
+    fn dye_icons_match_native_metadata() {
+        for row in include_str!("../../../tests/fixtures/dye_inventory/native.tsv").lines() {
+            let fields: Vec<_> = row.split('\t').collect();
+            if fields[0] != "icon" {
+                continue;
+            }
+            let data: u16 = fields[1].parse().unwrap();
+            let tile: u16 = fields[3].parse().unwrap();
+            let uv = item_icon_uv(351, data).unwrap();
+            assert_eq!(
+                (uv.x, uv.y),
+                ((tile % 16) as f32 * 16.0, (tile / 16) as f32 * 16.0)
+            );
+        }
+        assert!(item_icon_uv(351, 16).is_err());
+    }
+
+    #[test]
     fn item_tiles_match_native_registry_fixture() {
         let rows = include_str!("../../../tests/fixtures/inventory_registry/native.tsv");
         for row in rows.lines().skip(1) {
             let values: Vec<u16> = row.split('\t').map(|s| s.parse().unwrap()).collect();
             let id = values[0];
-            if [345, 347, 351].contains(&id) {
+            if [345, 347].contains(&id) {
                 assert!(item_icon_uv(id, 0).is_err());
                 continue;
             }
