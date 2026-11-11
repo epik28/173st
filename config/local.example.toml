@@ -12,3 +12,8 @@ terrain_png = "../.local/minecraft/terrain.png"
 # Optional, once original JAR files are provided and verified:
 # client_jar = "../.local/minecraft/client-b1.7.3.jar"
 # server_jar = "../.local/minecraft/server-b1.7.3.jar"
+
+# Optional graphics backend: "auto" (default), "vulkan", or "opengl".
+# The selected backend must be supported by the installed graphics driver.
+[renderer]
+backend = "auto"

@@ -56,6 +56,11 @@ python3 tools/prepare_assets.py
 cargo run --locked --offline -p beta-viewer
 ```
 
+The optional `[renderer]` setting `backend = "auto"`, `"vulkan"`, or
+`"opengl"` in `config/local.toml` selects the graphics backend for both menu
+and game. Auto is the default; explicitly selected backends require a compatible
+driver and adapter.
+
 Choose **Singleplayer**, select an available save, then press **Select** or Enter.
 Unavailable entries show a reason. Cancel returns to the menu. The current menu
 is temporary; original-menu presentation is tracked in MENU-PARITY-001.

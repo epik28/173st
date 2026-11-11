@@ -5,6 +5,77 @@ use beta_core::{
     nbt::Tag,
 };
 
+/// Decode the native player Pos into the motion controller's bottom-center point.
+///
+/// Native `sn.d(nu)` writes Y as entity position plus ySize. The player's
+/// bounding box bottom is that value minus its 1.62f yOffset. Require every
+/// chunk touched by the player box to be loaded; otherwise callers use their
+/// existing safe spawn. Every intersected cell must be air; motion is not restored.
+pub fn position_from_player(
+    player: Option<&Tag>,
+    mut chunk_loaded: impl FnMut(i32, i32) -> bool,
+    mut block_is_air: impl FnMut(i32, i32, i32) -> bool,
+) -> Option<[f64; 3]> {
+    let Tag::Compound(fields) = player? else {
+        return None;
+    };
+    let Tag::List {
+        element_type: beta_core::nbt::TagType::Double,
+        values,
+    } = field(fields, "Pos")?
+    else {
+        return None;
+    };
+    let [Tag::Double(x), Tag::Double(y), Tag::Double(z)] = values.as_slice() else {
+        return None;
+    };
+    let position = [*x, *y - f64::from(1.62_f32), *z];
+    if !position.iter().all(|v| v.is_finite())
+        || position[1] < 0.0
+        || position[1] + f64::from(1.8_f32) > 128.0
+    {
+        return None;
+    }
+    let radius = f64::from(0.6_f32 / 2.0_f32);
+    let chunk = |v: f64| -> Option<i32> {
+        let value = (v / 16.0).floor();
+        if value < f64::from(i32::MIN) || value > f64::from(i32::MAX) {
+            None
+        } else {
+            Some(value as i32)
+        }
+    };
+    let (min_x, max_x) = (chunk(position[0] - radius)?, chunk(position[0] + radius)?);
+    let (min_z, max_z) = (chunk(position[2] - radius)?, chunk(position[2] + radius)?);
+    for x in min_x..=max_x {
+        for z in min_z..=max_z {
+            if !chunk_loaded(x, z) {
+                return None;
+            }
+        }
+    }
+    // Conservatively require air in every cell touched by the box. This also
+    // rejects water and non-full block shapes, whose collision is not audited here.
+    let block = |v: f64| -> Option<i32> {
+        let value = v.floor();
+        if value < f64::from(i32::MIN) || value > f64::from(i32::MAX) {
+            None
+        } else {
+            Some(value as i32)
+        }
+    };
+    for x in block(position[0] - radius)?..=block(position[0] + radius)? {
+        for y in block(position[1])?..=block(position[1] + f64::from(1.8_f32))? {
+            for z in block(position[2] - radius)?..=block(position[2] + radius)? {
+                if !block_is_air(x, y, z) {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(position)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SavedInventory {
     pub inventory: Inventory,
@@ -93,6 +164,81 @@ fn field<'a>(fields: &'a [(String, Tag)], name: &str) -> Option<&'a Tag> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn player_pos(values: Vec<Tag>) -> Tag {
+        Tag::Compound(vec![(
+            "Pos".into(),
+            Tag::List {
+                element_type: beta_core::nbt::TagType::Double,
+                values,
+            },
+        )])
+    }
+
+    #[test]
+    fn saved_position_uses_native_eye_offset_and_checks_all_touched_chunks() {
+        let player = player_pos(vec![
+            Tag::Double(-0.1),
+            Tag::Double(65.0),
+            Tag::Double(16.1),
+        ]);
+        assert_eq!(
+            position_from_player(
+                Some(&player),
+                |x, z| (-1..=0).contains(&x) && (0..=1).contains(&z),
+                |_, _, _| true
+            ),
+            Some([-0.1, 65.0 - f64::from(1.62_f32), 16.1])
+        );
+        assert_eq!(
+            position_from_player(Some(&player), |x, z| x == -1 && z == 1, |_, _, _| true),
+            None
+        );
+    }
+
+    #[test]
+    fn saved_position_matches_native_player_nbt_roundtrip() {
+        let row = include_str!("../../../tests/fixtures/saved_position/native.tsv")
+            .lines()
+            .nth(1)
+            .unwrap();
+        let words: Vec<f64> = row
+            .split('\t')
+            .map(|s| f64::from_bits(u64::from_str_radix(s, 16).unwrap()))
+            .collect();
+        let player = player_pos(words[..3].iter().copied().map(Tag::Double).collect());
+        let position = position_from_player(Some(&player), |_, _| true, |_, _, _| true).unwrap();
+        assert_eq!(position[1].to_bits(), words[3].to_bits());
+        assert_eq!(
+            position_from_player(
+                Some(&player),
+                |_, _| true,
+                |x, y, z| (x, y, z) != (-1, 64, 16)
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn saved_position_rejects_malformed_nonfinite_and_out_of_world_values() {
+        assert_eq!(
+            position_from_player(None, |_, _| true, |_, _, _| true),
+            None
+        );
+        for values in [
+            vec![Tag::Double(0.0)],
+            vec![Tag::Float(0.0), Tag::Double(64.0), Tag::Double(0.0)],
+            vec![Tag::Double(f64::NAN), Tag::Double(64.0), Tag::Double(0.0)],
+            vec![Tag::Double(f64::MAX), Tag::Double(64.0), Tag::Double(0.0)],
+            vec![Tag::Double(0.0), Tag::Double(0.0), Tag::Double(0.0)],
+            vec![Tag::Double(0.0), Tag::Double(128.0), Tag::Double(0.0)],
+        ] {
+            assert_eq!(
+                position_from_player(Some(&player_pos(values)), |_, _| true, |_, _, _| true),
+                None
+            );
+        }
+    }
 
     fn stack(slot: i8, id: i16, count: i8, damage: i16) -> Tag {
         Tag::Compound(vec![

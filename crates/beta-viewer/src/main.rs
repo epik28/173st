@@ -3,6 +3,7 @@
 //! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
+mod backend;
 mod hotbar_input;
 mod hud;
 mod inventory_screen;
@@ -118,6 +119,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let spawn = metadata.spawn;
     let safe_spawn = scene.safe_spawn_near(spawn)?;
+    let start_position = saved_player::position_from_player(
+        metadata.player.as_ref(),
+        |x, z| {
+            scene_chunks
+                .iter()
+                .any(|chunk| chunk.x == x && chunk.z == z)
+        },
+        |x, y, z| {
+            interaction
+                .block(x, y, z)
+                .ok()
+                .flatten()
+                .is_some_and(|block| block.id == 0)
+        },
+    )
+    .unwrap_or(safe_spawn);
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
     let saved_health = saved_player::health_from_player(metadata.player.as_ref());
     if saved_inventory.unsupported_stacks > 0 {
@@ -158,9 +175,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         gpu: None,
         camera: Camera::new(
             glam::Vec3::new(
-                safe_spawn[0] as f32,
-                safe_spawn[1] as f32 + 1.62,
-                safe_spawn[2] as f32,
+                start_position[0] as f32,
+                start_position[1] as f32 + 1.62,
+                start_position[2] as f32,
             ),
             0.0,
             0.0,
@@ -169,7 +186,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             128.0,
         )?,
         scene,
-        controller: MotionController::new(MotionState::new(safe_spawn)),
+        controller: MotionController::new(MotionState::new(start_position)),
         water_runtime: WaterRuntime::default(),
         safe_spawn,
         controls: Controls::default(),
@@ -459,9 +476,12 @@ impl ChooserGpu {
         event: &ActiveEventLoop,
         assets: &menu::MenuAssets,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
-            Box::new(event.owned_display_handle()),
+        let backend_choice = backend::from_file(std::path::Path::new("config/local.toml"))?;
+        let mut descriptor = wgpu::InstanceDescriptor::new_with_display_handle(Box::new(
+            event.owned_display_handle(),
         ));
+        backend_choice.apply(&mut descriptor);
+        let instance = wgpu::Instance::new(descriptor);
         let surface = instance.create_surface(window.clone())?;
         let (device, queue, mut config) = pollster::block_on(async {
             let adapter = instance
@@ -471,7 +491,12 @@ impl ChooserGpu {
                     compatible_surface: Some(&surface),
                     ..Default::default()
                 })
-                .await?;
+                .await
+                .map_err(|error| {
+                    format!(
+                        "no compatible adapter for renderer.backend={backend_choice:?}: {error}"
+                    )
+                })?;
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
                     label: Some("beta world chooser"),
@@ -2110,9 +2135,11 @@ impl App {
             HUD_NOTICE,
             self.loaded_chunks, self.visible_faces, self.fluid_mesh.vertices.len(), self.unsupported_blocks
         ));
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
-            Box::new(el.owned_display_handle()),
-        ));
+        let backend_choice = backend::from_file(std::path::Path::new("config/local.toml"))?;
+        let mut descriptor =
+            wgpu::InstanceDescriptor::new_with_display_handle(Box::new(el.owned_display_handle()));
+        backend_choice.apply(&mut descriptor);
+        let instance = wgpu::Instance::new(descriptor);
         let surface = instance.create_surface(w.clone())?;
         let (device, queue, config) = pollster::block_on(async {
             let a = instance
@@ -2122,7 +2149,12 @@ impl App {
                     compatible_surface: Some(&surface),
                     ..Default::default()
                 })
-                .await?;
+                .await
+                .map_err(|error| {
+                    format!(
+                        "no compatible adapter for renderer.backend={backend_choice:?}: {error}"
+                    )
+                })?;
             let (d, q) = a
                 .request_device(&wgpu::DeviceDescriptor {
                     label: Some("beta-viewer"),
