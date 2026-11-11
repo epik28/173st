@@ -838,6 +838,42 @@ fn mapping_registry() -> Vec<BlockMapping> {
             supported: true,
         });
     }
+    // Metadata-dependent log and wool textures, checked against the native client.
+    // The historical strict registry already owns log metadata 0 and 2.
+    for metadata in 0..16 {
+        if metadata != 0 && metadata != 2 {
+            let side = if metadata == 1 { 116 } else { 20 };
+            mappings.push(BlockMapping {
+                key: BlockStateKey {
+                    id: 17,
+                    metadata,
+                    above_id: None,
+                },
+                render_type: 0,
+                opaque: true,
+                full_cube: true,
+                alpha_opaque_faces: [true; 6],
+                tiles: [21, 21, side, side, side, side],
+                supported: true,
+            });
+        }
+        let tile = [
+            64, 210, 194, 178, 162, 146, 130, 114, 225, 209, 193, 177, 161, 145, 129, 113,
+        ][usize::from(metadata)];
+        mappings.push(BlockMapping {
+            key: BlockStateKey {
+                id: 35,
+                metadata,
+                above_id: None,
+            },
+            render_type: 0,
+            opaque: true,
+            full_cube: true,
+            alpha_opaque_faces: [true; 6],
+            tiles: [tile; 6],
+            supported: true,
+        });
+    }
     mappings
 }
 
@@ -2927,6 +2963,38 @@ mod tests {
             let mesh = scene.mesh(MeshLimits::default()).unwrap();
             assert_eq!(mesh.unsupported_blocks, 0);
             assert_eq!(mesh.visible_faces, 10, "stone adjacent to {id}");
+        }
+    }
+
+    #[test]
+    fn metadata_cubes_match_native_fixture_for_every_state() {
+        let mappings = mapping_registry();
+        let fixture = include_str!("../../../tests/fixtures/view/block-metadata-cubes.tsv");
+        let rows: Vec<_> = fixture
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(rows.len(), 32);
+        for row in rows {
+            let f: Vec<_> = row.split('\t').collect();
+            assert_eq!(f.len(), 9);
+            let key = BlockStateKey {
+                id: f[0].parse().unwrap(),
+                metadata: f[1].parse().unwrap(),
+                above_id: None,
+            };
+            let found: Vec<_> = mappings
+                .iter()
+                .filter(|mapping| mapping.key == key)
+                .collect();
+            assert_eq!(found.len(), 1, "{key:?}");
+            let mapping = found[0];
+            assert!(mapping.is_renderable_cube());
+            assert_eq!(mapping.render_type.to_string(), f[2]);
+            assert_eq!(u8::from(mapping.opaque).to_string(), f[3]);
+            assert_eq!(f[4], "0.0,0.0,0.0,1.0,1.0,1.0");
+            assert_eq!(mapping.tiles.map(|tile| tile.to_string()).join(","), f[5]);
+            assert_eq!(&f[6..], &["111111", "000000", "000000"]);
         }
     }
 

@@ -55,6 +55,19 @@ class BlockRegistryOracleTests(unittest.TestCase):
             for _ in range(2):
                 self.assertEqual(subprocess.run(command, check=True, stdout=subprocess.PIPE).stdout, expected)
 
+    def test_reproduce_metadata_cubes(self):
+        terrain = ROOT.parent / '.local/minecraft/terrain.png'
+        if not JAR.is_file() or not terrain.is_file() or not shutil.which('javac') or not shutil.which('java'):
+            self.skipTest('pinned local client JAR, terrain and Java toolchain required')
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(['javac', '-cp', str(JAR), '-d', directory,
+                            str(ROOT / 'tools/oracle/src/ViewOracle.java'),
+                            str(ROOT / 'tools/oracle/src/BlockMetadataCubeOracle.java')], check=True)
+            command = ['java', '-cp', f'{directory}:{JAR}', 'BlockMetadataCubeOracle', str(JAR), str(terrain)]
+            expected = (ROOT / 'tests/fixtures/view/block-metadata-cubes.tsv').read_bytes()
+            for _ in range(2):
+                self.assertEqual(subprocess.run(command, check=True, stdout=subprocess.PIPE).stdout, expected)
+
 
 if __name__ == '__main__':
     unittest.main()
