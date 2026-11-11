@@ -41,7 +41,24 @@ fn invalid_and_oversized_water_inputs_are_rejected_atomically() {
     );
     assert_eq!(state, original);
 
-    let oversized_colliders = vec![collider; 129];
+    // Dense but still local viewer queries must not fail at the former
+    // 128-collider cutoff while the total remains within the bounded limit.
+    let dense_local_colliders = vec![collider; 129];
+    let mut dense_state = original;
+    assert!(
+        water_travel(
+            &mut dense_state,
+            TravelInput {
+                jump: false,
+                ..input
+            },
+            &dense_local_colliders,
+            &BTreeMap::new(),
+        )
+        .is_ok()
+    );
+
+    let oversized_colliders = vec![collider; 513];
     assert_eq!(
         water_travel(&mut state, input, &oversized_colliders, &BTreeMap::new()),
         Err(beta_core::motion::WaterMotionError::TooManyColliders)

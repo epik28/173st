@@ -1008,7 +1008,8 @@
       "cargo test --locked --offline -p beta-view water_cells_in -- --nocapture → PASS: bounded ID/metadata query",
       "cargo test --locked --offline -p beta-viewer water_controller_uses_native_drag_and_fixed_tick_partitioning -- --nocapture → PASS: water travel and exact terminal state at 20/30/60/144 Hz",
       "python3 tools/check.py → PASS: 284 Python tests (18 opt-in skipped), fmt, workspace check, clippy -D warnings, all Rust targets and doc tests",
-      "GUI pixel smoke unavailable in this environment; no screenshot parity claimed. Lava, drowning, multiplayer and client keyboard scheduling remain outside scope."
+      "GUI pixel smoke unavailable in this environment; no screenshot parity claimed. Lava, drowning, multiplayer and client keyboard scheduling remain outside scope.",
+      "Wayland session play smoke reached the loaded viewer; stderr repeatedly showed water travel TooManyColliders (prior cap 128). Increased bounded local-collider cap to 512; regression accepts 129 colliders and atomically rejects 513. Full tools/check.py passes. Post-fix GUI retest remains outstanding."
     ]
     }
   }

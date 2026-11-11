@@ -1969,3 +1969,10 @@ the two-adjacent-sources row is observation-only and does not establish a rule.
 - On Agy `328e629`: `cargo fmt --all -- --check`, core and viewer all-target tests, viewer clippy `-D warnings`, and `git diff --check` → PASS. `python3 tools/check.py` on the matching Codex production source → PASS: 284 Python tests (18 opt-in skipped), workspace fmt/check/clippy, all targets and docs.
 - Agy's bounded release edit benchmark reports p50 617–628 µs on three material scenes with unchanged state/result digests; this is not an overall FPS claim.
 - Supported seeding remains limited to direct flowing-water placement, one captured east-adjacent solid placement, and removal of the directly-below support. World-load seeding, general neighbors, lava, unloaded-chunk flow, persistence, and full visual parity are not claimed.
+
+## WATER-MOVE-001 — Wayland play smoke follow-up
+
+- On 2026-11-11 the viewer was launched in the active Wayland session and the user confirmed moving and jumping in the loaded scene. The run's stderr repeatedly reported `water travel: TooManyColliders`; the old water-motion API cap was 128, while `Scene::colliders_in` can return a denser local set.
+- Raised the still-bounded cap to 512, matching `MAX_WATER_MOTION_CELLS`. Added a regression that accepts 129 colliders and retains atomic rejection at 513. Native movement fixture remains exact.
+- `cargo fmt --all -- --check`, `cargo test --locked --offline -p beta-core --test water_movement_fixture`, `cargo clippy --locked --offline -p beta-core --all-targets -- -D warnings`, and `python3 tools/check.py` → PASS (284 Python tests, 18 opt-in skips, workspace check/clippy/all-target/doc tests).
+- This is a bounded error-path fix; no underwater movement screenshot or post-fix interactive retest has been captured. It does not add a completion percentage.

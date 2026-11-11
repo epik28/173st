@@ -116,7 +116,9 @@ pub struct WaterTravelObservation {
 }
 
 pub const MAX_WATER_MOTION_CELLS: usize = 512;
-const MAX_WATER_MOTION_COLLIDERS: usize = 128;
+// A viewer query can include dense terrain beneath a submerged player. Keep
+// this bounded, but allow the same local volume as the water-cell query.
+const MAX_WATER_MOTION_COLLIDERS: usize = 512;
 const WATER_JUMP: f64 = 0.419_999_986_886_978_15;
 const WATER_HORIZONTAL_DRAG: f64 = 0.800_000_011_920_929;
 const WATER_GRAVITY: f64 = 0.02;
