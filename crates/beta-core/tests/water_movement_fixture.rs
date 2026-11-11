@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use beta_core::{
     geometry::Aabb,
-    motion::{MotionState, TravelInput, WaterMotionCell, water_travel},
+    motion::{MotionState, TravelInput, WaterMotionCell, water_living_step, water_travel},
 };
 
 const INPUT: &str = include_str!("../../../tests/fixtures/water_movement/input.tsv");
@@ -84,7 +84,21 @@ fn native_water_movement_matches_all_ordered_states_and_raw_float_words() {
     }
 }
 
+#[test]
+fn native_living_swim_matches_full_motion_state() {
+    let actual = run_mode(
+        include_str!("../../../tests/fixtures/water_swim/input.tsv"),
+        true,
+    )
+    .unwrap();
+    let expected = include_str!("../../../tests/fixtures/water_swim/reference.tsv");
+    assert_eq!(actual, expected);
+}
+
 fn run(input: &str) -> Result<String, String> {
+    run_mode(input, false)
+}
+fn run_mode(input: &str, living: bool) -> Result<String, String> {
     let mut output = String::new();
     for line in input.lines() {
         let fields: Vec<_> = line.split('\t').collect();
@@ -102,7 +116,12 @@ fn run(input: &str) -> Result<String, String> {
                     fields[0]
                 ));
             }
-            let observation = water_travel(
+            let travel = if living {
+                water_living_step
+            } else {
+                water_travel
+            };
+            let observation = travel(
                 &mut state,
                 TravelInput {
                     strafe: parse_f32(values[0])?,

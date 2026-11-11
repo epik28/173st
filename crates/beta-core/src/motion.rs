@@ -206,6 +206,41 @@ pub fn water_travel(
     })
 }
 
+/// Applies the captured living-update controls before the bounded water travel.
+/// The fixture uses scripted controls, no nearby entities, and no AI update.
+pub fn water_living_step(
+    state: &mut MotionState,
+    input: TravelInput,
+    colliders: &[Aabb],
+    water_cells: &BTreeMap<WaterMotionPos, WaterMotionCell>,
+) -> Result<WaterTravelObservation, WaterMotionError> {
+    if colliders.len() > MAX_WATER_MOTION_COLLIDERS {
+        return Err(WaterMotionError::TooManyColliders);
+    }
+    validate_water_cells(water_cells)?;
+    let mut next = *state;
+    if input.jump {
+        if water_contact_validated(&next, water_cells) {
+            next.velocity[1] += f64::from(0.04_f32);
+        } else if next.on_ground {
+            next.velocity[1] = WATER_JUMP;
+        }
+    }
+    let observation = water_travel(
+        &mut next,
+        TravelInput {
+            strafe: input.strafe * 0.98_f32,
+            forward: input.forward * 0.98_f32,
+            jump: false,
+            ..input
+        },
+        colliders,
+        water_cells,
+    )?;
+    *state = next;
+    Ok(observation)
+}
+
 /// Returns the native `sn.k_()` water-contact result for a bounded supplied
 /// cell map. Missing cells are air; callers own the loaded-scene boundary.
 pub fn water_contact(

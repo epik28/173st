@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use beta_core::{
     geometry::Aabb,
-    motion::{MotionState, TravelInput, dry_travel, water_contact, water_travel},
+    motion::{MotionState, TravelInput, dry_travel, water_contact, water_living_step},
 };
 use beta_view::{Scene, ViewError};
 
@@ -110,10 +110,10 @@ impl MotionController {
         // Native input signs are opposite the camera's screen-right axis:
         // left strafe is positive and points +X when yaw is zero.
         // Scale axes independently; dry_travel applies native diagonal normalization.
-        let mut strafe =
-            (u8::from(controls.left) as f32 - u8::from(controls.right) as f32) * 0.98_f32;
-        let mut forward =
-            (u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32) * 0.98_f32;
+        let raw_strafe = u8::from(controls.left) as f32 - u8::from(controls.right) as f32;
+        let raw_forward = u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32;
+        let mut strafe = raw_strafe * 0.98_f32;
+        let mut forward = raw_forward * 0.98_f32;
         if controls.sneak {
             strafe *= 0.3_f32;
             forward *= 0.3_f32;
@@ -130,8 +130,18 @@ impl MotionController {
         };
         let water_cells = scene.water_cells_in(self.state.bbox.expanded(1.0, 1.0, 1.0))?;
         if water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)? {
-            water_travel(&mut self.state, travel_input, &colliders, &water_cells)
-                .map_err(beta_view::ViewError::WaterMotion)?;
+            let sneak_factor = if controls.sneak { 0.3_f32 } else { 1.0 };
+            water_living_step(
+                &mut self.state,
+                TravelInput {
+                    strafe: raw_strafe * sneak_factor,
+                    forward: raw_forward * sneak_factor,
+                    ..travel_input
+                },
+                &colliders,
+                &water_cells,
+            )
+            .map_err(beta_view::ViewError::WaterMotion)?;
         } else {
             let surface = scene.surface_below(self.state.bbox)?;
             dry_travel(&mut self.state, travel_input, &colliders, surface);
