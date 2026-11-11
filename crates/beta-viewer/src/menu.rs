@@ -490,13 +490,13 @@ fn draw_splash(
         text_width(assets, text),
         system_epoch_millis(),
     );
-    let width = text_width(assets, text) as f32 * scale;
-    let x = anchor[0] - width / 2.0;
-    let y = anchor[1] - 8.0;
+    let width = (text_width(assets, text) / 2) as f32 * scale;
+    let x = anchor[0] - width;
+    let y = anchor[1] - 8.0 * scale;
     // The sprite pipeline has no matrix stack; preserve the native anchor,
     // animation and colors while emitting scaled glyph quads directly.
     for (shadow, color) in [(true, [0.0, 0.0, 0.0, 1.0]), (false, [1.0, 1.0, 0.0, 1.0])] {
-        let mut cursor = x + if shadow { 1.0 } else { 0.0 };
+        let mut cursor = x + if shadow { scale } else { 0.0 };
         for ch in text.chars() {
             let Some(byte) = char_to_font_byte(ch) else {
                 continue;
@@ -509,7 +509,7 @@ fn draw_splash(
                 layout.scale as f32,
                 [
                     cursor,
-                    y + if shadow { 1.0 } else { 0.0 },
+                    y + if shadow { scale } else { 0.0 },
                     FONT_GLYPH_DRAW_WIDTH * scale,
                     FONT_GLYPH_DRAW_WIDTH * scale,
                 ],
@@ -540,17 +540,20 @@ fn rotate_vertices(
     anchor: [f32; 2],
     angle: f32,
 ) {
+    if size.0 == 0 || size.1 == 0 {
+        return;
+    }
     let pivot = [
         2.0 * anchor[0] * scale / size.0 as f32 - 1.0,
         1.0 - 2.0 * anchor[1] * scale / size.1 as f32,
     ];
     let (sin, cos) = angle.sin_cos();
     for vertex in vertices {
-        let dx = vertex.position[0] - pivot[0];
-        let dy = vertex.position[1] - pivot[1];
+        let dx = (vertex.position[0] - pivot[0]) * size.0 as f32;
+        let dy = (vertex.position[1] - pivot[1]) * size.1 as f32;
         vertex.position = [
-            pivot[0] + dx * cos - dy * sin,
-            pivot[1] + dx * sin + dy * cos,
+            pivot[0] + (dx * cos - dy * sin) / size.0 as f32,
+            pivot[1] + (dx * sin + dy * cos) / size.1 as f32,
         ];
     }
 }
@@ -726,7 +729,7 @@ fn draw_button(out: &mut Vec<Vertex>, size: (u32, u32), scale: f32, rect: [f32; 
         size,
         scale,
         [rect[0], rect[1], half, rect[3]],
-        [GUI_ORIGIN.0 as f32, GUI_ORIGIN.1 as f32 + v, 100.0, 20.0],
+        [GUI_ORIGIN.0 as f32, GUI_ORIGIN.1 as f32 + v, half, 20.0],
         [1.0; 4],
     );
     quad(
@@ -735,9 +738,9 @@ fn draw_button(out: &mut Vec<Vertex>, size: (u32, u32), scale: f32, rect: [f32; 
         scale,
         [rect[0] + half, rect[1], half, rect[3]],
         [
-            GUI_ORIGIN.0 as f32 + 100.0,
+            GUI_ORIGIN.0 as f32 + 200.0 - half,
             GUI_ORIGIN.1 as f32 + v,
-            100.0,
+            half,
             20.0,
         ],
         [1.0; 4],
@@ -971,6 +974,34 @@ mod tests {
         );
         assert!(vertex.position[0].abs() < 1e-6);
         assert!((vertex.position[1] + 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn splash_rotation_preserves_pixel_distance_on_widescreen() {
+        let mut vertex = Vertex {
+            position: [0.25, 0.0],
+            uv: [0.0; 2],
+            color: [1.0; 4],
+        };
+        rotate_vertices(
+            std::slice::from_mut(&mut vertex),
+            (800, 400),
+            1.0,
+            [400.0, 200.0],
+            std::f32::consts::FRAC_PI_2,
+        );
+        assert!(vertex.position[0].abs() < 1e-6);
+        assert!((vertex.position[1] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn narrow_buttons_crop_texture_from_both_ends() {
+        let mut vertices = Vec::new();
+        draw_button(&mut vertices, (400, 200), 1.0, [10.0, 20.0, 70.0, 20.0], 1);
+        assert_eq!(vertices[0].uv[0], 0.0);
+        assert_eq!(vertices[1].uv[0], 35.0 / 512.0);
+        assert_eq!(vertices[6].uv[0], 165.0 / 512.0);
+        assert_eq!(vertices[7].uv[0], 200.0 / 512.0);
     }
 
     #[test]
