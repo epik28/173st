@@ -1857,6 +1857,7 @@ impl App {
             next_block_scene.place_block(hit, 1, 0, &supported)?
         };
         let (x, y, z) = edit.changed;
+        let before_changed = self.block_scene.block(x, y, z)?;
         let mut relight_dirty_chunks = Vec::new();
         let mut relight_updates = Vec::new();
         for &changed in std::iter::once(&edit.changed).chain(&edit.additional_changed) {
@@ -1963,6 +1964,40 @@ impl App {
         self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
         self.water_runtime = next_water_runtime;
         self.aimed_hit = None;
+        if std::env::var_os("BETA_TRACE_LIGHT_EDITS").is_some() {
+            let after_changed = self.block_scene.block(x, y, z)?;
+            let mesh_vertices: usize = dirty_chunks
+                .iter()
+                .filter_map(|key| self.chunk_meshes.get(key))
+                .map(|mesh| mesh.vertices.len())
+                .sum();
+            eprintln!(
+                "beta-viewer light trace: op={} hit={}/{}/face{} changed=({x},{y},{z}) before={before_changed:?} after={after_changed:?} relight_updates={} dirty={dirty_chunks:?} rebuilt_vertices={mesh_vertices}",
+                if breaking { "break" } else { "place" },
+                hit.id,
+                hit.metadata,
+                hit.face,
+                relight_updates.len(),
+            );
+            for offset in -2_i32..=1 {
+                let sample_y = y + offset;
+                if !(0..128).contains(&sample_y) {
+                    continue;
+                }
+                let core = self.block_scene.block(x, sample_y, z)?;
+                let (cx, lx) = split_block_coord(x);
+                let (cz, lz) = split_block_coord(z);
+                let view = self
+                    .scene_chunks
+                    .iter()
+                    .find(|chunk| chunk.x == cx && chunk.z == cz)
+                    .map(|chunk| chunk.data.get(lx, sample_y as u8, lz))
+                    .transpose()?;
+                eprintln!(
+                    "beta-viewer light trace cell=({x},{sample_y},{z}) core={core:?} view={view:?}"
+                );
+            }
+        }
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks; water events {}",
             if breaking { "broke" } else { "placed" },
