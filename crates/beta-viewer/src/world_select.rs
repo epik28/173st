@@ -143,6 +143,12 @@ impl Default for ChooserState {
     }
 }
 
+/// Move the visible world-list window without changing the selected world.
+pub fn scroll_first_visible(first: usize, count: usize, visible: usize, rows: i32) -> usize {
+    let last = count.saturating_sub(visible);
+    first.saturating_add_signed(rows as isize).min(last)
+}
+
 #[derive(Debug)]
 pub enum SelectError {
     Io(io::Error),
@@ -548,6 +554,16 @@ mod tests {
         assert_eq!(s.apply(ChooserAction::Activate, Some(1), 2), Some(1));
         assert_eq!(s.apply(ChooserAction::Cancel, None, 2), None);
         assert!(s.cancelled);
+    }
+
+    #[test]
+    fn scrolling_world_list_clamps_to_available_rows() {
+        assert_eq!(scroll_first_visible(0, 8, 3, -1), 0);
+        assert_eq!(scroll_first_visible(0, 8, 3, 1), 1);
+        assert_eq!(scroll_first_visible(5, 8, 3, 1), 5);
+        assert_eq!(scroll_first_visible(5, 8, 6, 0), 2);
+        assert_eq!(scroll_first_visible(0, 2, 5, 1), 0);
+        assert_eq!(scroll_first_visible(2, 8, 3, i32::MIN), 0);
     }
 
     #[test]

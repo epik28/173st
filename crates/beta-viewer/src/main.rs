@@ -834,6 +834,26 @@ fn choose_world(
                 self.request_redraw();
                 return;
             }
+            if let WindowEvent::MouseWheel { delta, .. } = input
+                && self.page == ChooserPage::WorldList
+            {
+                let amount = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y,
+                    winit::event::MouseScrollDelta::PixelDelta(position) => position.y as f32,
+                };
+                if amount.is_finite() && amount != 0.0 {
+                    let rows = if amount > 0.0 { -1 } else { 1 };
+                    self.first_visible = beta_viewer::world_select::scroll_first_visible(
+                        self.first_visible,
+                        self.entries.len(),
+                        self.visible_rows,
+                        rows,
+                    );
+                    self.last_row_click = None;
+                    self.request_redraw();
+                }
+                return;
+            }
             if let WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -914,6 +934,14 @@ fn choose_world(
                     {
                         self.show_world_list();
                     }
+                    PhysicalKey::Code(KeyCode::Enter | KeyCode::NumpadEnter)
+                        if self.page == ChooserPage::WorldList =>
+                    {
+                        if let Some(index) = self.state.activate(&self.entries) {
+                            self.result = Some(Some(index));
+                            event.exit();
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -941,6 +969,9 @@ fn choose_world(
         }
 
         fn ensure_visible(&mut self) {
+            self.first_visible = self
+                .first_visible
+                .min(self.entries.len().saturating_sub(self.visible_rows));
             if let Some(selected) = self.state.selected {
                 if selected < self.first_visible {
                     self.first_visible = selected;
