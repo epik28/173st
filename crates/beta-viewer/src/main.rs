@@ -2612,7 +2612,7 @@ impl App {
         });
         let hud_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hearts and crosshair screen-space vertices"),
-            size: 126 * 16,
+            size: 246 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -2854,13 +2854,36 @@ impl App {
             )
         }
         let show_hud = !self.inventory_screen.is_open();
-        let (hud_gui, hud_icons) = hud::native_vertices_with_selection(
+        let (hud_gui, mut hud_icons) = hud::native_vertices_with_selection(
             g.config.width,
             g.config.height,
             hud::gui_scale(g.config.width, g.config.height),
             self.inventory.selected_hotbar(),
             self.saved_health,
         );
+        let submerged = !self.controller.debug_flight
+            && drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {
+                self.block_scene.block(x, y, z).ok().flatten()
+            })
+            .unwrap_or(false);
+        hud_icons.extend(hud::air_bubble_vertices(
+            g.config.width,
+            g.config.height,
+            hud::gui_scale(g.config.width, g.config.height),
+            self.air,
+            submerged,
+        ));
+        if let Some(armor) = self.fall_health.as_ref()
+            && let Some(score) = beta_core::armor_equipment::armor_score(&armor.slots)
+        {
+            hud_icons.extend(beta_viewer::armor_hud::armor_vertices(
+                g.config.width,
+                g.config.height,
+                hud::gui_scale(g.config.width, g.config.height),
+                i32::from(score),
+            ));
+        }
+        let hud_icon_count = hud_icons.len() as u32;
         g.queue
             .write_buffer(&g.hud_gui_vertex, 0, bytemuck::cast_slice(&hud_gui));
         g.queue
@@ -3148,7 +3171,7 @@ impl App {
                         p.draw(0..12, 0..1);
                         p.set_bind_group(0, &g.icons_bind, &[]);
                         p.set_vertex_buffer(0, g.hud_icons_vertex.slice(..));
-                        p.draw(0..126, 0..1);
+                        p.draw(0..hud_icon_count, 0..1);
                         if hotbar_terrain_count > 0 {
                             p.set_bind_group(0, &g.bind, &[]);
                             p.set_vertex_buffer(0, g.hotbar_terrain_vertex.slice(..));
