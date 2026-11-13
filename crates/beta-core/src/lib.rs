@@ -4,6 +4,7 @@
 //! compatibility will be added in small, independently verified tasks.
 
 pub mod armor_damage;
+pub mod armor_equipment;
 pub mod biome;
 pub mod block;
 pub mod chunk;
