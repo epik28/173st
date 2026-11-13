@@ -7,6 +7,8 @@ floating-point values around three and four blocks. It does not cover health,
 armor, water, invulnerability, landing detection, or the player update loop.
 `native_landing.tsv` separately records seven successive calls to the native
 entity fall accumulator, including two landings and repeated grounded input.
+`native_health.tsv` records five damage events on an unarmored player. The
+cooldown is set explicitly by the oracle; timer progression is not captured.
 
 ```sh
 javac -cp ../.local/minecraft/client-b1.7.3.jar -d /tmp/fall-damage-classes tools/oracle/src/FallDamageOracle.java
@@ -16,4 +18,7 @@ cargo test --locked --offline -p beta-core fall_damage
 javac -cp ../.local/minecraft/client-b1.7.3.jar -d /tmp/fall-damage-classes tools/oracle/src/LandingOracle.java
 java -cp /tmp/fall-damage-classes:../.local/minecraft/client-b1.7.3.jar LandingOracle ../.local/minecraft/client-b1.7.3.jar > /tmp/landing.tsv
 diff -u tests/fixtures/fall_damage/native_landing.tsv /tmp/landing.tsv
+javac -cp ../.local/minecraft/client-b1.7.3.jar -d /tmp/fall-damage-classes tools/oracle/src/FallHealthOracle.java
+java -cp /tmp/fall-damage-classes:../.local/minecraft/client-b1.7.3.jar FallHealthOracle ../.local/minecraft/client-b1.7.3.jar > /tmp/fall-health.tsv
+diff -u tests/fixtures/fall_damage/native_health.tsv /tmp/fall-health.tsv
 ```

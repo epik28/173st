@@ -32,9 +32,110 @@ pub fn accumulate_fall(distance: &mut f32, delta_y: f64, on_ground: bool) -> Opt
     }
 }
 
+/// Captured portion of the unarmored player's damage state. Timer advancement,
+/// armor, multiplayer, death handling, sound and statistics are outside this
+/// model; callers supply the current timer before each damage event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnarmoredHealth {
+    pub health: i32,
+    pub previous_health: i32,
+    pub hurt_timer: i32,
+    pub max_hurt_timer: i32,
+    pub last_damage: i32,
+    pub hurt_animation: i32,
+}
+
+impl UnarmoredHealth {
+    /// Apply a fall damage request in 0..=253 (distances through 256 blocks),
+    /// returning health lost. Unsupported input is rejected atomically.
+    pub fn apply_fall_damage(&mut self, damage: i32) -> Option<i32> {
+        if !(0..=253).contains(&damage)
+            || self.hurt_timer < 0
+            || self.max_hurt_timer < 0
+            || self.last_damage < 0
+        {
+            return None;
+        }
+        if damage == 0 || self.health <= 0 {
+            return Some(0);
+        }
+        let during_cooldown = (self.hurt_timer as f32) > (self.max_hurt_timer as f32) / 2.0;
+        let applied = if during_cooldown {
+            if damage <= self.last_damage {
+                return Some(0);
+            }
+            damage - self.last_damage
+        } else {
+            damage
+        };
+        let health = self.health.checked_sub(applied)?;
+        if !during_cooldown {
+            self.previous_health = self.health;
+            self.hurt_timer = self.max_hurt_timer;
+            self.hurt_animation = 10;
+        }
+        self.last_damage = damage;
+        self.health = health;
+        Some(applied)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{accumulate_fall, landing_damage};
+    use super::{UnarmoredHealth, accumulate_fall, landing_damage};
+
+    #[test]
+    fn unarmored_fall_health_matches_native_cooldown_scenarios() {
+        let fixture = include_str!("../../../tests/fixtures/fall_damage/native_health.tsv");
+        let mut state = UnarmoredHealth {
+            health: 20,
+            previous_health: 0,
+            hurt_timer: 0,
+            max_hurt_timer: 20,
+            last_damage: 0,
+            hurt_animation: 0,
+        };
+        for row in fixture.lines().skip(1) {
+            let f: Vec<_> = row.split('\t').collect();
+            let number = |i: usize| f[i].parse::<i32>().unwrap();
+            state.hurt_timer = number(5);
+            assert_eq!(
+                (state.health, state.last_damage, state.previous_health),
+                (number(2), number(8), number(10)),
+                "{}",
+                f[0]
+            );
+            let distance = f32::from_bits(u32::from_str_radix(f[1], 16).unwrap());
+            let applied = state.apply_fall_damage(landing_damage(distance).unwrap());
+            assert_eq!(applied, Some(number(4)), "{}", f[0]);
+            assert_eq!(
+                (
+                    state.health,
+                    state.hurt_timer,
+                    state.max_hurt_timer,
+                    state.last_damage,
+                    state.previous_health,
+                    state.hurt_animation
+                ),
+                (
+                    number(3),
+                    number(6),
+                    number(7),
+                    number(9),
+                    number(11),
+                    number(12)
+                ),
+                "{}",
+                f[0]
+            );
+        }
+        let before = state;
+        assert_eq!(state.apply_fall_damage(0), Some(0));
+        assert_eq!(state.apply_fall_damage(-1), None);
+        assert_eq!(state, before);
+        state.health = 0;
+        assert_eq!(state.apply_fall_damage(4), Some(0));
+    }
 
     #[test]
     fn native_fall_accumulation_and_landings_match_fixture() {

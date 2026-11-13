@@ -1,0 +1,6 @@
+case	distance_f32_hex	health_before	health_after	applied	timer_before	timer_after	max_timer	last_damage_before	last_damage_after	previous_health_before	previous_health_after	hurt_animation_after
+initial_hit	40a00000	20	18	2	0	20	20	0	2	0	20	10
+same_damage_during_cooldown	40a00000	18	18	0	20	20	20	2	2	20	20	10
+larger_damage_during_cooldown	41000000	18	15	3	20	20	20	2	5	20	20	10
+half_cooldown_boundary	40a00000	15	13	2	10	20	20	5	2	20	15	10
+expired_cooldown	40a00000	13	11	2	0	20	20	2	2	15	13	10
