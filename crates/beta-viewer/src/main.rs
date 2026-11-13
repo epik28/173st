@@ -4,6 +4,7 @@
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
 mod backend;
+mod drowning_runtime;
 mod hotbar_input;
 mod hud;
 #[cfg(test)]
@@ -206,6 +207,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         inventory: saved_inventory.inventory,
         saved_health,
         fall_health,
+        air: 300,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
@@ -343,7 +345,7 @@ fn build_chunk_mesh_cache(
                         .entry((block_x, block_z))
                         .or_insert_with(|| climate_sampler.sample(block_x, block_z));
                     match id {
-                        2 => grass_color(&color_maps.grass, climate).expect("valid climate"),
+                        2 | 31 => grass_color(&color_maps.grass, climate).expect("valid climate"),
                         18 => foliage_color(&color_maps.foliage, climate, metadata)
                             .expect("valid climate"),
                         _ => 0x00ff_ffff,
@@ -1254,6 +1256,7 @@ struct App {
     inventory: Inventory,
     saved_health: i16,
     fall_health: Option<beta_core::fall_damage::UnarmoredHealth>,
+    air: i32,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
     mouse_delta: MouseDeltaAccumulator,
@@ -1861,7 +1864,7 @@ impl App {
                         .entry((block_x, block_z))
                         .or_insert_with(|| climate_sampler.sample(block_x, block_z));
                     match id {
-                        2 => grass_color(&self.color_maps.grass, climate)
+                        2 | 31 => grass_color(&self.color_maps.grass, climate)
                             .expect("native climate sampler returns a valid palette climate"),
                         18 => foliage_color(&self.color_maps.foliage, climate, metadata)
                             .expect("native climate sampler returns a valid palette climate"),
@@ -2743,6 +2746,23 @@ impl App {
                 }
             }
             while self.controller.ticks_due() > 0 {
+                if !self.controller.debug_flight
+                    && let Some(submerged) =
+                        drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {
+                            self.block_scene.block(x, y, z).ok().flatten()
+                        })
+                {
+                    let alive = self.saved_health > 0;
+                    let result =
+                        beta_core::drowning::tick_air(self.air, 300, alive, submerged, false);
+                    self.air = result.air;
+                    if result.damage > 0
+                        && let Some(health) = &mut self.fall_health
+                        && health.apply_fall_damage(i32::from(result.damage)).is_some()
+                    {
+                        self.saved_health = health.health.clamp(0, 20) as i16;
+                    }
+                }
                 if let Some(health) = &mut self.fall_health {
                     health.tick_counters();
                 }

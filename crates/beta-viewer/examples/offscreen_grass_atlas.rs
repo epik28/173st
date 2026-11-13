@@ -309,7 +309,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             expected(base_tex, base)
         });
     }
-    println!("mips={use_mips} base={base_tex:?} overlay={overlay_tex:?} expected={expected_pixels:?}");
+    println!(
+        "mips={use_mips} base={base_tex:?} overlay={overlay_tex:?} expected={expected_pixels:?}"
+    );
     let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&vertices),
