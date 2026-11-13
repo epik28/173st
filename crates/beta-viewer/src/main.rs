@@ -26,6 +26,7 @@ use beta_core::{
 use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Mesh as FluidMesh};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
+    controls_for_inventory,
 };
 use beta_viewer::water_runtime::{CapturedSeedAction, WaterRuntime};
 use std::{
@@ -2243,9 +2244,11 @@ impl App {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            // Beta's default terrain filter uses only the base atlas. Sampling
+            // averaged transparent texels darkens the grass side overlay.
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             lod_min_clamp: 0.0,
-            lod_max_clamp: 4.0,
+            lod_max_clamp: 0.0,
             ..Default::default()
         });
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -2714,7 +2717,8 @@ impl App {
         let now = Instant::now();
         let dt = now.duration_since(self.last);
         self.last = now;
-        if self.focused && !self.inventory_screen.is_open() {
+        if self.focused {
+            let controls = controls_for_inventory(self.controls, self.inventory_screen.is_open());
             self.controller.accumulate(dt);
             self.water_runtime.accumulate(dt);
             while self.water_runtime.ticks_due() > 0 {
@@ -2731,16 +2735,15 @@ impl App {
                     self.camera.position =
                         glam::Vec3::from_array(self.controller.flight_position());
                     let _ = self.camera.move_local(
-                        u8::from(self.controls.forward) as f32
-                            - u8::from(self.controls.backward) as f32,
-                        u8::from(self.controls.right) as f32 - u8::from(self.controls.left) as f32,
-                        u8::from(self.controls.jump) as f32 - u8::from(self.controls.sneak) as f32,
+                        u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32,
+                        u8::from(controls.right) as f32 - u8::from(controls.left) as f32,
+                        u8::from(controls.jump) as f32 - u8::from(controls.sneak) as f32,
                         8.0,
                         0.05,
                     );
                     self.controller.flight_tick(self.camera.position.to_array());
                 } else {
-                    if let Err(error) = self.controller.tick(&self.scene, self.controls) {
+                    if let Err(error) = self.controller.tick(&self.scene, controls) {
                         eprintln!("beta-viewer motion query failed: {error}");
                         self.controller.clear_clock();
                         break;

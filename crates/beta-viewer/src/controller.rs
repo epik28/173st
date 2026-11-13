@@ -21,6 +21,16 @@ pub struct Controls {
     pub sneak: bool,
 }
 
+/// The native inventory does not pause the world, but opening it releases the
+/// movement keys. Keep simulation running with neutral input while it is open.
+pub fn controls_for_inventory(controls: Controls, inventory_open: bool) -> Controls {
+    if inventory_open {
+        Controls::default()
+    } else {
+        controls
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct MouseDeltaAccumulator {
     residual_x: f64,
@@ -399,6 +409,28 @@ mod tests {
             motion.accumulate(TICK);
             motion.tick(scene, input).unwrap();
         }
+    }
+
+    #[test]
+    fn open_inventory_keeps_gravity_and_momentum_without_movement_input() {
+        let scene = test_scene(0..16, false, false);
+        let mut state = MotionState::new([8.5, 6.0, 8.5]);
+        state.velocity = [0.1, -0.2, 0.0];
+        let mut inventory = MotionController::new(state);
+        let mut neutral = MotionController::new(state);
+        let held = Controls {
+            forward: true,
+            jump: true,
+            ..Controls::default()
+        };
+        assert_eq!(controls_for_inventory(held, false), held);
+        let gated = controls_for_inventory(held, true);
+        assert_eq!(gated, Controls::default());
+        ticks(&mut inventory, &scene, gated, 4);
+        ticks(&mut neutral, &scene, Controls::default(), 4);
+        assert_eq!(inventory.state, neutral.state);
+        assert!(inventory.state.position[1] < state.position[1]);
+        assert!(inventory.state.position[0] > state.position[0]);
     }
 
     #[test]
