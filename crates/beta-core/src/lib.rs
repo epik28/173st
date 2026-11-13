@@ -8,6 +8,7 @@ pub mod armor_equipment;
 pub mod biome;
 pub mod block;
 pub mod chunk;
+pub mod food;
 pub mod drowning;
 pub mod fall_damage;
 pub mod geometry;
