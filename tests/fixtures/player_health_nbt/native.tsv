@@ -1,0 +1,8 @@
+case	health	hurt_time	death_time	attack_time
+-1	-1	5	6	7
+0	0	5	6	7
+1	1	5	6	7
+10	10	5	6	7
+20	20	5	6	7
+21	21	5	6	7
+missing	10	0	0	0
