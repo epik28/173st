@@ -722,6 +722,48 @@ impl Scene {
                             }
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
                             let wz = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
+                            if block.id == 20 {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                for face in 0..6_u8 {
+                                    let (dx, dy, dz) = face_delta(face)?;
+                                    let neighbor =
+                                        self.block(wx + dx, i32::from(y) + dy, wz + dz)?;
+                                    let above =
+                                        self.block(wx + dx, i32::from(y) + dy + 1, wz + dz)?.id;
+                                    if !glass_face_visible(
+                                        neighbor.id,
+                                        self.is_supported_cube(
+                                            neighbor.id,
+                                            neighbor.metadata,
+                                            above,
+                                        ),
+                                    ) {
+                                        continue;
+                                    }
+                                    if mesh.vertices.len().saturating_add(4) > vertex_limit
+                                        || mesh.indices.len().saturating_add(6) > index_limit
+                                    {
+                                        return Err(ViewError::MeshLimitExceeded {
+                                            vertices: mesh.vertices.len() + 4,
+                                            indices: mesh.indices.len() + 6,
+                                        });
+                                    }
+                                    append_face_tinted(
+                                        &mut mesh,
+                                        [wx, i32::from(y), wz],
+                                        face,
+                                        49,
+                                        neighbor.block_light,
+                                        neighbor.sky_light,
+                                        [1.0; 3],
+                                        source_minimum,
+                                        false,
+                                    )?;
+                                }
+                                continue;
+                            }
                             if block.id == 78 {
                                 let source_minimum = emission_minimum
                                     .as_deref_mut()
@@ -973,6 +1015,10 @@ pub struct Mesh {
     pub indices: Vec<u32>,
     pub visible_faces: usize,
     pub unsupported_blocks: usize,
+}
+
+fn glass_face_visible(neighbor_id: u8, neighbor_opaque: bool) -> bool {
+    neighbor_id != 20 && !neighbor_opaque
 }
 
 pub const fn face_delta(face: u8) -> Result<(i32, i32, i32), ViewError> {
@@ -1688,6 +1734,48 @@ mod tests {
     fn adjacent_confirmed_cubes_cull_shared_face_and_missing_neighbors_are_air() {
         let mesh = one_block_scene(true).mesh(MeshLimits::default()).unwrap();
         assert_eq!(mesh.visible_faces, 10);
+    }
+
+    #[test]
+    fn glass_mesh_matches_native_vertices_and_visibility() {
+        let scene = blocks_scene(&[(0, 1, 0, 20, 0)], vec![]);
+        let mesh = scene.mesh(MeshLimits::default()).unwrap();
+        assert_eq!(mesh.unsupported_blocks, 0);
+        assert_eq!(mesh.visible_faces, 6);
+        let mut count = 0;
+        for line in include_str!("../../../tests/fixtures/glass_render/native.tsv")
+            .lines()
+            .filter(|l| l.starts_with("vertex\t20\t"))
+        {
+            let row: Vec<_> = line.split('\t').collect();
+            let index: usize = row[3].parse().unwrap();
+            let bits: Vec<_> = row[4..9]
+                .iter()
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .collect();
+            let vertex = mesh.vertices[mesh.indices[index] as usize];
+            assert_eq!(
+                [
+                    vertex.position[0].to_bits(),
+                    (vertex.position[1] - 1.0).to_bits(),
+                    vertex.position[2].to_bits()
+                ],
+                [bits[0], bits[1], bits[2]]
+            ); // native reference is at y=0
+            assert_eq!(vertex.uv.map(f32::to_bits), [bits[3], bits[4]]);
+            count += 1;
+        }
+        assert_eq!(count, 16 * 36);
+        for line in include_str!("../../../tests/fixtures/glass_render/visibility.tsv").lines() {
+            let row: Vec<_> = line.split('\t').collect();
+            let neighbor: u8 = row[0].parse().unwrap();
+            assert_eq!(
+                glass_face_visible(neighbor, neighbor == 1),
+                row[2] == "1",
+                "neighbor={neighbor} face={}",
+                row[1]
+            );
+        }
     }
 
     #[test]
