@@ -555,6 +555,19 @@ pub fn dry_travel(
     colliders: &[Aabb],
     surface: Surface,
 ) {
+    travel_with_ladder_query(state, input, colliders, surface, |_| false);
+}
+
+/// Executes native dry travel while querying ladder presence before and after
+/// collision resolution. The caller supplies the actual loaded-world query;
+/// native `ls.p()` checks ID 65 at floor(x), floor(bbox.min_y), floor(z).
+pub fn travel_with_ladder_query(
+    state: &mut MotionState,
+    input: TravelInput,
+    colliders: &[Aabb],
+    surface: Surface,
+    mut on_ladder: impl FnMut(&MotionState) -> bool,
+) {
     state.yaw_degrees = input.yaw_degrees;
     state.sneaking = input.sneaking;
     if input.jump && state.on_ground {
@@ -574,8 +587,23 @@ pub fn dry_travel(
     // Native ls.a_ resolves both friction lookups before invoking sn.b(DDD).
     // Keep the drag surface tied to the pre-move support/bounding box.
     let horizontal_friction = ground_friction(state, colliders, surface);
+    if on_ladder(state) {
+        let max_horizontal = f64::from(0.15_f32);
+        state.velocity[0] = state.velocity[0].clamp(-max_horizontal, max_horizontal);
+        state.velocity[2] = state.velocity[2].clamp(-max_horizontal, max_horizontal);
+        state.fall_distance = 0.0;
+        if state.velocity[1] < -0.15_f64 {
+            state.velocity[1] = -0.15_f64;
+        }
+        if state.sneaking && state.velocity[1] < 0.0 {
+            state.velocity[1] = 0.0;
+        }
+    }
     let movement = state.velocity;
     move_entity(state, movement, colliders);
+    if state.collided_horizontally && on_ladder(state) {
+        state.velocity[1] = 0.2_f64;
+    }
     state.velocity[1] -= GRAVITY;
     state.velocity[1] *= VERTICAL_DRAG;
     let horizontal_drag = f64::from(horizontal_friction);
