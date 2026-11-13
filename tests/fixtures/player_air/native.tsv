@@ -1,0 +1,10 @@
+case	value
+missing	0
+-32768	-32768
+-20	-20
+-1	-1
+0	0
+1	1
+300	300
+32767	32767
+wrong_type	rejected

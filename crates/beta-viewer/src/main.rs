@@ -142,6 +142,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     .unwrap_or(safe_spawn);
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
     let saved_health = saved_player::health_from_player(metadata.player.as_ref());
+    let saved_air =
+        beta_viewer::player_air::saved_air(metadata.player.as_ref()).unwrap_or_else(|| {
+            eprintln!("beta-viewer: invalid saved Air field; starting with 300 air");
+            300
+        });
     let fall_health = armor_runtime::read_armor(metadata.player.as_ref()).map(|slots| {
         armor_runtime::ArmorRuntime {
             health: beta_core::fall_damage::UnarmoredHealth {
@@ -217,7 +222,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         fall_health,
         difficulty,
         entity_ticks: 0,
-        air: 300,
+        air: saved_air,
         hud_tick: 0,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
