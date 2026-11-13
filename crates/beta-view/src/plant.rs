@@ -28,7 +28,7 @@ const POSITIONS: [[u32; 3]; 24] = [
     [0x3d4cccd0, 0x00000000, 0x3f733333],
     [0x3d4cccd0, 0x3f800000, 0x3f733333],
 ];
-const UVS: [[[u32; 2]; 24]; 7] = [
+const UVS: [[[u32; 2]; 24]; 9] = [
     [
         [0x3f700000, 0x00000000],
         [0x3f700000, 0x3d7fd70a],
@@ -210,6 +210,58 @@ const UVS: [[[u32; 2]; 24]; 7] = [
         [0x3f400000, 0x3d800000],
         [0x3f4ffd71, 0x3dffeb85],
         [0x3f4ffd71, 0x3d800000],
+    ],
+    [
+        [0x3ee00000, 0x3e400000],
+        [0x3ee00000, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3ee00000, 0x3e400000],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e400000],
+        [0x3ee00000, 0x3e400000],
+        [0x3ee00000, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3ee00000, 0x3e400000],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e400000],
+        [0x3ee00000, 0x3e400000],
+        [0x3ee00000, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3ee00000, 0x3e400000],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e400000],
+        [0x3ee00000, 0x3e400000],
+        [0x3ee00000, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3ee00000, 0x3e400000],
+        [0x3efffae1, 0x3e7ff5c2],
+        [0x3efffae1, 0x3e400000],
+    ],
+    [
+        [0x3f100000, 0x3e800000],
+        [0x3f100000, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f100000, 0x3e800000],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e800000],
+        [0x3f100000, 0x3e800000],
+        [0x3f100000, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f100000, 0x3e800000],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e800000],
+        [0x3f100000, 0x3e800000],
+        [0x3f100000, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f100000, 0x3e800000],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e800000],
+        [0x3f100000, 0x3e800000],
+        [0x3f100000, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f100000, 0x3e800000],
+        [0x3f1ffd71, 0x3e9ffae1],
+        [0x3f1ffd71, 0x3e800000],
     ],
 ];
 
@@ -386,6 +438,8 @@ pub(crate) fn append(
         38 => 4,
         39 => 5,
         40 => 6,
+        32 => 7,
+        83 => 8,
         _ => unreachable!(),
     };
     if mesh.vertices.len().saturating_add(24) > limits.max_vertices.min(crate::MAX_MESH_VERTICES)
@@ -479,6 +533,49 @@ mod tests {
             }
         }
         assert_eq!(count, 5 * 16 * 24);
+    }
+
+    #[test]
+    fn wild_plants_match_native_for_every_metadata() {
+        let corpus = include_str!("../../../tests/fixtures/wild_plant_render/native.tsv");
+        let mut count = 0;
+        for line in corpus.lines().filter(|line| line.starts_with("vertex\t")) {
+            let row: Vec<_> = line.split('\t').collect();
+            let id = row[1].parse().unwrap();
+            let meta = row[2].parse().unwrap();
+            let index: usize = row[3].parse().unwrap();
+            let bits: Vec<u32> = row[4..9]
+                .iter()
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .collect();
+            let mut mesh = Mesh::default();
+            append(
+                &mut mesh,
+                [0, 0, 0],
+                BlockData {
+                    id,
+                    metadata: meta,
+                    block_light: 0,
+                    sky_light: 15,
+                },
+                0,
+                MeshLimits::default(),
+            )
+            .unwrap();
+            let v = mesh.vertices[index];
+            assert_eq!(
+                v.position.map(f32::to_bits),
+                [bits[0], bits[1], bits[2]],
+                "id={id} meta={meta} vertex={index}"
+            );
+            assert_eq!(
+                v.uv.map(f32::to_bits),
+                [bits[3], bits[4]],
+                "id={id} meta={meta} vertex={index}"
+            );
+            count += 1;
+        }
+        assert_eq!(count, 2 * 16 * 24);
     }
 
     #[test]

@@ -776,7 +776,7 @@ impl Scene {
                                 )?;
                                 continue;
                             }
-                            if matches!(block.id, 6 | 37..=40) {
+                            if matches!(block.id, 6 | 32 | 37..=40 | 83) {
                                 let source_minimum = emission_minimum
                                     .as_deref_mut()
                                     .map_or(0, |minimum| minimum(block.id));
