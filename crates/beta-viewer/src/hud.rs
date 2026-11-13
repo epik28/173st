@@ -678,3 +678,113 @@ mod tests {
         }
     }
 }
+
+/// Bubble quads for the native underwater HUD (`uq.a(FZII)V`, pinned Beta
+/// client). Only ordinary air values 0..=300 are shown; negative drowning air
+/// yields no bubbles. The caller decides whether the eyes are submerged.
+///
+/// Returned vertices use the icons atlas and the same clip coordinates as
+/// [`native_vertices_with_selection`]. They can be appended to that function's
+/// icons vector, provided the GPU buffer and draw count include them.
+pub fn air_bubble_vertices(
+    width: u32,
+    height: u32,
+    native_gui_scale: u32,
+    air: i32,
+    submerged: bool,
+) -> Vec<[f32; 4]> {
+    if !submerged {
+        return Vec::new();
+    }
+    let air = air.clamp(0, 300);
+    let full = (f64::from(air - 2) * 10.0 / 300.0).ceil() as i32;
+    let total = (f64::from(air) * 10.0 / 300.0).ceil() as i32;
+    let scale = native_gui_scale.max(1);
+    let logical_width = width.div_ceil(scale);
+    let logical_height = height.div_ceil(scale);
+    let s = scale as f32;
+    let mut result = Vec::with_capacity(total as usize * 6);
+    for i in 0..total {
+        let rect = Rect {
+            x: (logical_width as i32 / 2 - 91 + i * 8) as f32 * s,
+            y: (logical_height as i32 - 41) as f32 * s,
+            width: 9.0 * s,
+            height: 9.0 * s,
+        };
+        let uv = Rect {
+            x: if i < full { 16.0 } else { 25.0 },
+            y: 18.0,
+            width: 9.0,
+            height: 9.0,
+        };
+        result.extend(quad_vertices(rect, uv, (width, height)));
+    }
+    result
+}
+
+#[cfg(test)]
+mod air_tests {
+    use super::*;
+
+    #[test]
+    fn bubbles_follow_native_ceiling_boundaries() {
+        for (air, full, partial) in [
+            (-19, 0, 0),
+            (0, 0, 0),
+            (1, 0, 1),
+            (2, 0, 1),
+            (3, 1, 0),
+            (30, 1, 0),
+            (31, 1, 1),
+            (32, 1, 1),
+            (33, 2, 0),
+            (298, 10, 0),
+            (299, 10, 0),
+            (300, 10, 0),
+        ] {
+            let vertices = air_bubble_vertices(1280, 720, 3, air, true);
+            assert_eq!(vertices.len(), (full + partial) * 6, "air={air}");
+            assert_eq!(
+                vertices
+                    .chunks_exact(6)
+                    .filter(|q| q[0][2] == 16.0 / 256.0)
+                    .count(),
+                full,
+                "air={air}"
+            );
+            assert_eq!(
+                vertices
+                    .chunks_exact(6)
+                    .filter(|q| q[0][2] == 25.0 / 256.0)
+                    .count(),
+                partial,
+                "air={air}"
+            );
+        }
+        assert!(air_bubble_vertices(1280, 720, 3, 300, false).is_empty());
+    }
+
+    #[test]
+    fn bubbles_align_above_hearts_at_odd_viewport_sizes() {
+        let viewport = (1281, 721);
+        let scale = 3;
+        let layout = layout_with_selection(viewport.0, viewport.1, scale, 0);
+        let first = air_bubble_vertices(viewport.0, viewport.1, scale, 300, true);
+        let expected = quad_vertices(
+            Rect {
+                x: layout.hearts[0].x,
+                y: layout.hearts[0].y - 9.0 * scale as f32,
+                width: 9.0 * scale as f32,
+                height: 9.0 * scale as f32,
+            },
+            Rect {
+                x: 16.0,
+                y: 18.0,
+                width: 9.0,
+                height: 9.0,
+            },
+            viewport,
+        );
+        assert_eq!(&first[..6], expected);
+    }
+}
