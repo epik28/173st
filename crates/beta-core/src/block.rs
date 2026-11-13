@@ -651,7 +651,18 @@ impl BlockScene {
         unloaded.sort_unstable();
         unloaded.dedup();
         let mut dirty = vec![(changed.0 >> 4, changed.2 >> 4)];
-        dirty.extend(updates.iter().map(|((x, _, z), _, _)| (x >> 4, z >> 4)));
+        for &((x, _, z), _, _) in &updates {
+            let (cx, lx) = split_block_coord(x);
+            let (cz, lz) = split_block_coord(z);
+            for dx in chunk_neighbor_offsets(lx) {
+                for dz in chunk_neighbor_offsets(lz) {
+                    let key = (cx + dx, cz + dz);
+                    if next.chunks.contains_key(&key) {
+                        dirty.push(key);
+                    }
+                }
+            }
+        }
         dirty.sort_unstable();
         dirty.dedup();
         *self = next;
@@ -2044,5 +2055,32 @@ mod tests {
             world.relight((0, 64, 0), 0, |_, _| (0, 0)),
             Err(RelightError::InvalidQueueLimit)
         ));
+    }
+
+    #[test]
+    fn relight_marks_loaded_neighbor_whose_mesh_samples_changed_light() {
+        let mut world = scene(
+            BlockSceneBounds::new(-1, 0, 2, 1).unwrap(),
+            vec![
+                BlockSceneChunk {
+                    x: -1,
+                    z: 0,
+                    data: ChunkData::new(),
+                },
+                BlockSceneChunk {
+                    x: 0,
+                    z: 0,
+                    data: ChunkData::new(),
+                },
+            ],
+        );
+        // Relighting x=-2 changes the light at x=-1, whose value can be
+        // sampled by the mesh for x=0. No light in chunk 0 changes itself.
+        let result = world
+            .relight((-2, 64, 5), MAX_RELIGHT_CELLS, |_, _| (0, 0))
+            .unwrap();
+        assert!(result.light_updates.iter().any(|(pos, _, _)| pos.0 == -1));
+        assert!(result.light_updates.iter().all(|(pos, _, _)| pos.0 < 0));
+        assert_eq!(result.dirty_chunks, vec![(-1, 0), (0, 0)]);
     }
 }

@@ -2116,6 +2116,32 @@ impl App {
                     "beta-viewer light trace cell=({x},{sample_y},{z}) core={core:?} view={view:?}"
                 );
             }
+            // Face shading reads the cell adjacent to each visible face, not
+            // necessarily the edited column. Capture that neighborhood too.
+            for sample_y in y.saturating_sub(1)..=y.saturating_add(1).min(127) {
+                if !(0..128).contains(&sample_y) {
+                    continue;
+                }
+                for dx in -1_i32..=1 {
+                    for dz in -1_i32..=1 {
+                        let (Some(sx), Some(sz)) = (x.checked_add(dx), z.checked_add(dz)) else {
+                            continue;
+                        };
+                        let core = self.block_scene.block(sx, sample_y, sz)?;
+                        let (cx, lx) = split_block_coord(sx);
+                        let (cz, lz) = split_block_coord(sz);
+                        let view = self
+                            .scene_chunks
+                            .iter()
+                            .find(|chunk| chunk.x == cx && chunk.z == cz)
+                            .map(|chunk| chunk.data.get(lx, sample_y as u8, lz))
+                            .transpose()?;
+                        eprintln!(
+                            "beta-viewer light trace neighbor=({sx},{sample_y},{sz}) core={core:?} view={view:?}"
+                        );
+                    }
+                }
+            }
         }
         self.target_status = format!(
             "{} block at ({x},{y},{z}); rebuilt {} dirty chunks; water events {}",

@@ -1,0 +1,30 @@
+{
+  "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
+  "capture_sha256": "5484e062c1c8c5e73e778034595f73ecf8268826a30670842aebf269b4d86e31",
+  "rows": [
+    "snapshot\tgrass-direct-place-remove\tbefore\tsha256=dd2b9506945f8ca3455a133aa5dca4f365353a5df884498daa1c7c2eb3acfede",
+    "sample\tgrass-direct-place-remove\tbefore\t8\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tbefore\t8\t64\t8\t0\t0\t0\t0\t15\t0\t15",
+    "sample\tgrass-direct-place-remove\tbefore\t8\t65\t8\t0\t0\t0\t0\t15\t0\t15",
+    "sample\tgrass-direct-place-remove\tbefore\t7\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tbefore\t7\t64\t8\t0\t0\t0\t0\t15\t0\t15",
+    "snapshot\tgrass-direct-place-remove\tafter-place\tsha256=401aaadc9d1f44d8557c4355dce1c5ed3d383476164a813bf7e84c15d46e4ee9",
+    "sample\tgrass-direct-place-remove\tafter-place\t8\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tafter-place\t8\t64\t8\t1\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tafter-place\t8\t65\t8\t0\t0\t0\t0\t15\t0\t15",
+    "sample\tgrass-direct-place-remove\tafter-place\t7\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tafter-place\t7\t64\t8\t0\t0\t0\t0\t15\t0\t15",
+    "snapshot\tgrass-direct-place-remove\tafter-remove\tsha256=dd2b9506945f8ca3455a133aa5dca4f365353a5df884498daa1c7c2eb3acfede",
+    "sample\tgrass-direct-place-remove\tafter-remove\t8\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tafter-remove\t8\t64\t8\t0\t0\t0\t0\t15\t0\t15",
+    "sample\tgrass-direct-place-remove\tafter-remove\t8\t65\t8\t0\t0\t0\t0\t15\t0\t15",
+    "sample\tgrass-direct-place-remove\tafter-remove\t7\t63\t8\t2\t0\t255\t0\t0\t0\t0",
+    "sample\tgrass-direct-place-remove\tafter-remove\t7\t64\t8\t0\t0\t0\t0\t15\t0\t15"
+  ],
+  "probe_rows": [
+    "case\tphase\tcells\tlight_mismatches\tid_mismatches\tmetadata_mismatches",
+    "grass-direct-place-remove\tafter-place\t294912\t0\t0\t0",
+    "grass-direct-place-remove\tafter-remove\t294912\t0\t0\t0"
+  ],
+  "scope": "Synthetic direct stone placement on grass; no renderer, height-map or cumulative Rust-state parity."
+}

@@ -1247,6 +1247,64 @@ mod tests {
     }
 
     #[test]
+    fn chunk_mesh_face_uses_light_from_adjacent_chunk() {
+        let mut left = ChunkData::new();
+        left.set(
+            15,
+            64,
+            4,
+            beta_core::chunk::BlockData {
+                id: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut right = ChunkData::new();
+        right
+            .set(
+                0,
+                64,
+                4,
+                beta_core::chunk::BlockData {
+                    sky_light: 14,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let scene = Scene::new(
+            SceneBounds::new(0, 0, 2, 1).unwrap(),
+            vec![
+                SceneChunk {
+                    x: 0,
+                    z: 0,
+                    data: left,
+                },
+                SceneChunk {
+                    x: 1,
+                    z: 0,
+                    data: right,
+                },
+            ],
+            vec![mapping(1)],
+        )
+        .unwrap();
+        let mesh = scene
+            .mesh_chunks_with_tint_and_emission(
+                MeshLimits::default(),
+                &[(0, 0)],
+                |_, _, _, _| 0xffffff,
+                |_| 0,
+            )
+            .unwrap();
+        let east_face = &mesh.vertices[20..24];
+        assert!(
+            east_face
+                .iter()
+                .all(|v| v.sky_light == 14 && v.position[0] == 16.0)
+        );
+    }
+
+    #[test]
     fn mesh_emits_six_outward_faces_with_native_shade_uv_and_light() {
         let mut data = ChunkData::new();
         data.set(
