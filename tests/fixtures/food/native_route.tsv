@@ -1,0 +1,7 @@
+id	count_before	health_before	timer_before	used	health_after	timer_after	slot_after
+260	1	10	3	1	14	10	-
+260	1	20	3	1	20	10	-
+282	1	10	3	1	20	10	281:1
+282	1	20	3	1	20	10	281:1
+357	8	10	3	1	11	10	357:7
+357	8	20	3	1	20	10	357:7

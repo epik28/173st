@@ -9,6 +9,22 @@ pub struct SavedHealth {
     pub attack_time: i32,
 }
 
+impl SavedHealth {
+    /// Initialize the currently modeled player health fields. The separately
+    /// captured death and attack timers await their simulation subsystems.
+    #[must_use]
+    pub fn damage_state(self) -> beta_core::fall_damage::UnarmoredHealth {
+        beta_core::fall_damage::UnarmoredHealth {
+            health: self.health,
+            previous_health: self.health,
+            hurt_timer: 0,
+            max_hurt_timer: 20,
+            last_damage: 0,
+            hurt_animation: self.hurt_time,
+        }
+    }
+}
+
 /// Extract the fields read by native `ls.a(nu)`. A missing Health field on an
 /// existing entity means 10, while a new player (no saved entity) starts at 20.
 /// Invalid NBT and duplicate keys are rejected; no world data is modified.
@@ -84,6 +100,16 @@ mod tests {
             );
         }
         assert_eq!(read(None).unwrap().health, 20);
+        let loaded = read(Some(&Tag::Compound(vec![
+            ("Health".into(), Tag::Short(5)),
+            ("HurtTime".into(), Tag::Short(7)),
+        ])))
+        .unwrap()
+        .damage_state();
+        assert_eq!(
+            (loaded.health, loaded.hurt_animation, loaded.hurt_timer),
+            (5, 7, 0)
+        );
         assert!(read(Some(&Tag::Compound(vec![("Health".into(), Tag::Int(20))]))).is_none());
     }
 }

@@ -85,6 +85,7 @@ pub struct SavedInventory {
 /// Return the saved Beta health in half-heart units. Invalid or missing values
 /// use the native viewer fallback of twenty, while valid values are bounded to
 /// the ten-heart display.
+#[cfg(test)]
 pub fn health_from_player(player: Option<&Tag>) -> i16 {
     let Some(Tag::Compound(fields)) = player else {
         return 20;

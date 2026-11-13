@@ -6,6 +6,7 @@
 mod armor_runtime;
 mod backend;
 mod drowning_runtime;
+mod food_runtime;
 mod hotbar_input;
 mod hud;
 #[cfg(test)]
@@ -141,7 +142,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     )
     .unwrap_or(safe_spawn);
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
-    let saved_health = saved_player::health_from_player(metadata.player.as_ref());
+    let health_nbt =
+        beta_viewer::player_health_nbt::read(metadata.player.as_ref()).unwrap_or_else(|| {
+            eprintln!("beta-viewer: invalid saved health fields; starting with 20 health");
+            beta_viewer::player_health_nbt::read(None).expect("new player health defaults")
+        });
+    let saved_health = health_nbt.health.clamp(0, 20) as i16;
     let saved_air =
         beta_viewer::player_air::saved_air(metadata.player.as_ref()).unwrap_or_else(|| {
             eprintln!("beta-viewer: invalid saved Air field; starting with 300 air");
@@ -149,14 +155,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         });
     let fall_health = armor_runtime::read_armor(metadata.player.as_ref()).map(|slots| {
         armor_runtime::ArmorRuntime {
-            health: beta_core::fall_damage::UnarmoredHealth {
-                health: i32::from(saved_health),
-                previous_health: i32::from(saved_health),
-                hurt_timer: 0,
-                max_hurt_timer: 20,
-                last_damage: 0,
-                hurt_animation: 0,
-            },
+            health: health_nbt.damage_state(),
             slots,
             remainder: 0,
         }
@@ -3369,6 +3368,24 @@ impl ApplicationHandler for App {
                     MouseButton::Right => false,
                     _ => return,
                 };
+                if !breaking
+                    && let Some(stack) = self.inventory.selected_stack()
+                    && beta_core::food::use_food(stack.id(), stack.count(), 20, 0, 20).is_some()
+                {
+                    self.update_aimed_target();
+                    // Stone's native block activation returns false. Other
+                    // target types remain gated until their activation order
+                    // has been captured; a miss invokes the item directly.
+                    if (self.target_status == "no target"
+                        || self.aimed_hit.is_some_and(|hit| hit.id == 1))
+                        && let Some(health) = &mut self.fall_health
+                        && food_runtime::use_selected_food(&mut self.inventory, &mut health.health)
+                            .is_some()
+                    {
+                        self.saved_health = health.health.health.clamp(0, 20) as i16;
+                    }
+                    return;
+                }
                 if let Err(error) = self.interact(breaking) {
                     self.target_status = format!("action rejected: {error}");
                     if let Some(window) = &self.window {
