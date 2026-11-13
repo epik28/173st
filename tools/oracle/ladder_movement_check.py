@@ -6,11 +6,11 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 JAR = (ROOT.parent / '.local/minecraft/client-b1.7.3.jar').resolve()
-SOURCE = ROOT / 'tools/oracle/src/LadderMovementOracle.java'
+SOURCE = ROOT / 'tools/oracle/src'
 FIXTURE = ROOT / 'tests/fixtures/ladder_movement'
 
 with tempfile.TemporaryDirectory(prefix='ladder-movement-') as temp:
-    subprocess.run(['javac', '-cp', str(JAR), '-d', temp, str(SOURCE)], check=True)
+    subprocess.run(['javac', '-cp', str(JAR), '-d', temp, str(SOURCE / 'LadderMovementOracle.java'), str(SOURCE / 'LadderPresenceOracle.java')], check=True)
     request = (FIXTURE / 'input.tsv').read_bytes()
     captures = []
     for run in range(2):
@@ -19,6 +19,10 @@ with tempfile.TemporaryDirectory(prefix='ladder-movement-') as temp:
         captures.append(subprocess.run(command, input=request, stdout=subprocess.PIPE, check=True).stdout)
     if captures[0] != captures[1] or captures[0] != (FIXTURE / 'reference.tsv').read_bytes():
         raise SystemExit('native ladder movement captures disagree')
+    presence_command = ['java', '-XX:-UsePerfData', '-cp', f'{temp}:{JAR}', 'LadderPresenceOracle', str(JAR)]
+    presence = [subprocess.run(presence_command, stdout=subprocess.PIPE, check=True).stdout for _ in range(2)]
+    if presence[0] != presence[1] or presence[0] != (FIXTURE / 'presence.tsv').read_bytes():
+        raise SystemExit('native ladder presence captures disagree')
     rust = subprocess.run(['cargo', 'run', '--quiet', '--locked', '--offline', '-p', 'beta-core',
                            '--example', 'ladder_movement_probe'], cwd=ROOT, input=request,
                           stdout=subprocess.PIPE, check=True).stdout

@@ -592,6 +592,17 @@ impl Scene {
         }
     }
 
+    /// Returns a block from the bounded loaded scene; absent chunks and y outside
+    /// the Beta build range are treated as air, consistent with rendering queries.
+    pub fn block_at(
+        &self,
+        x: i32,
+        y: i32,
+        z: i32,
+    ) -> Result<beta_core::chunk::BlockData, ViewError> {
+        self.block(x, y, z)
+    }
+
     fn block(&self, x: i32, y: i32, z: i32) -> Result<beta_core::chunk::BlockData, ViewError> {
         if !(0..WORLD_HEIGHT as i32).contains(&y) {
             return Ok(Default::default());

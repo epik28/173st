@@ -2,11 +2,24 @@
 
 use std::time::Duration;
 
+#[cfg(test)]
+use beta_core::motion::dry_travel;
 use beta_core::{
     geometry::Aabb,
-    motion::{MotionState, TravelInput, dry_travel, water_contact, water_living_step},
+    math::floor_f64,
+    motion::{
+        MotionState, TravelInput, travel_with_ladder_query, water_contact, water_living_step,
+    },
 };
 use beta_view::{Scene, ViewError};
+
+fn ladder_cell(state: &MotionState) -> (i32, i32, i32) {
+    (
+        floor_f64(state.position[0]),
+        floor_f64(state.bbox.min[1]),
+        floor_f64(state.position[2]),
+    )
+}
 
 pub const TICK: Duration = Duration::from_nanos(50_000_000);
 const QUERY_MARGIN: f64 = 3.0;
@@ -143,6 +156,7 @@ impl MotionController {
         let water_cells = scene.water_cells_in(self.state.bbox.expanded(1.0, 1.0, 1.0))?;
         let was_in_water =
             water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)?;
+        let mut was_on_ladder = false;
         if was_in_water {
             let sneak_factor = if controls.sneak { 0.3_f32 } else { 1.0 };
             water_living_step(
@@ -158,7 +172,28 @@ impl MotionController {
             .map_err(beta_view::ViewError::WaterMotion)?;
         } else {
             let surface = scene.surface_below(self.state.bbox)?;
-            dry_travel(&mut self.state, travel_input, &colliders, surface);
+            let mut next = self.state;
+            let mut query_error = None;
+            let mut first_query = true;
+            travel_with_ladder_query(&mut next, travel_input, &colliders, surface, |state| {
+                let (x, y, z) = ladder_cell(state);
+                let on_ladder = match scene.block_at(x, y, z) {
+                    Ok(block) => block.id == 65,
+                    Err(error) => {
+                        query_error = Some(error);
+                        false
+                    }
+                };
+                if first_query {
+                    was_on_ladder = on_ladder;
+                    first_query = false;
+                }
+                on_ladder
+            });
+            if let Some(error) = query_error {
+                return Err(error);
+            }
+            self.state = next;
         }
         scene.constrain_motion_state(&mut self.state);
         let is_in_water =
@@ -167,7 +202,8 @@ impl MotionController {
         Ok(TickResult {
             previous: self.previous,
             current: self.state,
-            dry_landing_distance: (!was_in_water
+            dry_landing_distance: (!was_on_ladder
+                && !was_in_water
                 && !is_in_water
                 && self.state.on_ground
                 && self.previous.fall_distance > 0.0)
@@ -386,6 +422,83 @@ mod tests {
             vec![test_mapping()],
         )
         .unwrap()
+    }
+
+    #[test]
+    fn ladder_cell_matches_native_recorded_world_queries() {
+        let cases = [
+            [8.5, 1.0, 4.69, 1.0],
+            [-0.1, 64.9, -1.1, 64.2],
+            [2.9, 10.9, 3.2, 8.0],
+            [0.0, -0.1, 0.0, -0.01],
+        ];
+        for row in include_str!("../../../tests/fixtures/ladder_movement/presence.tsv").lines() {
+            let f: Vec<_> = row.split('\t').collect();
+            let idx: usize = f[0].parse().unwrap();
+            let c = cases[idx];
+            let mut state = MotionState::new([c[0], c[1], c[2]]);
+            state.bbox.min[1] = c[3];
+            assert_eq!(
+                ladder_cell(&state),
+                (
+                    f[2].parse().unwrap(),
+                    f[3].parse().unwrap(),
+                    f[4].parse().unwrap()
+                )
+            );
+            assert_eq!(f[1] == "65", f[5] == "1");
+        }
+    }
+
+    #[test]
+    fn ladder_wall_climbing_uses_native_foot_cell_and_clears_fall_damage() {
+        let mut data = beta_core::chunk::ChunkData::new();
+        for y in 1..5 {
+            data.set(
+                8,
+                y,
+                4,
+                beta_core::chunk::BlockData {
+                    id: 65,
+                    metadata: 2,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            data.set(
+                8,
+                y,
+                5,
+                beta_core::chunk::BlockData {
+                    id: 1,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        let scene = Scene::new(
+            beta_view::SceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![beta_view::SceneChunk { x: 0, z: 0, data }],
+            vec![test_mapping()],
+        )
+        .unwrap();
+        let mut state = MotionState::new([8.5, 1.0, 4.69]);
+        state.fall_distance = 9.0;
+        let mut motion = MotionController::new(state);
+        motion.accumulate(TICK);
+        let tick = motion
+            .tick(
+                &scene,
+                Controls {
+                    forward: true,
+                    ..Controls::default()
+                },
+            )
+            .unwrap();
+        assert!(tick.current.collided_horizontally);
+        assert!(tick.current.velocity[1] > 0.0);
+        assert_eq!(tick.current.fall_distance, 0.0);
+        assert_eq!(tick.dry_landing_distance, None);
     }
 
     fn water_test_scene() -> Scene {
