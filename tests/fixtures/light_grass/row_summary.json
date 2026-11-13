@@ -1,6 +1,6 @@
 {
   "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
-  "capture_sha256": "43466427748dce8b3b27ec3d2dbd82087869002188da21fd1949bce81ef42bea",
+  "capture_sha256": "2bd2d373d234a85a676a149ae1c343a68dd5111e9a436a3ed509a2cf5c777013",
   "rows": [
     "snapshot\tgrass-row-place-remove\tbefore\tsha256=dd2b9506945f8ca3455a133aa5dca4f365353a5df884498daa1c7c2eb3acfede",
     "sample\tgrass-row-place-remove\tbefore\t7\t63\t8\t2\t0\t255\t0\t0\t0\t0",

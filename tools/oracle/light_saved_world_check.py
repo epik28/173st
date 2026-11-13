@@ -48,7 +48,7 @@ def run():
                         str(SOURCE / 'LightUpdateOracle.java'),
                         str(SOURCE / 'LightMaterialEditV2Oracle.java'),
                         str(SOURCE / 'LightSavedWorldOracle.java')], check=True)
-        command = ['java', '-cp', f'{classes}:{JAR}', 'LightSavedWorldOracle', str(JAR), str(inputs)]
+        command = ['java', '-XX:-UsePerfData', '-cp', f'{classes}:{JAR}', 'LightSavedWorldOracle', str(JAR), str(inputs)]
         captures = [subprocess.run(command, stdout=subprocess.PIPE, check=True).stdout for _ in range(2)]
         if captures[0] != captures[1] or hashlib.sha256(captures[0]).hexdigest() != expected['capture_sha256']:
             raise ValueError('native capture differs from repeat or pinned hash')

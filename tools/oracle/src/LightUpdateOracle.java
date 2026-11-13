@@ -68,7 +68,7 @@ public final class LightUpdateOracle {
         }
       }
       for(int lx=0;lx<16;lx++)for(int lz=0;lz<16;lz++){
-        int h=c.h[lx*16+lz];
+        int h=c.h[lz*16+lx];
         if(h!=0)rows.append("height\t").append(name).append('\t').append(cx*16+lx).append('\t').append(cz*16+lz).append('\t').append(h).append('\n');
       }
     }

@@ -44,7 +44,7 @@ def _native_snapshot_digest(case,phase):
           blocks[index]=bid
           _set_nibble(metadata,index,meta);_set_nibble(block,index,bl);_set_nibble(sky,index,sk)
         for (x,z),h in heights.items():
-          if (x >> 4)==cx and (z >> 4)==cz: height[(x & 15)*16+(z & 15)]=h & 255
+          if (x >> 4)==cx and (z >> 4)==cz: height[(z & 15)*16+(x & 15)]=h & 255
         digest.update(bytes((cx & 255,cz & 255)))
         digest.update(blocks);digest.update(metadata);digest.update(sky);digest.update(block);digest.update(height)
     return digest.hexdigest()
@@ -159,7 +159,7 @@ def capture(jar,build,req=REQUEST):
         outdir=pathlib.Path(tmp)
         q=subprocess.run([javac,'-cp',str(jar),'-d',str(outdir),str(HELPER),str(SOURCE)],capture_output=True,timeout=60)
         if q.returncode: raise ValueError('javac failed: '+q.stderr.decode(errors='replace'))
-        q=subprocess.run([java,'-cp',str(outdir)+':'+str(jar),'LightMaterialEditSettledOracle',str(jar)],input=req,capture_output=True,timeout=60)
+        q=subprocess.run([java,'-XX:-UsePerfData','-cp',str(outdir)+':'+str(jar),'LightMaterialEditSettledOracle',str(jar)],input=req,capture_output=True,timeout=60)
         if q.returncode: raise ValueError('native oracle failed: '+q.stderr.decode(errors='replace'))
         return q.stdout
 

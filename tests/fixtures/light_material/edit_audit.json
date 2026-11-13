@@ -46,7 +46,7 @@
   "jar_sha256": "af1fa04b8006d3ef78c7e24f8de4aa56f439a74d7f314827529062d5bab6db4c",
   "output_sha256": "52184b840b178cb00a3e6b442c54659d6c6dafb0db7eda05ce9ca09558901f80",
   "source_sha256": {
-    "light_update_helper": "eec6d0ccab1ed70c3ca7bbdec8d9b3ec8e020a3112c288968deb56f33a76bb53",
-    "material_edit": "5052ae402375c423d13dfafe80e90d7bc368e5c4ed46c26aabe2b9857d7c2ef9"
+    "light_update_helper": "a9c54b3f0eacd067fad15ff340f2165faecdec0b45a54e9f56af8226dd9c7431",
+    "material_edit": "0e41c0da1e43d09b85d3e509c253c24180fe45894e8a025ddf8067d79ef734dd"
   }
 }

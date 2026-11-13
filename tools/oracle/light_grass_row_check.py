@@ -27,7 +27,7 @@ def run():
                         str(SOURCE / 'LightUpdateOracle.java'),
                         str(SOURCE / 'LightMaterialEditV2Oracle.java'),
                         str(SOURCE / 'LightGrassRowOracle.java')], check=True)
-        command = ['java', '-cp', f'{classes}:{jar}', 'LightGrassRowOracle', str(jar)]
+        command = ['java', '-XX:-UsePerfData', '-cp', f'{classes}:{jar}', 'LightGrassRowOracle', str(jar)]
         captures = [subprocess.run(command, input=REQUEST, stdout=subprocess.PIPE,
                                    check=True).stdout for _ in range(2)]
         if captures[0] != captures[1]:

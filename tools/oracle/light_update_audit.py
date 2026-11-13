@@ -272,7 +272,7 @@ def main() -> int:
         for index in (1, 2):
             audit_path = temp / f"capture-{index}.json"
             proc = subprocess.run(
-                ["java", "-cp", f"{classes}{__import__('os').pathsep}{jar}", "LightUpdateOracle", str(jar), str(audit_path), str(SOURCE)],
+                ["java", "-XX:-UsePerfData", "-cp", f"{classes}{__import__('os').pathsep}{jar}", "LightUpdateOracle", str(jar), str(audit_path), str(SOURCE)],
                 input=input_bytes,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

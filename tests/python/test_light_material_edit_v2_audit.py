@@ -38,6 +38,14 @@ class LightMaterialEditV2AuditTests(unittest.TestCase):
         self.assertLess(samples[('after-place',8,64,8)][4],15)
         self.assertEqual(samples[('before',8,64,8)][4],samples[('after-remove',8,64,8)][4])
 
+    def test_height_coordinates_keep_asymmetric_native_column(self):
+        case = self.parsed['cases']['glowstone-loaded-chunk-edge']
+        height = case['height']['after-place']
+        self.assertEqual(65, height[(15, 8)])
+        self.assertNotIn((8, 15), height)
+        self.assertEqual((0, 65), case['hdeltas'][('before', 'after-place')][(15, 8)])
+        self.assertNotIn((8, 15), case['hdeltas'][('before', 'after-place')])
+
     def test_glowstone_native_emission_crosses_chunk_edge(self):
         rows=[line.split('\t') for line in self.data.decode('ascii').splitlines() if line.startswith('sample\tglowstone-loaded-chunk-edge\tafter-place\t')]
         by_pos={(int(r[3]),int(r[4]),int(r[5])):tuple(map(int,r[6:])) for r in rows}
@@ -73,6 +81,11 @@ class LightMaterialEditV2AuditTests(unittest.TestCase):
         mutated=text.replace(state,'\t'.join(fields),1).encode()
         with self.assertRaisesRegex(ValueError,'native snapshot digest'):
             audit.validate(mutated)
+
+    def test_jvm_warning_on_stdout_is_rejected(self):
+        warning = b'[0.001s][warning][perf,memops] lock failure\n'
+        with self.assertRaises(ValueError):
+            audit.validate(warning + self.data)
 
     def test_wrong_jar_and_bounded_protocol_rejected(self):
         with self.assertRaisesRegex(ValueError,'wrong or missing pinned'):

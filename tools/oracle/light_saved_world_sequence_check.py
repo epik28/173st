@@ -48,7 +48,7 @@ def run():
                         str(SOURCE / 'LightUpdateOracle.java'),
                         str(SOURCE / 'LightMaterialEditV2Oracle.java'),
                         str(SOURCE / 'LightSavedWorldSequenceOracle.java')], check=True)
-        command = ['java', '-Xmx1g', '-cp', f'{classes}:{JAR}', 'LightSavedWorldSequenceOracle', str(JAR), str(inputs)]
+        command = ['java', '-XX:-UsePerfData', '-Xmx1g', '-cp', f'{classes}:{JAR}', 'LightSavedWorldSequenceOracle', str(JAR), str(inputs)]
         captures = [subprocess.run(command, stdout=subprocess.PIPE, check=True).stdout for _ in range(2)]
         if captures[0] != captures[1]:
             raise ValueError('native captures differ')

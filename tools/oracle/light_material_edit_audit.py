@@ -246,7 +246,7 @@ def capture(jar: pathlib.Path, build: pathlib.Path, request: bytes = REQUEST) ->
     if compiled.returncode:
         raise ValueError("javac failed: " + compiled.stderr.decode("utf-8", "replace")[-3000:])
     result = subprocess.run(
-        [java, "-cp", f"{classes}{os.pathsep}{jar}", "LightMaterialEditOracle", str(jar)],
+        [java, "-XX:-UsePerfData", "-cp", f"{classes}{os.pathsep}{jar}", "LightMaterialEditOracle", str(jar)],
         input=request, capture_output=True, timeout=60, check=False,
     )
     if result.returncode:

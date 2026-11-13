@@ -49,7 +49,7 @@ public final class LightMaterialEditOracle {
         }
       }
       for (int lx = 0; lx < 16; lx++) for (int lz = 0; lz < 16; lz++) {
-        int height = chunk.h[lx * 16 + lz];
+        int height = chunk.h[lz * 16 + lx];
         if (height != 0)
           rows.append("height\t").append(scenario.name).append('\t').append(cx * 16 + lx).append('\t')
               .append(cz * 16 + lz).append('\t').append(height).append('\n');
