@@ -722,9 +722,98 @@ pub fn air_bubble_vertices(
     result
 }
 
+/// Render heart flash and low-health motion using the native GUI tick state.
+#[derive(Clone, Copy, Debug)]
+pub struct HeartAnimation {
+    pub tick: i32,
+    pub health: i32,
+    pub previous_health: i32,
+    pub hurt_timer: i32,
+}
+
+pub fn native_vertices_with_heart_animation(
+    width: u32,
+    height: u32,
+    scale: u32,
+    selected_slot: u8,
+    animation: HeartAnimation,
+) -> (Vec<[f32; 4]>, Vec<[f32; 4]>) {
+    let (gui, _) = native_vertices_with_selection(width, height, scale, selected_slot, 20);
+    let layout = layout_with_selection(width, height, scale, selected_slot);
+    let sprites = beta_viewer::heart_animation::heart_sprites(
+        animation.tick,
+        animation.health,
+        animation.previous_health,
+        animation.hurt_timer,
+    );
+    let mut icons = Vec::with_capacity(186);
+    for (mut heart, sprite) in layout.hearts.into_iter().zip(sprites) {
+        heart.y += f32::from(sprite.y_offset) * layout.scale as f32;
+        for u in [
+            Some(sprite.background_u),
+            sprite.previous_u,
+            sprite.current_u,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            icons.extend(quad_vertices(
+                heart,
+                Rect {
+                    x: f32::from(u),
+                    y: 0.0,
+                    width: 9.0,
+                    height: 9.0,
+                },
+                (width, height),
+            ));
+        }
+    }
+    icons.extend(quad_vertices(
+        layout.crosshair,
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 16.0,
+            height: 16.0,
+        },
+        (width, height),
+    ));
+    (gui, icons)
+}
+
 #[cfg(test)]
 mod air_tests {
     use super::*;
+
+    #[test]
+    fn animated_hearts_show_flash_overlay_and_jitter() {
+        let params = HeartAnimation {
+            tick: 1,
+            health: 4,
+            previous_health: 20,
+            hurt_timer: 15,
+        };
+        let (_, flash) = native_vertices_with_heart_animation(1280, 720, 3, 0, params);
+        // Ten backgrounds, ten previous-health overlays, two current hearts, crosshair.
+        assert_eq!(flash.len(), 23 * 6);
+        assert_eq!(flash[0][2], 25.0 / 256.0);
+        assert_eq!(flash[6][2], 70.0 / 256.0);
+        let (_, normal) = native_vertices_with_heart_animation(
+            1280,
+            720,
+            3,
+            0,
+            HeartAnimation {
+                health: 20,
+                previous_health: 20,
+                hurt_timer: 0,
+                ..params
+            },
+        );
+        let (_, legacy) = native_vertices_with_selection(1280, 720, 3, 0, 20);
+        assert_eq!(normal, legacy);
+    }
 
     #[test]
     fn bubbles_follow_native_ceiling_boundaries() {

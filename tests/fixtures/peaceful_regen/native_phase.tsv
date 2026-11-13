@@ -1,0 +1,5 @@
+tick_before	tick_after	health_before	health_after	timer_before	timer_after
+18	19	18	18	3	2
+19	20	18	19	2	10
+20	21	19	19	10	9
+21	22	19	19	9	8

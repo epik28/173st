@@ -5,7 +5,6 @@
 
 pub mod armor_damage;
 pub mod armor_equipment;
-pub mod peaceful_regen;
 pub mod biome;
 pub mod block;
 pub mod chunk;
@@ -19,6 +18,7 @@ pub mod light;
 pub mod math;
 pub mod motion;
 pub mod nbt;
+pub mod peaceful_regen;
 pub mod region;
 pub mod water;
 pub mod world;

@@ -37,6 +37,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_living_tick_decrements_timer_before_peaceful_heal() {
+        for row in include_str!("../../../tests/fixtures/peaceful_regen/native_phase.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<i32> = row.split('\t').map(|v| v.parse().unwrap()).collect();
+            let timer = (f[4] - 1).max(0);
+            let state = peaceful_tick(0, f[0].wrapping_add(1), f[2], timer, 20).unwrap();
+            assert_eq!(
+                (f[0].wrapping_add(1), state.health, state.hurt_timer),
+                (f[1], f[3], f[5])
+            );
+        }
+    }
+
+    #[test]
     fn native_player_peaceful_regeneration_and_timer() {
         let mut count = 0;
         for row in include_str!("../../../tests/fixtures/peaceful_regen/native.tsv")

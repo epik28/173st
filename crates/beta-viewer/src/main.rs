@@ -64,7 +64,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut event = EventLoop::new()?;
     let client_jar = client_jar_path()?;
     let menu_assets = menu::MenuAssets::load(&client_jar)?;
-    let Some((input, source_pins)) = copy_local_world(&mut event, &menu_assets)? else {
+    let Some((input, source_pins, difficulty)) = copy_local_world(&mut event, &menu_assets)? else {
         return Ok(());
     };
     let terrain_path = terrain_path()?;
@@ -215,7 +215,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         inventory: saved_inventory.inventory,
         saved_health,
         fall_health,
+        difficulty,
+        entity_ticks: 0,
         air: 300,
+        hud_tick: 0,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
@@ -373,7 +376,31 @@ fn build_chunk_mesh_cache(
     Ok((opaque, fluids))
 }
 
-type LocalWorldPreview = Option<(std::path::PathBuf, Vec<loader::PreviewSourcePin>)>;
+type LocalWorldPreview = Option<(std::path::PathBuf, Vec<loader::PreviewSourcePin>, u8)>;
+
+fn difficulty_from_options(contents: &str) -> Result<u8, &'static str> {
+    let mut difficulty = 2;
+    for line in contents.lines() {
+        if let Some(value) = line.strip_prefix("difficulty:") {
+            difficulty = value
+                .parse()
+                .map_err(|_| "invalid difficulty in options.txt")?;
+            if difficulty > 3 {
+                return Err("unsupported difficulty in options.txt");
+            }
+        }
+    }
+    Ok(difficulty)
+}
+
+fn configured_difficulty(prism_instance: &str) -> Result<u8, Box<dyn std::error::Error>> {
+    let options = std::path::Path::new(prism_instance).join("minecraft/options.txt");
+    match fs::read_to_string(options) {
+        Ok(contents) => Ok(difficulty_from_options(&contents)?),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(2),
+        Err(error) => Err(error.into()),
+    }
+}
 
 fn configured_gui_scale(prism_instance: &str) -> Result<u32, Box<dyn std::error::Error>> {
     if let Ok(value) = std::env::var("BETA_MENU_GUI_SCALE") {
@@ -447,6 +474,7 @@ fn copy_local_world(
     }
     let prism = prism.ok_or("config requires paths.prism_instance")?;
     let gui_scale_setting = configured_gui_scale(&prism)?;
+    let difficulty = configured_difficulty(&prism)?;
     let initial_size = chooser_window_size()?;
     // World selection is intentionally completed before any renderer/window is
     // created. Discovery is deterministic; only a validated disposable copy
@@ -481,7 +509,7 @@ fn copy_local_world(
             sha256: pin.sha256.clone(),
         })
         .collect();
-    Ok(Some((snapshot, pins)))
+    Ok(Some((snapshot, pins, difficulty)))
 }
 
 struct ChooserGpu {
@@ -1264,7 +1292,10 @@ struct App {
     inventory: Inventory,
     saved_health: i16,
     fall_health: Option<armor_runtime::ArmorRuntime>,
+    difficulty: u8,
+    entity_ticks: i32,
     air: i32,
+    hud_tick: i32,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
     mouse_delta: MouseDeltaAccumulator,
@@ -2612,7 +2643,7 @@ impl App {
         });
         let hud_icons_vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("native hearts and crosshair screen-space vertices"),
-            size: 246 * 16,
+            size: 306 * 16,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -2754,6 +2785,7 @@ impl App {
                 }
             }
             while self.controller.ticks_due() > 0 {
+                self.entity_ticks = self.entity_ticks.wrapping_add(1);
                 if !self.controller.debug_flight
                     && let Some(submerged) =
                         drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {
@@ -2773,6 +2805,17 @@ impl App {
                 }
                 if let Some(health) = &mut self.fall_health {
                     health.health.tick_counters();
+                    if let Some(regen) = beta_core::peaceful_regen::peaceful_tick(
+                        self.difficulty,
+                        self.entity_ticks,
+                        health.health.health,
+                        health.health.hurt_timer,
+                        health.health.max_hurt_timer,
+                    ) {
+                        health.health.health = regen.health;
+                        health.health.hurt_timer = regen.hurt_timer;
+                        self.saved_health = regen.health as i16;
+                    }
                 }
                 if self.controller.debug_flight {
                     self.camera.position =
@@ -2854,12 +2897,26 @@ impl App {
             )
         }
         let show_hud = !self.inventory_screen.is_open();
-        let (hud_gui, mut hud_icons) = hud::native_vertices_with_selection(
+        let heart_animation = self.fall_health.as_ref().map_or(
+            hud::HeartAnimation {
+                tick: self.hud_tick,
+                health: i32::from(self.saved_health),
+                previous_health: i32::from(self.saved_health),
+                hurt_timer: 0,
+            },
+            |state| hud::HeartAnimation {
+                tick: self.hud_tick,
+                health: state.health.health,
+                previous_health: state.health.previous_health,
+                hurt_timer: state.health.hurt_timer,
+            },
+        );
+        let (hud_gui, mut hud_icons) = hud::native_vertices_with_heart_animation(
             g.config.width,
             g.config.height,
             hud::gui_scale(g.config.width, g.config.height),
             self.inventory.selected_hotbar(),
-            self.saved_health,
+            heart_animation,
         );
         let submerged = !self.controller.debug_flight
             && drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {
@@ -3482,6 +3539,14 @@ impl ApplicationHandler for App {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn options_select_native_default_and_peaceful_difficulty() {
+        assert_eq!(super::difficulty_from_options("music:1.0\n").unwrap(), 2);
+        assert_eq!(super::difficulty_from_options("difficulty:0\n").unwrap(), 0);
+        assert_eq!(super::difficulty_from_options("difficulty:3\n").unwrap(), 3);
+        assert!(super::difficulty_from_options("difficulty:4\n").is_err());
+        assert!(super::difficulty_from_options("difficulty:bad\n").is_err());
+    }
     use super::{
         LightDimension, Vertex, build_atlas_mips, captured_horizontal_water_edit,
         captured_seed_action_for_edit, fluid_frame_upload_bytes, interaction_shape,
