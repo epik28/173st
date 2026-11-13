@@ -142,6 +142,45 @@ mod tests {
     }
 
     #[test]
+    fn native_drowning_tick_uses_armor_wear_and_cooldown() {
+        let mut runtime = ArmorRuntime {
+            health: UnarmoredHealth {
+                health: 20,
+                previous_health: 0,
+                hurt_timer: 0,
+                max_hurt_timer: 20,
+                last_damage: 0,
+                hurt_animation: 0,
+            },
+            slots: [
+                ArmorPiece::new(298, 31),
+                ArmorPiece::new(307, 80),
+                None,
+                None,
+            ],
+            remainder: 0,
+        };
+        for line in include_str!("../../../tests/fixtures/armor_damage/native_drowning.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<_> = line.split('\t').collect();
+            runtime.health.hurt_timer = f[1].parse().unwrap();
+            let air = beta_core::drowning::tick_air(-19, 300, true, true, false);
+            runtime.apply_damage(i32::from(air.damage)).unwrap();
+            runtime.health.tick_counters();
+            assert_eq!(runtime.health.health, f[2].parse().unwrap());
+            assert_eq!(runtime.health.hurt_timer, f[3].parse().unwrap());
+            assert_eq!(runtime.health.last_damage, f[4].parse().unwrap());
+            assert_eq!(runtime.remainder, f[5].parse().unwrap());
+            assert_eq!(armor_score(&runtime.slots), Some(f[6].parse().unwrap()));
+            assert_eq!(runtime.slots[0].map(|p| p.damage), f[7].parse().ok());
+            assert_eq!(runtime.slots[1].map(|p| p.damage), f[8].parse().ok());
+            assert_eq!(air.air, f[9].parse().unwrap());
+        }
+    }
+
+    #[test]
     fn nbt_armor_requires_valid_unique_armor_stacks() {
         let entry = |slot, id, damage| {
             Tag::Compound(vec![

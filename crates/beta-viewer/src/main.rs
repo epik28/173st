@@ -2766,11 +2766,7 @@ impl App {
                     self.air = result.air;
                     if result.damage > 0
                         && let Some(health) = &mut self.fall_health
-                        && health.slots.iter().all(Option::is_none)
-                        && health
-                            .health
-                            .apply_fall_damage(i32::from(result.damage))
-                            .is_some()
+                        && health.apply_damage(i32::from(result.damage)).is_some()
                     {
                         self.saved_health = health.health.health.clamp(0, 20) as i16;
                     }

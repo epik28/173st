@@ -1,0 +1,5 @@
+case	timer_before	health	timer_after	last_damage	carry	score	slot0	slot1	air
+drown	0	19	19	2	13	5	33	82	0
+drown	20	19	19	2	13	5	33	82	0
+drown	10	17	19	2	3	4	-	84	0
+drown	0	16	19	2	20	4	-	86	0
