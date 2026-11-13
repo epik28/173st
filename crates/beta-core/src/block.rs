@@ -2083,4 +2083,21 @@ mod tests {
         assert!(result.light_updates.iter().all(|(pos, _, _)| pos.0 < 0));
         assert_eq!(result.dirty_chunks, vec![(-1, 0), (0, 0)]);
     }
+
+    #[test]
+    fn relight_does_not_schedule_unloaded_neighbor_meshes() {
+        let mut world = scene(
+            BlockSceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![BlockSceneChunk {
+                x: 0,
+                z: 0,
+                data: ChunkData::new(),
+            }],
+        );
+        let result = world
+            .relight((1, 64, 1), MAX_RELIGHT_CELLS, |_, _| (0, 0))
+            .unwrap();
+        assert!(result.light_updates.iter().any(|(pos, _, _)| pos.0 == 0));
+        assert_eq!(result.dirty_chunks, vec![(0, 0)]);
+    }
 }
