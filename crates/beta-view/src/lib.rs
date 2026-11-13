@@ -21,6 +21,7 @@ use glam::{Mat4, Vec3, Vec4};
 
 pub mod fluid;
 mod plant;
+pub use plant::tall_grass_biome_coords;
 mod torch;
 
 pub const CHUNK_WIDTH: usize = 16;
@@ -719,6 +720,28 @@ impl Scene {
                             }
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
                             let wz = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
+                            if block.id == 31 {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                let color = if block.metadata == 0 {
+                                    [1.0; 3]
+                                } else if let Some(sample) = tint.as_deref_mut() {
+                                    let (tx, tz) = tall_grass_biome_coords(wx, i32::from(y), wz);
+                                    color_tint(sample(block.id, block.metadata, tx, tz))
+                                } else {
+                                    [1.0; 3]
+                                };
+                                plant::append_grass(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    source_minimum,
+                                    color,
+                                    limits,
+                                )?;
+                                continue;
+                            }
                             if matches!(block.id, 6 | 37..=40) {
                                 let source_minimum = emission_minimum
                                     .as_deref_mut()
@@ -1598,6 +1621,28 @@ mod tests {
     fn adjacent_confirmed_cubes_cull_shared_face_and_missing_neighbors_are_air() {
         let mesh = one_block_scene(true).mesh(MeshLimits::default()).unwrap();
         assert_eq!(mesh.visible_faces, 10);
+    }
+
+    #[test]
+    fn tall_grass_scene_uses_native_biome_sample_and_white_shrub() {
+        let scene = blocks_scene(&[(0, 1, 0, 31, 0), (1, 1, 0, 31, 1)], vec![]);
+        let mut sampled = Vec::new();
+        let mesh = scene
+            .mesh_with_tint(MeshLimits::default(), |id, meta, x, z| {
+                sampled.push((id, meta, x, z));
+                0x0076923d
+            })
+            .unwrap();
+        let (x, z) = tall_grass_biome_coords(1, 1, 0);
+        assert_eq!(sampled, vec![(31, 1, x, z)]);
+        assert_eq!(mesh.unsupported_blocks, 0);
+        assert_eq!(mesh.vertices.len(), 48);
+        assert!(mesh.vertices[..24].iter().all(|v| v.tint == [1.0; 3]));
+        assert!(
+            mesh.vertices[24..]
+                .iter()
+                .all(|v| v.tint == color_tint(0x0076923d))
+        );
     }
 
     #[test]
