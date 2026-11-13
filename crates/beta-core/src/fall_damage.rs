@@ -32,9 +32,8 @@ pub fn accumulate_fall(distance: &mut f32, delta_y: f64, on_ground: bool) -> Opt
     }
 }
 
-/// Captured portion of the unarmored player's damage state. Timer advancement,
-/// armor, multiplayer, death handling, sound and statistics are outside this
-/// model; callers supply the current timer before each damage event.
+/// Captured portion of the unarmored player's damage state. Armor,
+/// multiplayer, death handling, sound and statistics are outside this model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnarmoredHealth {
     pub health: i32,
@@ -46,6 +45,16 @@ pub struct UnarmoredHealth {
 }
 
 impl UnarmoredHealth {
+    /// Update the two captured counters during one living-entity tick.
+    pub fn tick_counters(&mut self) {
+        if self.hurt_timer > 0 {
+            self.hurt_timer -= 1;
+        }
+        if self.hurt_animation > 0 {
+            self.hurt_animation -= 1;
+        }
+    }
+
     /// Apply a fall damage request in 0..=253 (distances through 256 blocks),
     /// returning health lost. Unsupported input is rejected atomically.
     pub fn apply_fall_damage(&mut self, damage: i32) -> Option<i32> {
@@ -83,6 +92,42 @@ impl UnarmoredHealth {
 #[cfg(test)]
 mod tests {
     use super::{UnarmoredHealth, accumulate_fall, landing_damage};
+
+    #[test]
+    fn native_landing_damage_and_living_tick_counters_match_fixture() {
+        let mut state = UnarmoredHealth {
+            health: 20,
+            previous_health: 0,
+            hurt_timer: 0,
+            max_hurt_timer: 20,
+            last_damage: 0,
+            hurt_animation: 0,
+        };
+        let mut distance = 0.0;
+        assert_eq!(accumulate_fall(&mut distance, -5.0, false), None);
+        let landing = accumulate_fall(&mut distance, -0.25, true).unwrap();
+        assert_eq!(
+            state.apply_fall_damage(landing_damage(landing).unwrap()),
+            Some(2)
+        );
+        let fixture = include_str!("../../../tests/fixtures/fall_damage/native_health_ticks.tsv");
+        for row in fixture.lines().skip(1) {
+            let f: Vec<i32> = row.split('\t').map(|x| x.parse().unwrap()).collect();
+            assert_eq!(
+                (
+                    state.health,
+                    state.hurt_timer,
+                    state.hurt_animation,
+                    state.last_damage,
+                    state.previous_health
+                ),
+                (f[1], f[2], f[3], f[4], f[5]),
+                "tick {}",
+                f[0]
+            );
+            state.tick_counters();
+        }
+    }
 
     #[test]
     fn unarmored_fall_health_matches_native_cooldown_scenarios() {

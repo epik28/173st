@@ -20,7 +20,11 @@ public final class FallHealthOracle {
     @Override public void v() { }
     @Override public void a(vr stat, int amount) { }
     @Override protected void ai() { }
+    @Override public boolean k_() { return false; }
+    @Override public boolean ah() { return false; }
+    @Override public boolean W() { return false; }
     void fall(float d) { super.b(d); }
+    void advance(double delta, boolean onGround) { super.a(delta, onGround); }
     int lastDamage() { return au; }
   }
   static void emit(String name, Player p, float distance) {
