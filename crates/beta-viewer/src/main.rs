@@ -49,7 +49,7 @@ use winit::{
 use beta_viewer::loader;
 
 const TERRAIN_HASH: &str = "9e32336c83732193a20d0f942ae8aa1186ae01231245b5e83659ce6e9d3511cf";
-const HUD_NOTICE: &str = "HUD: saved hotbar items and saved health (no survival state)";
+const HUD_NOTICE: &str = "HUD: saved items, limited fall health; no death or respawn";
 fn main() {
     if let Err(e) = run() {
         eprintln!("beta-viewer: {e}");
@@ -140,6 +140,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     .unwrap_or(safe_spawn);
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
     let saved_health = saved_player::health_from_player(metadata.player.as_ref());
+    let fall_health = saved_player::has_no_saved_armor(metadata.player.as_ref()).then_some(
+        beta_core::fall_damage::UnarmoredHealth {
+            health: i32::from(saved_health),
+            previous_health: i32::from(saved_health),
+            hurt_timer: 0,
+            max_hurt_timer: 20,
+            last_damage: 0,
+            hurt_animation: 0,
+        },
+    );
     if saved_inventory.unsupported_stacks > 0 {
         eprintln!(
             "beta-viewer: skipped {} unsupported saved inventory stack(s)",
@@ -195,6 +205,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         controls: Controls::default(),
         inventory: saved_inventory.inventory,
         saved_health,
+        fall_health,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
         mouse_delta: MouseDeltaAccumulator::default(),
@@ -1242,6 +1253,7 @@ struct App {
     controls: Controls,
     inventory: Inventory,
     saved_health: i16,
+    fall_health: Option<beta_core::fall_damage::UnarmoredHealth>,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
     mouse_delta: MouseDeltaAccumulator,
@@ -2731,6 +2743,9 @@ impl App {
                 }
             }
             while self.controller.ticks_due() > 0 {
+                if let Some(health) = &mut self.fall_health {
+                    health.tick_counters();
+                }
                 if self.controller.debug_flight {
                     self.camera.position =
                         glam::Vec3::from_array(self.controller.flight_position());
@@ -2743,10 +2758,22 @@ impl App {
                     );
                     self.controller.flight_tick(self.camera.position.to_array());
                 } else {
-                    if let Err(error) = self.controller.tick(&self.scene, controls) {
-                        eprintln!("beta-viewer motion query failed: {error}");
-                        self.controller.clear_clock();
-                        break;
+                    match self.controller.tick(&self.scene, controls) {
+                        Ok(tick) => {
+                            if let (Some(health), Some(distance)) =
+                                (&mut self.fall_health, tick.dry_landing_distance)
+                                && let Some(damage) =
+                                    beta_core::fall_damage::landing_damage(distance)
+                                && health.apply_fall_damage(damage).is_some()
+                            {
+                                self.saved_health = health.health.clamp(0, 20) as i16;
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("beta-viewer motion query failed: {error}");
+                            self.controller.clear_clock();
+                            break;
+                        }
                     }
                 }
             }

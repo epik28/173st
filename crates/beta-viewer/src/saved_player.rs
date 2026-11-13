@@ -95,6 +95,31 @@ pub fn health_from_player(player: Option<&Tag>) -> i16 {
     }
 }
 
+/// Apply the unarmored damage model only when the saved armor slots are known
+/// to be empty. Malformed inventory data is treated as unknown equipment.
+pub fn has_no_saved_armor(player: Option<&Tag>) -> bool {
+    let Some(player) = player else { return true };
+    let Tag::Compound(fields) = player else {
+        return false;
+    };
+    match field(fields, "Inventory") {
+        None => true,
+        Some(Tag::List {
+            element_type: beta_core::nbt::TagType::Compound,
+            values,
+        }) => values.iter().all(|value| {
+            let Tag::Compound(fields) = value else {
+                return false;
+            };
+            match field(fields, "Slot") {
+                Some(Tag::Byte(slot)) => !(100..=103).contains(slot),
+                _ => false,
+            }
+        }),
+        _ => false,
+    }
+}
+
 pub fn inventory_from_player(player: Option<&Tag>) -> SavedInventory {
     let mut inventory = Inventory::new();
     let mut unsupported_stacks = 0;
@@ -164,6 +189,24 @@ fn field<'a>(fields: &'a [(String, Tag)], name: &str) -> Option<&'a Tag> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_armor_disables_unarmored_damage_and_malformed_slots_are_unknown() {
+        let inventory = |slot: Tag| {
+            Tag::Compound(vec![(
+                "Inventory".into(),
+                Tag::List {
+                    element_type: beta_core::nbt::TagType::Compound,
+                    values: vec![Tag::Compound(vec![("Slot".into(), slot)])],
+                },
+            )])
+        };
+        assert!(has_no_saved_armor(None));
+        assert!(has_no_saved_armor(Some(&inventory(Tag::Byte(9)))));
+        assert!(!has_no_saved_armor(Some(&inventory(Tag::Byte(100)))));
+        assert!(!has_no_saved_armor(Some(&inventory(Tag::Byte(103)))));
+        assert!(!has_no_saved_armor(Some(&inventory(Tag::Int(100)))));
+    }
 
     fn player_pos(values: Vec<Tag>) -> Tag {
         Tag::Compound(vec![(

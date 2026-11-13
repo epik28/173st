@@ -81,6 +81,8 @@ pub fn apply_native_mouse_delta(yaw: f32, pitch: f32, dx: i32, dy: i32) -> (f32,
 pub struct TickResult {
     pub previous: MotionState,
     pub current: MotionState,
+    /// Captured dry landing distance; water-contact transitions are excluded.
+    pub dry_landing_distance: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -139,7 +141,9 @@ impl MotionController {
             sneaking: controls.sneak,
         };
         let water_cells = scene.water_cells_in(self.state.bbox.expanded(1.0, 1.0, 1.0))?;
-        if water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)? {
+        let was_in_water =
+            water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)?;
+        if was_in_water {
             let sneak_factor = if controls.sneak { 0.3_f32 } else { 1.0 };
             water_living_step(
                 &mut self.state,
@@ -157,10 +161,17 @@ impl MotionController {
             dry_travel(&mut self.state, travel_input, &colliders, surface);
         }
         scene.constrain_motion_state(&mut self.state);
+        let is_in_water =
+            water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)?;
         self.accumulator -= TICK;
         Ok(TickResult {
             previous: self.previous,
             current: self.state,
+            dry_landing_distance: (!was_in_water
+                && !is_in_water
+                && self.state.on_ground
+                && self.previous.fall_distance > 0.0)
+                .then_some(self.previous.fall_distance),
         })
     }
 
@@ -431,6 +442,26 @@ mod tests {
         assert_eq!(inventory.state, neutral.state);
         assert!(inventory.state.position[1] < state.position[1]);
         assert!(inventory.state.position[0] > state.position[0]);
+    }
+
+    #[test]
+    fn falling_reports_one_dry_landing_with_accumulated_distance() {
+        let scene = test_scene(0..16, false, false);
+        let mut motion = MotionController::new(MotionState::new([8.5, 9.0, 8.5]));
+        let mut landings = Vec::new();
+        for _ in 0..60 {
+            motion.accumulate(TICK);
+            if let Some(distance) = motion
+                .tick(&scene, Controls::default())
+                .unwrap()
+                .dry_landing_distance
+            {
+                landings.push(distance);
+            }
+        }
+        assert_eq!(landings.len(), 1);
+        assert!(landings[0] > 3.0);
+        assert!(beta_core::fall_damage::landing_damage(landings[0]).unwrap() > 0);
     }
 
     #[test]
