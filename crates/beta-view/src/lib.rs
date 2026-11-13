@@ -22,6 +22,7 @@ use glam::{Mat4, Vec3, Vec4};
 pub mod fluid;
 mod plant;
 pub use plant::tall_grass_biome_coords;
+mod ladder;
 mod slab;
 mod snow;
 mod torch;
@@ -722,6 +723,19 @@ impl Scene {
                             }
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
                             let wz = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
+                            if block.id == 65 {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                ladder::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    source_minimum,
+                                    limits,
+                                )?;
+                                continue;
+                            }
                             if block.id == 20 {
                                 let source_minimum = emission_minimum
                                     .as_deref_mut()
