@@ -20,6 +20,7 @@ use beta_core::{
 use glam::{Mat4, Vec3, Vec4};
 
 pub mod fluid;
+mod plant;
 mod torch;
 
 pub const CHUNK_WIDTH: usize = 16;
@@ -718,6 +719,19 @@ impl Scene {
                             }
                             let wx = x0 + i32::from(chunk_x) * 16 + i32::from(local_x);
                             let wz = z0 + i32::from(chunk_z) * 16 + i32::from(local_z);
+                            if matches!(block.id, 6 | 37..=40) {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                plant::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    source_minimum,
+                                    limits,
+                                )?;
+                                continue;
+                            }
                             if matches!(block.id, 50 | 75 | 76) {
                                 let source_minimum = emission_minimum
                                     .as_deref_mut()
