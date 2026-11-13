@@ -3,6 +3,7 @@
 //! Read-only winit/wgpu rendering shell with fixed-step walking and debug flight.
 //! The scene and CPU mesh are prepared once and held in static GPU buffers.
 
+mod armor_runtime;
 mod backend;
 mod drowning_runtime;
 mod hotbar_input;
@@ -141,16 +142,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     .unwrap_or(safe_spawn);
     let saved_inventory = saved_player::inventory_from_player(metadata.player.as_ref());
     let saved_health = saved_player::health_from_player(metadata.player.as_ref());
-    let fall_health = saved_player::has_no_saved_armor(metadata.player.as_ref()).then_some(
-        beta_core::fall_damage::UnarmoredHealth {
-            health: i32::from(saved_health),
-            previous_health: i32::from(saved_health),
-            hurt_timer: 0,
-            max_hurt_timer: 20,
-            last_damage: 0,
-            hurt_animation: 0,
-        },
-    );
+    let fall_health = armor_runtime::read_armor(metadata.player.as_ref()).map(|slots| {
+        armor_runtime::ArmorRuntime {
+            health: beta_core::fall_damage::UnarmoredHealth {
+                health: i32::from(saved_health),
+                previous_health: i32::from(saved_health),
+                hurt_timer: 0,
+                max_hurt_timer: 20,
+                last_damage: 0,
+                hurt_animation: 0,
+            },
+            slots,
+            remainder: 0,
+        }
+    });
+    if fall_health.is_none() && !saved_player::has_no_saved_armor(metadata.player.as_ref()) {
+        eprintln!("beta-viewer: unsupported saved armor disables health damage");
+    }
     if saved_inventory.unsupported_stacks > 0 {
         eprintln!(
             "beta-viewer: skipped {} unsupported saved inventory stack(s)",
@@ -1255,7 +1263,7 @@ struct App {
     controls: Controls,
     inventory: Inventory,
     saved_health: i16,
-    fall_health: Option<beta_core::fall_damage::UnarmoredHealth>,
+    fall_health: Option<armor_runtime::ArmorRuntime>,
     air: i32,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
@@ -2758,13 +2766,17 @@ impl App {
                     self.air = result.air;
                     if result.damage > 0
                         && let Some(health) = &mut self.fall_health
-                        && health.apply_fall_damage(i32::from(result.damage)).is_some()
+                        && health.slots.iter().all(Option::is_none)
+                        && health
+                            .health
+                            .apply_fall_damage(i32::from(result.damage))
+                            .is_some()
                     {
-                        self.saved_health = health.health.clamp(0, 20) as i16;
+                        self.saved_health = health.health.health.clamp(0, 20) as i16;
                     }
                 }
                 if let Some(health) = &mut self.fall_health {
-                    health.tick_counters();
+                    health.health.tick_counters();
                 }
                 if self.controller.debug_flight {
                     self.camera.position =
@@ -2784,9 +2796,9 @@ impl App {
                                 (&mut self.fall_health, tick.dry_landing_distance)
                                 && let Some(damage) =
                                     beta_core::fall_damage::landing_damage(distance)
-                                && health.apply_fall_damage(damage).is_some()
+                                && health.apply_damage(damage).is_some()
                             {
-                                self.saved_health = health.health.clamp(0, 20) as i16;
+                                self.saved_health = health.health.health.clamp(0, 20) as i16;
                             }
                         }
                         Err(error) => {

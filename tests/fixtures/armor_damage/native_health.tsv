@@ -1,0 +1,6 @@
+case	distance	timer_before	health	timer_after	last_damage	carry	score	slot0	slot1
+hit_0	4	0	20	20	1	19	5	32	81
+hit_1	4	20	20	20	1	19	5	32	81
+hit_2	7	20	17	20	4	4	4	-	84
+hit_3	5	10	16	20	2	21	4	-	86
+hit_4	6	0	13	20	3	9	4	-	89
