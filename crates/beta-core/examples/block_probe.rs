@@ -88,6 +88,7 @@ fn parse_case(line: &str, line_number: usize) -> Result<Case, String> {
     let shape = match shape_for(block_id, metadata) {
         RayShape::FullCube => "cube",
         RayShape::LowerSlab => "slab",
+        RayShape::Farmland => "farmland",
         RayShape::TallGrass => "tallgrass",
         RayShape::Liquid => "liquid",
         RayShape::Unsupported => {
