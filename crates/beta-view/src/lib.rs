@@ -430,6 +430,13 @@ impl Scene {
                         }
                         continue;
                     }
+                    if y >= y0 && matches!(block.id, 44 | 60 | 81) {
+                        let bounds = partial_block_collision(block.id, x as i32, y, z as i32);
+                        if bounds.intersects(area) {
+                            result.push(bounds);
+                        }
+                        continue;
+                    }
                     if block.id == 0 || y < y0 {
                         continue;
                     }
@@ -1439,6 +1446,28 @@ impl Camera {
     }
 }
 
+fn partial_block_collision(id: u8, x: i32, y: i32, z: i32) -> Aabb {
+    let (x, y, z) = (f64::from(x), f64::from(y), f64::from(z));
+    match id {
+        44 => Aabb::new([x, y, z], [x + 1.0, y + 0.5, z + 1.0]),
+        60 => Aabb::new([x, y, z], [x + 1.0, y + 1.0, z + 1.0]),
+        // The original casts cactus coordinates to float before adding the inset.
+        81 => Aabb::new(
+            [
+                f64::from(x as f32 + 0.0625),
+                y,
+                f64::from(z as f32 + 0.0625),
+            ],
+            [
+                f64::from((x as i32).wrapping_add(1) as f32 - 0.0625),
+                f64::from((y as i32).wrapping_add(1) as f32 - 0.0625),
+                f64::from((z as i32).wrapping_add(1) as f32 - 0.0625),
+            ],
+        ),
+        _ => unreachable!("unsupported partial block"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2191,6 +2220,31 @@ mod tests {
                 .iter()
                 .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
         );
+    }
+
+    #[test]
+    fn partial_collision_shapes_match_native_and_enter_scene_queries() {
+        for line in
+            include_str!("../../../tests/fixtures/partial_block_collision/native.tsv").lines()
+        {
+            let fields: Vec<_> = line.split('\t').collect();
+            let id = fields[0].parse().unwrap();
+            let x = fields[1].parse().unwrap();
+            let y = fields[2].parse().unwrap();
+            let z = fields[3].parse().unwrap();
+            let nums: Vec<f64> = fields[4..].iter().map(|s| s.parse().unwrap()).collect();
+            assert_eq!(
+                partial_block_collision(id, x, y, z),
+                Aabb::new([nums[0], nums[1], nums[2]], [nums[3], nums[4], nums[5]])
+            );
+        }
+        for (id, height) in [(44, 0.5), (60, 1.0), (81, 0.9375)] {
+            let scene = blocks_scene(&[(0, 1, 0, id, 0)], vec![]);
+            let query = Aabb::new([0.2, 1.1, 0.2], [0.8, 1.2, 0.8]);
+            let result = scene.colliders_in(query).unwrap();
+            assert_eq!(result.len(), 1, "block {id}");
+            assert_eq!(result[0].max[1], 1.0 + height, "block {id}");
+        }
     }
 
     #[test]
