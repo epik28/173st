@@ -126,6 +126,63 @@ const WATER_SURFACE_JUMP: f64 = 0.300_000_011_920_928_96;
 const PLAYER_EYE_HEIGHT: f32 = 0.12_f32;
 const WATER_LEVEL_OFFSET: f32 = 0.111_111_11_f32;
 
+/// Native `ls.a_(FF)` lava branch without collision boxes. Inputs must have
+/// already been scaled by living update, and lava contact established.
+pub fn lava_travel_unobstructed(state: &mut MotionState, input: TravelInput) {
+    state.yaw_degrees = input.yaw_degrees;
+    state.sneaking = input.sneaking;
+    move_flying(state, input.strafe, input.forward, 0.02_f32);
+    let movement = state.velocity;
+    move_entity(state, movement, &[]);
+    state.velocity[0] *= 0.5;
+    state.velocity[1] *= 0.5;
+    state.velocity[2] *= 0.5;
+    state.velocity[1] -= 0.02;
+}
+
+#[cfg(test)]
+mod lava_travel_tests {
+    use super::*;
+    #[test]
+    fn native_lava_travel_unobstructed() {
+        for row in include_str!("../../../tests/fixtures/lava_travel/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<_> = row.split('\t').collect();
+            let mut state = MotionState::new([0.5, 10.0, 0.5]);
+            state.velocity = [
+                f[0].parse().unwrap(),
+                f[1].parse().unwrap(),
+                f[2].parse().unwrap(),
+            ];
+            let input = TravelInput {
+                strafe: f[3].parse().unwrap(),
+                forward: f[4].parse().unwrap(),
+                yaw_degrees: f[5].parse().unwrap(),
+                jump: false,
+                sneaking: false,
+            };
+            lava_travel_unobstructed(&mut state, input);
+            let actual = [
+                state.position[0],
+                state.position[1],
+                state.position[2],
+                state.velocity[0],
+                state.velocity[1],
+                state.velocity[2],
+            ];
+            for (index, value) in actual.into_iter().enumerate() {
+                assert_eq!(
+                    value.to_bits(),
+                    f[6 + index].parse::<f64>().unwrap().to_bits(),
+                    "{row} column {index}"
+                );
+            }
+        }
+    }
+}
+
 /// Runs the bounded native `gs.a_(FF)` water path using only supplied water
 /// cells and solid collision boxes. The frozen corpus supplies only water IDs
 /// 8/9; absent cells are air, and every other block shape is unsupported.
