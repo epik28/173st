@@ -22,6 +22,7 @@ use glam::{Mat4, Vec3, Vec4};
 pub mod fluid;
 mod plant;
 pub use plant::tall_grass_biome_coords;
+mod cactus;
 mod farmland;
 mod ladder;
 mod slab;
@@ -786,6 +787,38 @@ impl Scene {
                                         [1.0; 3],
                                         source_minimum,
                                         false,
+                                    )?;
+                                }
+                                continue;
+                            }
+                            if block.id == 81 {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                for face in 0..6_u8 {
+                                    let (dx, dy, dz) = face_delta(face)?;
+                                    let neighbor =
+                                        self.block(wx + dx, i32::from(y) + dy, wz + dz)?;
+                                    let neighbor_above =
+                                        self.block(wx + dx, i32::from(y) + dy + 1, wz + dz)?.id;
+                                    if !cactus::is_visible(
+                                        face,
+                                        self.is_supported_cube(
+                                            neighbor.id,
+                                            neighbor.metadata,
+                                            neighbor_above,
+                                        ),
+                                    ) {
+                                        continue;
+                                    }
+                                    cactus::append_face(
+                                        &mut mesh,
+                                        [wx, i32::from(y), wz],
+                                        block,
+                                        neighbor,
+                                        face,
+                                        source_minimum,
+                                        limits,
                                     )?;
                                 }
                                 continue;
