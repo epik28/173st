@@ -7,5 +7,6 @@ pub mod heart_animation;
 pub mod loader;
 pub mod player_air;
 pub mod player_health_nbt;
+pub mod suffocation_runtime;
 pub mod water_runtime;
 pub mod world_select;
