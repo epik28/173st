@@ -311,6 +311,23 @@ fn state_text(state: MotionState) -> String {
     values.join(",")
 }
 
+// The synthetic Java oracle maps a voxel to the configured block only when a
+// collider overlaps that voxel. Real gameplay supplies the sampled block directly.
+fn synthetic_surface(state: &MotionState, colliders: &[Aabb], surface: Surface) -> Surface {
+    let x = beta_core::math::floor_f64(state.position[0]);
+    let y = beta_core::math::floor_f64(state.bbox.min[1]).wrapping_sub(1);
+    let z = beta_core::math::floor_f64(state.position[2]);
+    let voxel = Aabb::new(
+        [f64::from(x), f64::from(y), f64::from(z)],
+        [f64::from(x) + 1.0, f64::from(y) + 1.0, f64::from(z) + 1.0],
+    );
+    if colliders.iter().any(|collider| collider.intersects(voxel)) {
+        surface
+    } else {
+        Surface::Air
+    }
+}
+
 fn process_with_limits<R: Read, W: Write>(
     reader: R,
     mut writer: W,
@@ -359,13 +376,14 @@ fn process_with_limits<R: Read, W: Write>(
     let mut output = String::new();
     for mut scenario in scenarios {
         for (index, frame) in scenario.frames.into_iter().enumerate() {
+            let surface = synthetic_surface(&scenario.state, &scenario.colliders, scenario.surface);
             match frame {
                 Frame::Move(delta) => move_entity(&mut scenario.state, delta, &scenario.colliders),
                 Frame::Travel(input) => travel_with_ladder_query(
                     &mut scenario.state,
                     input,
                     &scenario.colliders,
-                    scenario.surface,
+                    surface,
                     |_| true,
                 ),
             }
@@ -412,8 +430,8 @@ mod tests {
 
     #[test]
     fn committed_native_corpus_matches_every_state_exactly() {
-        let input = include_bytes!("../../../tests/fixtures/movement/input.tsv");
-        let expected = include_bytes!("../../../tests/fixtures/movement/reference.tsv");
+        let input = include_bytes!("../../../tests/fixtures/ladder_movement/input.tsv");
+        let expected = include_bytes!("../../../tests/fixtures/ladder_movement/reference.tsv");
         let mut output = Vec::new();
         process_stream(input.as_slice(), &mut output).unwrap();
         assert_eq!(output.as_slice(), expected);
