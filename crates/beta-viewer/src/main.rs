@@ -15,6 +15,7 @@ mod hud;
 mod inventory_cube;
 mod inventory_screen;
 mod menu;
+mod mining_runtime;
 mod saved_player;
 
 use beta_core::{
@@ -196,6 +197,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         color_maps,
         biome_seed: metadata.seed,
         aimed_hit: None,
+        mining: mining_runtime::MiningRuntime::default(),
+        mining_held: false,
         target_status: "no target".to_owned(),
         atlas: image,
         gui_atlas,
@@ -1286,6 +1289,8 @@ struct App {
     color_maps: beta_viewer::colors::ColorMaps,
     biome_seed: i64,
     aimed_hit: Option<BlockHit>,
+    mining: mining_runtime::MiningRuntime,
+    mining_held: bool,
     target_status: String,
     atlas: image::RgbaImage,
     gui_atlas: image::RgbaImage,
@@ -1994,6 +1999,20 @@ impl App {
         gpu.fluid_vertex_count = fluid_vertex_count;
         gpu.fluid_index_count = 0;
         Ok(())
+    }
+
+    fn mining_increment(&self, hit: BlockHit) -> Option<f32> {
+        let item = self.inventory.selected_stack().map(|stack| stack.id());
+        let props = beta_core::mining::properties(hit.id, item)?;
+        let submerged = !self.controller.debug_flight
+            && drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {
+                self.block_scene.block(x, y, z).ok().flatten()
+            })
+            .unwrap_or(false);
+        let on_ground = self.controller.debug_flight || self.controller.state.on_ground;
+        Some(beta_core::mining::progress_per_tick(
+            props, submerged, on_ground,
+        ))
     }
 
     fn interact(&mut self, breaking: bool) -> Result<BlockEdit, Box<dyn std::error::Error>> {
@@ -2801,6 +2820,20 @@ impl App {
             }
             while self.controller.ticks_due() > 0 {
                 self.entity_ticks = self.entity_ticks.wrapping_add(1);
+                if self.mining_held && self.captured && !self.inventory_screen.is_open() {
+                    self.update_aimed_target();
+                    if let Some(hit) = self.aimed_hit
+                        && let Some(increment) = self.mining_increment(hit)
+                    {
+                        if self.mining.tick((hit.x, hit.y, hit.z), increment)
+                            && let Err(error) = self.interact(true)
+                        {
+                            self.target_status = format!("action rejected: {error}");
+                        }
+                    } else {
+                        self.mining.reset();
+                    }
+                }
                 let mut fire_wet = None;
                 if !self.controller.debug_flight
                     && let Ok(cells) = self
@@ -3354,6 +3387,8 @@ impl ApplicationHandler for App {
                 self.last = Instant::now();
                 self.mouse_delta.clear();
                 if !focused {
+                    self.mining_held = false;
+                    self.mining.reset();
                     let _ = self.inventory_screen.focus_lost(&mut self.inventory);
                     self.controls = Controls::default();
                     self.wheel_input.clear();
@@ -3381,6 +3416,14 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.frame(),
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some((position.x as f32, position.y as f32));
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => {
+                self.mining_held = false;
+                self.mining.reset();
             }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -3422,6 +3465,19 @@ impl ApplicationHandler for App {
                     MouseButton::Right => false,
                     _ => return,
                 };
+                if breaking {
+                    self.mining_held = true;
+                    self.update_aimed_target();
+                    if self
+                        .aimed_hit
+                        .and_then(|hit| self.mining_increment(hit))
+                        .is_some_and(|value| value >= 1.0)
+                        && let Err(error) = self.interact(true)
+                    {
+                        self.target_status = format!("action rejected: {error}");
+                    }
+                    return;
+                }
                 if !breaking
                     && let Some(stack) = self.inventory.selected_stack()
                     && beta_core::food::use_food(stack.id(), stack.count(), 20, 0, 20).is_some()
@@ -3506,6 +3562,8 @@ impl ApplicationHandler for App {
                         return;
                     }
                     if matches!(transition, inventory_screen::Transition::ReleasedCapture) {
+                        self.mining_held = false;
+                        self.mining.reset();
                         self.captured = false;
                         self.mouse_delta.clear();
                         if let Some(w) = &self.window {

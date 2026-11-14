@@ -20,6 +20,7 @@ pub mod java_compat;
 pub mod java_random;
 pub mod light;
 pub mod math;
+pub mod mining;
 pub mod motion;
 pub mod nbt;
 pub mod peaceful_regen;
