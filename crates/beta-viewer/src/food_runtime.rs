@@ -10,7 +10,7 @@ use beta_core::{
 pub fn passive_target(target: Option<(u8, u8)>) -> bool {
     match target {
         None => true,
-        Some((id, 0)) => matches!(
+        Some((id, metadata)) if metadata <= 15 => matches!(
             id,
             1 | 2
                 | 3
@@ -75,14 +75,19 @@ mod tests {
                 .split('\t')
                 .map(|value| value.parse().unwrap())
                 .collect();
-            assert_eq!(passive_target(Some((f[0] as u8, 0))), f[2] == 0, "{row}");
-            assert_eq!((f[3], f[4], f[5]), (1, 14, 1), "{row}");
+            assert_eq!(
+                passive_target(Some((f[0] as u8, f[1] as u8))),
+                f[3] == 0,
+                "{row}"
+            );
+            assert_eq!((f[4], f[5], f[6]), (1, 14, 1), "{row}");
             count += 1;
         }
-        assert_eq!(count, 138);
+        assert_eq!(count, 2208);
         assert!(passive_target(None));
         assert!(!passive_target(Some((54, 0))));
-        assert!(!passive_target(Some((17, 1))));
+        assert!(passive_target(Some((17, 1))));
+        assert!(!passive_target(Some((17, 16))));
     }
     #[test]
     fn selected_slot_use_matches_native_controller() {
