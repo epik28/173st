@@ -8,6 +8,7 @@ pub mod armor_equipment;
 pub mod attack_item;
 pub mod biome;
 pub mod block;
+pub mod block_wear;
 pub mod chunk;
 pub mod drowning;
 pub mod fall_damage;
