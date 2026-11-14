@@ -25,6 +25,7 @@ pub use plant::tall_grass_biome_coords;
 mod cactus;
 mod crops;
 mod farmland;
+mod fence;
 mod ladder;
 mod rail;
 mod slab;
@@ -791,6 +792,27 @@ impl Scene {
                                         false,
                                     )?;
                                 }
+                                continue;
+                            }
+                            if block.id == 85 {
+                                let mut mask = 0;
+                                for (bit, dx, dz) in [(1, -1, 0), (2, 1, 0), (4, 0, -1), (8, 0, 1)]
+                                {
+                                    if self.block(wx + dx, i32::from(y), wz + dz)?.id == 85 {
+                                        mask |= bit;
+                                    }
+                                }
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                fence::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    mask,
+                                    source_minimum,
+                                    limits,
+                                )?;
                                 continue;
                             }
                             if matches!(block.id, 27 | 28 | 66) {
