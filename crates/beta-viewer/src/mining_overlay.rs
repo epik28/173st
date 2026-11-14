@@ -54,10 +54,18 @@ pub fn vertices(origin: [i32; 3], progress: f32) -> Vec<[f32; 8]> {
     ];
     let mut result = Vec::with_capacity(36);
     for face in 0..6 {
+        let shade = [
+            127.0 / 255.0,
+            1.0,
+            204.0 / 255.0,
+            204.0 / 255.0,
+            153.0 / 255.0,
+            153.0 / 255.0,
+        ][face];
         for i in [0, 1, 2, 0, 2, 3] {
             let p = positions[face][i];
             let t = uv[face][i];
-            result.push([p[0], p[1], p[2], t[0], t[1], 0.5, 0.5, 0.5]);
+            result.push([p[0], p[1], p[2], t[0], t[1], shade, shade, shade]);
         }
     }
     result
@@ -74,5 +82,31 @@ mod tests {
         assert_eq!(a[0][0..3], [4.0, 5.0, 7.0]);
         assert_eq!(a[0][3], 0.0);
         assert_eq!(b[0][3], 9.0 / 16.0);
+    }
+
+    #[test]
+    fn native_cube_overlay_vertices_and_colors() {
+        for row in include_str!("../../../tests/fixtures/mining_overlay/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let fields: Vec<_> = row.split('\t').collect();
+            let stage: usize = fields[0].parse().unwrap();
+            let index: usize = fields[1].parse().unwrap();
+            let mesh = vertices([0, 0, 0], (stage as f32 + 0.5) / 10.0);
+            for component in 0..5 {
+                assert_eq!(
+                    mesh[index][component].to_bits(),
+                    u32::from_str_radix(fields[2 + component], 16).unwrap(),
+                    "{row}"
+                );
+            }
+            let color = u32::from_str_radix(fields[7], 16).unwrap();
+            assert_eq!(
+                (mesh[index][5] * 255.0).round() as u32,
+                color & 255,
+                "{row}"
+            );
+        }
     }
 }
