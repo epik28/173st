@@ -2983,6 +2983,18 @@ impl App {
                             {
                                 self.saved_health = health.health.health.clamp(0, 20) as i16;
                             }
+                            if let Some(contacts) = beta_viewer::cactus_runtime::cactus_contacts(
+                                &tick.current,
+                                |x, y, z| self.block_scene.block(x, y, z).ok().flatten(),
+                            ) && let Some(health) = &mut self.fall_health
+                            {
+                                for _ in 0..contacts {
+                                    if health.apply_damage(1).is_some() {
+                                        self.saved_health =
+                                            health.health.health.clamp(0, 20) as i16;
+                                    }
+                                }
+                            }
                             if let Some(wet) = fire_wet
                                 && let Some(hazard) =
                                     fire_runtime::fire_contact(&tick.current, |x, y, z| {
