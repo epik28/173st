@@ -56,6 +56,10 @@ struct VertexOut {
     }
     return vec4<f32>(native_rgb, color.a);
 }
+@fragment fn fs_crack(input: VertexOut) -> @location(0) vec4<f32> {
+    let color = textureSample(atlas, atlas_sampler, input.uv);
+    return vec4<f32>(color.rgb * input.vertex_color, color.a);
+}
 @fragment fn fs_hud(input: VertexOut) -> @location(0) vec4<f32> {
     let color = textureSample(atlas, atlas_sampler, input.uv);
     if color.a <= 0.0 { discard; }

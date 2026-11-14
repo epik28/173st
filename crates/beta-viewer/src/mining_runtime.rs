@@ -7,6 +7,9 @@ pub struct MiningRuntime {
 }
 
 impl MiningRuntime {
+    pub fn progress_at(&self, target: (i32, i32, i32)) -> Option<f32> {
+        (self.target == Some(target) && self.progress > 0.0).then_some(self.progress)
+    }
     /// Release or loss of focus resets the native accumulated damage and delay.
     pub fn reset(&mut self) {
         self.progress = 0.0;

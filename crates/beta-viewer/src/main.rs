@@ -15,6 +15,7 @@ mod hud;
 mod inventory_cube;
 mod inventory_screen;
 mod menu;
+mod mining_overlay;
 mod mining_runtime;
 mod saved_player;
 
@@ -1330,6 +1331,8 @@ struct Gpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    crack_pipeline: wgpu::RenderPipeline,
+    crack_vertex: wgpu::Buffer,
     fluid_pipeline: wgpu::RenderPipeline,
     hud_pipeline: wgpu::RenderPipeline,
     hud_shadow_pipeline: wgpu::RenderPipeline,
@@ -2446,6 +2449,58 @@ impl App {
             multiview_mask: None,
             cache: None,
         });
+        let crack_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("block breaking overlay"),
+            layout: Some(&pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 32,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x2,2=>Float32x3],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_crack"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::Dst,
+                            dst_factor: wgpu::BlendFactor::Src,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                stencil: Default::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: -3,
+                    slope_scale: -3.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        let crack_vertex = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("block breaking overlay vertices"),
+            size: 36 * 32,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let fluid_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("transparent water pipeline"),
             layout: Some(&pl),
@@ -2766,6 +2821,8 @@ impl App {
             queue,
             config,
             pipeline,
+            crack_pipeline,
+            crack_vertex,
             fluid_pipeline,
             hud_pipeline,
             hud_shadow_pipeline,
@@ -2856,6 +2913,19 @@ impl App {
                             self.saved_health = health.health.health.clamp(0, 20) as i16;
                         }
                     }
+                }
+                // Native living-entity tick checks solid eye samples before
+                // drowning, sharing the same health-damage cooldown.
+                if !self.controller.debug_flight
+                    && self.saved_health > 0
+                    && beta_viewer::suffocation_runtime::head_in_block(
+                        &self.controller.state,
+                        |x, y, z| self.block_scene.block(x, y, z).ok().flatten(),
+                    ) == Some(true)
+                    && let Some(health) = &mut self.fall_health
+                    && health.apply_damage(1).is_some()
+                {
+                    self.saved_health = health.health.health.clamp(0, 20) as i16;
                 }
                 if !self.controller.debug_flight
                     && let Some(submerged) =
@@ -2949,7 +3019,22 @@ impl App {
                 self.camera.yaw = -self.controller.state.yaw_degrees.to_radians();
             }
         }
+        let crack_vertices = if self.mining_held && !self.inventory_screen.is_open() {
+            self.aimed_hit
+                .filter(|hit| hit.kind == beta_core::block::BlockHitKind::FullCube)
+                .and_then(|hit| {
+                    self.mining
+                        .progress_at((hit.x, hit.y, hit.z))
+                        .map(|progress| mining_overlay::vertices([hit.x, hit.y, hit.z], progress))
+                })
+        } else {
+            None
+        };
         let Some(g) = self.gpu.as_mut() else { return };
+        if let Some(vertices) = &crack_vertices {
+            g.queue
+                .write_buffer(&g.crack_vertex, 0, bytemuck::cast_slice(vertices));
+        }
         let fluid_indices = match sort_fluid_quad_indices(
             &self.fluid_mesh.vertices,
             self.camera.position.to_array(),
@@ -3260,6 +3345,11 @@ impl App {
                         p.set_vertex_buffer(0, chunk.vertex.slice(..));
                         p.set_index_buffer(chunk.index.slice(..), wgpu::IndexFormat::Uint32);
                         p.draw_indexed(0..chunk.index_count, 0, 0..1);
+                    }
+                    if crack_vertices.is_some() {
+                        p.set_pipeline(&g.crack_pipeline);
+                        p.set_vertex_buffer(0, g.crack_vertex.slice(..));
+                        p.draw(0..36, 0..1);
                     }
                     if g.fluid_vertex_count > 0 {
                         p.set_pipeline(&g.fluid_pipeline);
