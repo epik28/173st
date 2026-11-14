@@ -32,6 +32,7 @@ pub trait FullCubeStates {
 pub enum RayShape {
     FullCube,
     LowerSlab,
+    Farmland,
     TallGrass,
     Liquid,
     Unsupported,
@@ -188,6 +189,7 @@ impl From<ChunkError> for BlockError {
 pub enum BlockHitKind {
     FullCube,
     LowerSlab,
+    Farmland,
     TallGrass,
     Liquid,
 }
@@ -836,6 +838,14 @@ impl BlockScene {
                             continue;
                         }
                         let bounds = match shape {
+                            RayShape::Farmland => Aabb::new(
+                                [f64::from(x), f64::from(y), f64::from(z)],
+                                [
+                                    f64::from(x) + 1.0,
+                                    f64::from(y) + 0.9375,
+                                    f64::from(z) + 1.0,
+                                ],
+                            ),
                             RayShape::LowerSlab => Aabb::new(
                                 [f64::from(x), f64::from(y), f64::from(z)],
                                 [f64::from(x) + 1.0, f64::from(y) + 0.5, f64::from(z) + 1.0],
@@ -877,6 +887,7 @@ impl BlockScene {
                                 kind: match shape {
                                     RayShape::FullCube => BlockHitKind::FullCube,
                                     RayShape::LowerSlab => BlockHitKind::LowerSlab,
+                                    RayShape::Farmland => BlockHitKind::Farmland,
                                     RayShape::TallGrass => BlockHitKind::TallGrass,
                                     RayShape::Liquid => BlockHitKind::Liquid,
                                     RayShape::Unsupported => unreachable!("returned above"),
@@ -1370,6 +1381,7 @@ mod tests {
         let shapes = |id, metadata| match (id, metadata) {
             (1, 0) => RayShape::FullCube,
             (44, 0) => RayShape::LowerSlab,
+            (60, 0) => RayShape::Farmland,
             (8, 0) => RayShape::Liquid,
             _ => RayShape::Unsupported,
         };
@@ -1389,6 +1401,30 @@ mod tests {
             (hit.x, hit.y, hit.z, hit.face, hit.kind),
             (0, 0, 0, 4, BlockHitKind::LowerSlab)
         );
+        let farmland = world_for(0, 0, 0, 60);
+        let RayResult::Hit(farmland_hit) = farmland
+            .raycast_segment_with_shapes(
+                Vec3::new(0.5, 2.0, 0.5),
+                Vec3::new(0.5, -1.0, 0.5),
+                false,
+                &shapes,
+            )
+            .unwrap()
+        else {
+            panic!("expected farmland hit")
+        };
+        let bounds = include_str!("../../../tests/fixtures/seed_use/farmland_bounds.tsv");
+        let expected: f64 = bounds
+            .lines()
+            .nth(1)
+            .unwrap()
+            .split('\t')
+            .nth(5)
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(farmland_hit.kind, BlockHitKind::Farmland);
+        assert_eq!(farmland_hit.position.y, expected);
         assert_eq!(
             [
                 hit.position.x.to_bits(),

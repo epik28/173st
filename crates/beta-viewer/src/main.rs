@@ -19,6 +19,7 @@ mod menu;
 mod mining_overlay;
 mod mining_runtime;
 mod saved_player;
+mod seed_runtime;
 
 use beta_core::{
     biome::{Climate, ClimateSampler, foliage_color, grass_color},
@@ -1475,6 +1476,9 @@ fn create_gpu_chunk_mesh(
 }
 
 fn interaction_shape(mappings: &[BlockMapping], id: u8, metadata: u8) -> RayShape {
+    if id == 60 && metadata <= 15 {
+        return RayShape::Farmland;
+    }
     if mappings.iter().any(|mapping| {
         mapping.key.id == id && mapping.key.metadata == metadata && mapping.is_renderable_cube()
     }) {
@@ -2046,8 +2050,33 @@ impl App {
         } else {
             None
         };
+        let planting = if !breaking
+            && let Some(stack) = self.inventory.selected_stack()
+            && stack.id() == 295
+        {
+            let above = self
+                .block_scene
+                .block(hit.x, hit.y + 1, hit.z)?
+                .ok_or("seed target has no loaded block above")?;
+            Some(
+                seed_runtime::planting_result(stack, hit.id, above.id, hit.face)
+                    .ok_or("seeds require the top of farmland with air above")?,
+            )
+        } else {
+            None
+        };
         let edit = if breaking {
             next_block_scene.break_block(hit, &supported)?
+        } else if planting.is_some() {
+            let position = (hit.x, hit.y + 1, hit.z);
+            let mut target = next_block_scene
+                .block(position.0, position.1, position.2)?
+                .ok_or("seed target is outside the loaded scene")?;
+            target.id = 59;
+            target.metadata = 0;
+            next_block_scene
+                .apply_block_states(&[(position, target)])?
+                .ok_or("seed target was not changed")?
         } else if hoe.is_some() {
             let mut target = next_block_scene
                 .block(hit.x, hit.y, hit.z)?
@@ -2196,6 +2225,10 @@ impl App {
         }
         self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
         if let Some(replacement) = hoe {
+            self.inventory
+                .set_slot(usize::from(self.inventory.selected_hotbar()), replacement)?;
+        }
+        if let Some(replacement) = planting {
             self.inventory
                 .set_slot(usize::from(self.inventory.selected_hotbar()), replacement)?;
         }
