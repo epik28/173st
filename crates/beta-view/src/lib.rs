@@ -26,6 +26,7 @@ mod cactus;
 mod crops;
 mod farmland;
 mod ladder;
+mod rail;
 mod slab;
 mod snow;
 mod torch;
@@ -790,6 +791,19 @@ impl Scene {
                                         false,
                                     )?;
                                 }
+                                continue;
+                            }
+                            if matches!(block.id, 27 | 28 | 66) {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                rail::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    source_minimum,
+                                    limits,
+                                )?;
                                 continue;
                             }
                             if block.id == 59 {
