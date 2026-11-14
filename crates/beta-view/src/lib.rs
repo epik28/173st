@@ -394,8 +394,8 @@ impl Scene {
         self.fancy_leaves = true;
     }
 
-    /// Returns confirmed opaque full-cube obstacles overlapping a bounded local
-    /// query. Missing chunks and unsupported block shapes are treated as air.
+    /// Returns confirmed obstacles for a bounded local query. Missing chunks and
+    /// unsupported block shapes are treated as air.
     pub fn colliders_in(&self, area: Aabb) -> Result<Vec<Aabb>, ViewError> {
         if (0..3).any(|axis| {
             !area.min[axis].is_finite()
@@ -419,10 +419,18 @@ impl Scene {
         }
         let mut result = Vec::new();
         for x in x0..x1 {
-            for y in y0..y1 {
+            // A fence extends half a block above its voxel, so inspect the row below.
+            for y in y0.saturating_sub(1)..y1 {
                 for z in z0..z1 {
                     let block = self.block(x as i32, y, z as i32)?;
-                    if block.id == 0 {
+                    if block.id == 85 {
+                        let bounds = fence::collision_bounds(x as i32, y, z as i32);
+                        if bounds.intersects(area) {
+                            result.push(bounds);
+                        }
+                        continue;
+                    }
+                    if block.id == 0 || y < y0 {
                         continue;
                     }
                     let above = self.block(x as i32, y + 1, z as i32)?.id;
@@ -2183,6 +2191,18 @@ mod tests {
                 .iter()
                 .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
         );
+    }
+
+    #[test]
+    fn fence_collision_extends_half_block_above_voxel() {
+        let scene = blocks_scene(&[(0, 1, 0, 85, 0)], vec![]);
+        let upper = Aabb::new([0.2, 2.1, 0.2], [0.8, 2.4, 0.8]);
+        assert_eq!(
+            scene.colliders_in(upper).unwrap(),
+            vec![Aabb::new([0.0, 1.0, 0.0], [1.0, 2.5, 1.0])]
+        );
+        let clear = Aabb::new([0.2, 2.5, 0.2], [0.8, 3.0, 0.8]);
+        assert!(scene.colliders_in(clear).unwrap().is_empty());
     }
 
     #[test]

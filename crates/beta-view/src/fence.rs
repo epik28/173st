@@ -591,6 +591,14 @@ const BOX_INDEX: [&[usize]; 16] = [
     &[0, 5, 13, 6, 14],
     &[0, 7, 13, 8, 14],
 ];
+/// Original `jw.e` uses a full-width collision box independent of connections.
+pub(crate) fn collision_bounds(x: i32, y: i32, z: i32) -> beta_core::geometry::Aabb {
+    beta_core::geometry::Aabb::new(
+        [f64::from(x), f64::from(y), f64::from(z)],
+        [f64::from(x) + 1.0, f64::from(y) + 1.5, f64::from(z) + 1.0],
+    )
+}
+
 pub(crate) fn append(
     mesh: &mut Mesh,
     pos: [i32; 3],
@@ -635,6 +643,24 @@ pub(crate) fn append(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fence_collision_bounds_match_native() {
+        for line in include_str!("../../../tests/fixtures/fence_collision/native.tsv").lines() {
+            let fields: Vec<_> = line.split('\t').collect();
+            let x = fields[0].parse().unwrap();
+            let y = fields[1].parse().unwrap();
+            let z = fields[2].parse().unwrap();
+            let nums: Vec<f64> = fields[3..].iter().map(|s| s.parse().unwrap()).collect();
+            assert_eq!(
+                collision_bounds(x, y, z),
+                beta_core::geometry::Aabb::new(
+                    [nums[0], nums[1], nums[2]],
+                    [nums[3], nums[4], nums[5]]
+                )
+            );
+        }
+    }
+
     #[test]
     fn fence_all_connections_match_native_vertices() {
         let mut count = 0;
