@@ -9,6 +9,7 @@ mod block_wear_runtime;
 mod drowning_runtime;
 mod fire_runtime;
 mod food_runtime;
+mod hoe_runtime;
 mod hotbar_input;
 mod hud;
 #[cfg(test)]
@@ -2030,8 +2031,32 @@ impl App {
             })
         };
         let mut next_block_scene = self.block_scene.clone();
+        let hoe = if !breaking
+            && let Some(stack) = self.inventory.selected_stack()
+            && (290..=294).contains(&stack.id())
+        {
+            let above = self
+                .block_scene
+                .block(hit.x, hit.y + 1, hit.z)?
+                .ok_or("hoe target has no loaded block above")?;
+            Some(
+                hoe_runtime::hoe_result(stack, hit.id, above.id, hit.face)
+                    .ok_or("hoe cannot till this block in the supported scene")?,
+            )
+        } else {
+            None
+        };
         let edit = if breaking {
             next_block_scene.break_block(hit, &supported)?
+        } else if hoe.is_some() {
+            let mut target = next_block_scene
+                .block(hit.x, hit.y, hit.z)?
+                .ok_or("hoe target is outside the loaded scene")?;
+            target.id = 60;
+            target.metadata = 0;
+            next_block_scene
+                .apply_block_states(&[((hit.x, hit.y, hit.z), target)])?
+                .ok_or("hoe target was not changed")?
         } else if hit.id == 31 && hit.metadata == 0 {
             next_block_scene.place_from_tallgrass_hit(hit, 1, 0)?
         } else {
@@ -2170,6 +2195,10 @@ impl App {
             }
         }
         self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
+        if let Some(replacement) = hoe {
+            self.inventory
+                .set_slot(usize::from(self.inventory.selected_hotbar()), replacement)?;
+        }
         if breaking {
             block_wear_runtime::wear_selected_tool(&mut self.inventory, hit.id.into());
         }
