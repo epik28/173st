@@ -1,5 +1,5 @@
 //! Cube overlay geometry. Native texture stages occupy terrain tiles 240..249.
-pub fn vertices(origin: [i32; 3], progress: f32) -> Vec<[f32; 8]> {
+pub fn vertices(origin: [i32; 3], progress: f32, brightness: [f32; 6]) -> Vec<[f32; 8]> {
     let [x, y, z] = origin.map(|n| n as f32);
     let tile = 240 + (progress * 10.0).floor().clamp(0.0, 9.0) as u16;
     let u0 = f32::from(tile % 16) / 16.0;
@@ -54,14 +54,10 @@ pub fn vertices(origin: [i32; 3], progress: f32) -> Vec<[f32; 8]> {
     ];
     let mut result = Vec::with_capacity(36);
     for face in 0..6 {
-        let shade = [
-            127.0 / 255.0,
-            1.0,
-            204.0 / 255.0,
-            204.0 / 255.0,
-            153.0 / 255.0,
-            153.0 / 255.0,
-        ][face];
+        let shade = (([0.5, 1.0, 0.8, 0.8, 0.6, 0.6][face] * brightness[face] * 255.0)
+            .trunc()
+            .clamp(0.0, 255.0))
+            / 255.0;
         for i in [0, 1, 2, 0, 2, 3] {
             let p = positions[face][i];
             let t = uv[face][i];
@@ -76,8 +72,8 @@ mod tests {
     use super::*;
     #[test]
     fn texture_stages_and_cube_geometry() {
-        let a = vertices([4, 5, 6], 0.05);
-        let b = vertices([4, 5, 6], 0.95);
+        let a = vertices([4, 5, 6], 0.05, [1.0; 6]);
+        let b = vertices([4, 5, 6], 0.95, [1.0; 6]);
         assert_eq!(a.len(), 36);
         assert_eq!(a[0][0..3], [4.0, 5.0, 7.0]);
         assert_eq!(a[0][3], 0.0);
@@ -93,7 +89,7 @@ mod tests {
             let fields: Vec<_> = row.split('\t').collect();
             let stage: usize = fields[0].parse().unwrap();
             let index: usize = fields[1].parse().unwrap();
-            let mesh = vertices([0, 0, 0], (stage as f32 + 0.5) / 10.0);
+            let mesh = vertices([0, 0, 0], (stage as f32 + 0.5) / 10.0, [1.0; 6]);
             for component in 0..5 {
                 assert_eq!(
                     mesh[index][component].to_bits(),

@@ -3037,7 +3037,28 @@ impl App {
                 .and_then(|hit| {
                     self.mining
                         .progress_at((hit.x, hit.y, hit.z))
-                        .map(|progress| mining_overlay::vertices([hit.x, hit.y, hit.z], progress))
+                        .map(|progress| {
+                            let brightness = std::array::from_fn(|face| {
+                                let (dx, dy, dz) =
+                                    beta_view::face_delta(face as u8).expect("valid face");
+                                self.block_scene
+                                    .block(hit.x + dx, hit.y + dy, hit.z + dz)
+                                    .ok()
+                                    .flatten()
+                                    .and_then(|state| {
+                                        sample_brightness(
+                                            state.block_light,
+                                            state.sky_light,
+                                            self.sky_subtraction,
+                                            0,
+                                            self.light_dimension,
+                                        )
+                                        .ok()
+                                    })
+                                    .unwrap_or(1.0)
+                            });
+                            mining_overlay::vertices([hit.x, hit.y, hit.z], progress, brightness)
+                        })
                 })
         } else {
             None
