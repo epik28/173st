@@ -196,6 +196,8 @@ impl MotionController {
             self.state = next;
         }
         scene.constrain_motion_state(&mut self.state);
+        // The original applies web contact after movement; it slows the next move.
+        self.state.in_web |= scene.web_contact(self.state.bbox)?;
         let is_in_water =
             water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)?;
         self.accumulator -= TICK;
@@ -422,6 +424,44 @@ mod tests {
             vec![test_mapping()],
         )
         .unwrap()
+    }
+
+    #[test]
+    fn web_contact_slows_next_tick_and_clears_after_exiting() {
+        let mut data = beta_core::chunk::ChunkData::new();
+        data.set(
+            8,
+            1,
+            8,
+            beta_core::chunk::BlockData {
+                id: 30,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let scene = Scene::new(
+            beta_view::SceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![beta_view::SceneChunk { x: 0, z: 0, data }],
+            vec![],
+        )
+        .unwrap();
+        let mut state = MotionState::new([8.5, 1.0, 8.5]);
+        state.velocity[0] = 0.2;
+        let mut motion = MotionController::new(state);
+        motion.accumulate(TICK);
+        let first = motion.tick(&scene, Controls::default()).unwrap();
+        assert!(first.current.in_web);
+        let before = first.current.position[0];
+        let velocity = first.current.velocity[0];
+        motion.accumulate(TICK);
+        let second = motion.tick(&scene, Controls::default()).unwrap();
+        assert!((second.current.position[0] - before - velocity * 0.25).abs() < 1e-9);
+        assert!(second.current.in_web);
+        motion.state = MotionState::new([10.5, 1.0, 8.5]);
+        motion.state.in_web = true;
+        motion.accumulate(TICK);
+        let exited = motion.tick(&scene, Controls::default()).unwrap();
+        assert!(!exited.current.in_web);
     }
 
     #[test]

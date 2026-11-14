@@ -462,6 +462,30 @@ impl Scene {
         Ok(result)
     }
 
+    /// Native post-movement block contact scan, with the 0.001 inset.
+    pub fn web_contact(&self, area: Aabb) -> Result<bool, ViewError> {
+        if (0..3).any(|axis| {
+            !area.min[axis].is_finite()
+                || !area.max[axis].is_finite()
+                || area.min[axis] > area.max[axis]
+                || area.max[axis] - area.min[axis] > 32.0
+        }) {
+            return Err(ViewError::InvalidColliderQuery);
+        }
+        let lo = area.min.map(|v| (v + 0.001).floor() as i32);
+        let hi = area.max.map(|v| (v - 0.001).floor() as i32);
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    if self.block(x, y, z)?.id == 30 {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
+
     /// Returns only native water IDs in a small loaded-scene query region.
     /// Missing chunks and blocks outside build height are treated as air, as in
     /// the existing bounded collision query.
@@ -2243,6 +2267,18 @@ mod tests {
                 .iter()
                 .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
         );
+    }
+
+    #[test]
+    fn web_contact_matches_native_inset_boundaries() {
+        let scene = blocks_scene(&[(0, 1, 0, 30, 0)], vec![]);
+        for line in include_str!("../../../tests/fixtures/web_contact/native.tsv").lines() {
+            let fields: Vec<_> = line.split('\t').collect();
+            let edge: f64 = fields[0].parse().unwrap();
+            let expected: bool = fields[1].parse().unwrap();
+            let query = Aabb::new([edge - 0.25, 1.1, 0.25], [edge, 1.9, 0.75]);
+            assert_eq!(scene.web_contact(query).unwrap(), expected, "edge={edge}");
+        }
     }
 
     #[test]
