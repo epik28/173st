@@ -2801,6 +2801,7 @@ impl App {
             }
             while self.controller.ticks_due() > 0 {
                 self.entity_ticks = self.entity_ticks.wrapping_add(1);
+                let mut fire_wet = None;
                 if !self.controller.debug_flight
                     && let Ok(cells) = self
                         .scene
@@ -2812,6 +2813,7 @@ impl App {
                             self.block_scene.block(x, y, z).ok().flatten()
                         })
                 {
+                    fire_wet = Some(wet);
                     let fire = beta_core::fire_tick::tick(self.fire, wet, lava, false, false);
                     self.fire = fire.fire;
                     for damage in fire.damage.into_iter().flatten() {
@@ -2832,6 +2834,9 @@ impl App {
                     let result =
                         beta_core::drowning::tick_air(self.air, 300, alive, submerged, false);
                     self.air = result.air;
+                    if result.damage > 0 {
+                        self.fire = 0;
+                    }
                     if result.damage > 0
                         && let Some(health) = &mut self.fall_health
                         && health.apply_damage(i32::from(result.damage)).is_some()
@@ -2874,6 +2879,23 @@ impl App {
                                 && health.apply_damage(damage).is_some()
                             {
                                 self.saved_health = health.health.health.clamp(0, 20) as i16;
+                            }
+                            if let Some(wet) = fire_wet
+                                && let Some(hazard) =
+                                    fire_runtime::fire_contact(&tick.current, |x, y, z| {
+                                        self.block_scene.block(x, y, z).ok().flatten()
+                                    })
+                            {
+                                let (fire, damage) = beta_core::fire_tick::movement_contact(
+                                    self.fire, hazard, wet, false,
+                                );
+                                self.fire = fire;
+                                if let Some(damage) = damage
+                                    && let Some(health) = &mut self.fall_health
+                                    && health.apply_damage(i32::from(damage)).is_some()
+                                {
+                                    self.saved_health = health.health.health.clamp(0, 20) as i16;
+                                }
                             }
                         }
                         Err(error) => {

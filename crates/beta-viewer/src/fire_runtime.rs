@@ -23,10 +23,26 @@ pub fn saved_fire(player: Option<&Tag>) -> Option<i32> {
 /// Missing cells return None so the caller can avoid inventing a contact state.
 pub fn lava_contact(
     state: &MotionState,
-    mut block: impl FnMut(i32, i32, i32) -> Option<BlockData>,
+    block: impl FnMut(i32, i32, i32) -> Option<BlockData>,
 ) -> Option<bool> {
-    let h = f64::from(0.1_f32);
-    let v = f64::from(0.4_f32);
+    contact(state, block, f64::from(0.1_f32), f64::from(0.4_f32), false)
+}
+
+/// sn.b's fire/lava query after movement uses a 0.001 contraction.
+pub fn fire_contact(
+    state: &MotionState,
+    block: impl FnMut(i32, i32, i32) -> Option<BlockData>,
+) -> Option<bool> {
+    contact(state, block, 0.001, 0.001, true)
+}
+
+fn contact(
+    state: &MotionState,
+    mut block: impl FnMut(i32, i32, i32) -> Option<BlockData>,
+    h: f64,
+    v: f64,
+    fire: bool,
+) -> Option<bool> {
     let lo = [
         state.bbox.min[0] + h,
         state.bbox.min[1] + v,
@@ -51,7 +67,10 @@ pub fn lava_contact(
         floor(hi[1] + 1.0)?,
         floor(hi[2] + 1.0)?,
     );
-    if x1 - x0 > 4 || y1 - y0 > 4 || z1 - z0 > 4 {
+    if i64::from(x1) - i64::from(x0) > 4
+        || i64::from(y1) - i64::from(y0) > 4
+        || i64::from(z1) - i64::from(z0) > 4
+    {
         return None;
     }
     let mut missing = false;
@@ -59,7 +78,9 @@ pub fn lava_contact(
         for y in y0..y1 {
             for z in z0..z1 {
                 match block(x, y, z) {
-                    Some(b) if matches!(b.id, 10 | 11) => return Some(true),
+                    Some(b) if matches!(b.id, 10 | 11) || (fire && b.id == 51) => {
+                        return Some(true);
+                    }
                     None => missing = true,
                     _ => {}
                 }
@@ -99,6 +120,15 @@ mod tests {
                 })
             });
             assert_eq!(result, Some(f[7].parse().unwrap()), "{row}");
+            let result = fire_contact(&state, |x, y, z| {
+                Some(BlockData {
+                    id: if (x, y, z) == pos { id } else { 0 },
+                    metadata: 0,
+                    block_light: 0,
+                    sky_light: 0,
+                })
+            });
+            assert_eq!(result, Some(f[8].parse().unwrap()), "{row}");
         }
     }
     #[test]

@@ -35,6 +35,27 @@ pub fn tick(fire: i32, wet: bool, lava: bool, fire_immune: bool, remote: bool) -
     FireTick { fire, damage }
 }
 
+/// Native player moveEntity fire contact, after collision and before next tick.
+/// Rain contributes to `wet`; the player has a native fire resistance of 20.
+#[must_use]
+pub fn movement_contact(mut fire: i32, hazard: bool, wet: bool, immune: bool) -> (i32, Option<u8>) {
+    let damage = if hazard && !immune { Some(1) } else { None };
+    if hazard {
+        if !wet {
+            fire = fire.wrapping_add(1);
+            if fire == 0 {
+                fire = 300;
+            }
+        }
+    } else if fire <= 0 {
+        fire = -20;
+    }
+    if wet && fire > 0 {
+        fire = -20;
+    }
+    (fire, damage)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,6 +85,28 @@ mod tests {
                 if events.is_empty() { "-" } else { &events },
                 f[6],
                 "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn native_movement_contact_matrix() {
+        for row in include_str!("../../../tests/fixtures/fire_move/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<_> = row.split('\t').collect();
+            let (fire, damage) = movement_contact(
+                f[0].parse().unwrap(),
+                f[1].parse().unwrap(),
+                f[2].parse().unwrap(),
+                f[3].parse().unwrap(),
+            );
+            assert_eq!(fire, f[4].parse().unwrap(), "{row}");
+            assert_eq!(
+                damage.map_or("-".to_owned(), |v| v.to_string()),
+                f[5],
+                "{row}"
             );
         }
     }
