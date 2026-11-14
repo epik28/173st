@@ -28,7 +28,7 @@ const POSITIONS: [[u32; 3]; 24] = [
     [0x3d4cccd0, 0x00000000, 0x3f733333],
     [0x3d4cccd0, 0x3f800000, 0x3f733333],
 ];
-const UVS: [[[u32; 2]; 24]; 9] = [
+const UVS: [[[u32; 2]; 24]; 10] = [
     [
         [0x3f700000, 0x00000000],
         [0x3f700000, 0x3d7fd70a],
@@ -262,6 +262,32 @@ const UVS: [[[u32; 2]; 24]; 9] = [
         [0x3f100000, 0x3e800000],
         [0x3f1ffd71, 0x3e9ffae1],
         [0x3f1ffd71, 0x3e800000],
+    ],
+    [
+        [0x3f300000, 0x00000000],
+        [0x3f300000, 0x3d7fd70a],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f300000, 0x00000000],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f3ffd71, 0x00000000],
+        [0x3f300000, 0x00000000],
+        [0x3f300000, 0x3d7fd70a],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f300000, 0x00000000],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f3ffd71, 0x00000000],
+        [0x3f300000, 0x00000000],
+        [0x3f300000, 0x3d7fd70a],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f300000, 0x00000000],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f3ffd71, 0x00000000],
+        [0x3f300000, 0x00000000],
+        [0x3f300000, 0x3d7fd70a],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f300000, 0x00000000],
+        [0x3f3ffd71, 0x3d7fd70a],
+        [0x3f3ffd71, 0x00000000],
     ],
 ];
 
@@ -440,6 +466,7 @@ pub(crate) fn append(
         40 => 6,
         32 => 7,
         83 => 8,
+        30 => 9,
         _ => unreachable!(),
     };
     if mesh.vertices.len().saturating_add(24) > limits.max_vertices.min(crate::MAX_MESH_VERTICES)
@@ -477,6 +504,49 @@ pub(crate) fn append(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn web_model_matches_native_all_metadata() {
+        let mut count = 0;
+        for line in include_str!("../../../tests/fixtures/web_render/native.tsv")
+            .lines()
+            .filter(|l| l.starts_with("vertex\t"))
+        {
+            let f: Vec<_> = line.split('\t').collect();
+            let metadata = f[2].parse().unwrap();
+            let index: usize = f[3].parse().unwrap();
+            let bits: Vec<u32> = f[4..9]
+                .iter()
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .collect();
+            let mut mesh = Mesh::default();
+            append(
+                &mut mesh,
+                [0, 0, 0],
+                BlockData {
+                    id: 30,
+                    metadata,
+                    block_light: 0,
+                    sky_light: 15,
+                },
+                0,
+                MeshLimits::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                mesh.vertices[index].position.map(f32::to_bits),
+                [bits[0], bits[1], bits[2]],
+                "meta={metadata}, vertex={index}"
+            );
+            assert_eq!(
+                mesh.vertices[index].uv.map(f32::to_bits),
+                [bits[3], bits[4]],
+                "meta={metadata}, vertex={index}"
+            );
+            count += 1;
+        }
+        assert_eq!(count, 16 * 24);
+    }
+
     #[test]
     fn tall_grass_coordinates_and_biome_samples_match_native() {
         let data = include_str!("../../../tests/fixtures/tall_grass/native.tsv");
