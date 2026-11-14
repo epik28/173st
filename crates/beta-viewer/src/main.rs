@@ -5,7 +5,9 @@
 
 mod armor_runtime;
 mod backend;
+mod block_wear_runtime;
 mod drowning_runtime;
+mod fire_runtime;
 mod food_runtime;
 mod hotbar_input;
 mod hud;
@@ -153,6 +155,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("beta-viewer: invalid saved Air field; starting with 300 air");
             300
         });
+    let saved_fire = fire_runtime::saved_fire(metadata.player.as_ref()).unwrap_or_else(|| {
+        eprintln!("beta-viewer: invalid saved Fire field; starting without fire");
+        0
+    });
     let fall_health = armor_runtime::read_armor(metadata.player.as_ref()).map(|slots| {
         armor_runtime::ArmorRuntime {
             health: health_nbt.damage_state(),
@@ -222,6 +228,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         difficulty,
         entity_ticks: 0,
         air: saved_air,
+        fire: saved_fire,
         hud_tick: 0,
         wheel_input: hotbar_input::WheelAccumulator::default(),
         native_pitch_degrees: 0.0,
@@ -1299,6 +1306,7 @@ struct App {
     difficulty: u8,
     entity_ticks: i32,
     air: i32,
+    fire: i32,
     hud_tick: i32,
     wheel_input: hotbar_input::WheelAccumulator,
     native_pitch_degrees: f32,
@@ -2140,6 +2148,9 @@ impl App {
             }
         }
         self.rebuild_dirty_chunks(&dirty_chunks, next_block_scene, next_scene_chunks)?;
+        if breaking {
+            block_wear_runtime::wear_selected_tool(&mut self.inventory, hit.id.into());
+        }
         self.water_runtime = next_water_runtime;
         self.aimed_hit = None;
         if std::env::var_os("BETA_TRACE_LIGHT_EDITS").is_some() {
@@ -2790,6 +2801,27 @@ impl App {
             }
             while self.controller.ticks_due() > 0 {
                 self.entity_ticks = self.entity_ticks.wrapping_add(1);
+                if !self.controller.debug_flight
+                    && let Ok(cells) = self
+                        .scene
+                        .water_cells_in(self.controller.state.bbox.expanded(1.0, 1.0, 1.0))
+                    && let Ok(wet) =
+                        beta_core::motion::water_contact(&self.controller.state, &cells)
+                    && let Some(lava) =
+                        fire_runtime::lava_contact(&self.controller.state, |x, y, z| {
+                            self.block_scene.block(x, y, z).ok().flatten()
+                        })
+                {
+                    let fire = beta_core::fire_tick::tick(self.fire, wet, lava, false, false);
+                    self.fire = fire.fire;
+                    for damage in fire.damage.into_iter().flatten() {
+                        if let Some(health) = &mut self.fall_health
+                            && health.apply_damage(i32::from(damage)).is_some()
+                        {
+                            self.saved_health = health.health.health.clamp(0, 20) as i16;
+                        }
+                    }
+                }
                 if !self.controller.debug_flight
                     && let Some(submerged) =
                         drowning_runtime::eyes_in_water(&self.controller.state, |x, y, z| {

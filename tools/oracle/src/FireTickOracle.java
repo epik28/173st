@@ -22,6 +22,7 @@ public final class FireTickOracle {
     @Override public boolean ah() { return lava; }
     @Override protected void b(int id, boolean value) { }
     @Override public boolean a(sn attacker, int amount) { events += amount; return true; }
+    boolean nativeLava() { return super.ah(); }
     void immune(boolean value) { bC = value; }
   }
   public static void main(String[] args) throws Exception {
