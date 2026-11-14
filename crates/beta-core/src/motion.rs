@@ -140,6 +140,45 @@ pub fn lava_travel_unobstructed(state: &mut MotionState, input: TravelInput) {
     state.velocity[1] -= 0.02;
 }
 
+/// Native living-input and lava movement with collision/step-out query.
+/// The caller supplies every solid box and whether the queried region contains
+/// any liquid, matching the native `sn.f` obstruction check.
+pub fn lava_living_step(
+    state: &mut MotionState,
+    input: TravelInput,
+    colliders: &[Aabb],
+    mut any_liquid: impl FnMut(Aabb) -> bool,
+) {
+    if input.jump {
+        state.velocity[1] += f64::from(0.04_f32);
+    }
+    state.yaw_degrees = input.yaw_degrees;
+    state.sneaking = input.sneaking;
+    move_flying(
+        state,
+        input.strafe * 0.98_f32,
+        input.forward * 0.98_f32,
+        0.02_f32,
+    );
+    let previous_y = state.position[1];
+    let movement = state.velocity;
+    move_entity(state, movement, colliders);
+    state.velocity[0] *= 0.5;
+    state.velocity[1] *= 0.5;
+    state.velocity[2] *= 0.5;
+    state.velocity[1] -= 0.02;
+    if state.collided_horizontally {
+        let query = state.bbox.offset(
+            state.velocity[0],
+            state.velocity[1] + 0.600_000_023_841_857_9 - state.position[1] + previous_y,
+            state.velocity[2],
+        );
+        if !colliders.iter().any(|b| b.intersects(query)) && !any_liquid(query) {
+            state.velocity[1] = WATER_SURFACE_JUMP;
+        }
+    }
+}
+
 #[cfg(test)]
 mod lava_travel_tests {
     use super::*;
@@ -179,6 +218,53 @@ mod lava_travel_tests {
                     "{row} column {index}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn native_lava_living_swim_with_wall_and_jump() {
+        for row in include_str!("../../../tests/fixtures/lava_swim/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<_> = row.split('\t').collect();
+            let mut state = MotionState::new([0.5, 10.0, 0.5]);
+            state.step_height = 0.0;
+            state.velocity = [
+                f[0].parse().unwrap(),
+                f[1].parse().unwrap(),
+                f[2].parse().unwrap(),
+            ];
+            let input = TravelInput {
+                strafe: f[3].parse().unwrap(),
+                forward: f[4].parse().unwrap(),
+                yaw_degrees: f[5].parse().unwrap(),
+                jump: f[6].parse().unwrap(),
+                sneaking: false,
+            };
+            let colliders = if f[7] == "true" {
+                vec![Aabb::new([0.9, 9.0, 0.0], [1.9, 13.0, 1.0])]
+            } else {
+                vec![]
+            };
+            let liquid = f[8].parse().unwrap();
+            lava_living_step(&mut state, input, &colliders, |_| liquid);
+            let actual = [
+                state.position[0],
+                state.position[1],
+                state.position[2],
+                state.velocity[0],
+                state.velocity[1],
+                state.velocity[2],
+            ];
+            for (index, value) in actual.into_iter().enumerate() {
+                assert_eq!(
+                    value.to_bits(),
+                    f[9 + index].parse::<f64>().unwrap().to_bits(),
+                    "{row} column {index}"
+                );
+            }
+            assert_eq!(state.collided_horizontally, f[15].parse().unwrap(), "{row}");
         }
     }
 }

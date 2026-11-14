@@ -4,6 +4,7 @@ pub mod armor_hud;
 pub mod cactus_runtime;
 pub mod colors;
 pub mod controller;
+pub mod fire_runtime;
 pub mod heart_animation;
 pub mod loader;
 pub mod player_air;

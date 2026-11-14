@@ -8,7 +8,8 @@ use beta_core::{
     geometry::Aabb,
     math::floor_f64,
     motion::{
-        MotionState, TravelInput, travel_with_ladder_query, water_contact, water_living_step,
+        MotionState, TravelInput, lava_living_step, travel_with_ladder_query, water_contact,
+        water_living_step,
     },
 };
 use beta_view::{Scene, ViewError};
@@ -19,6 +20,23 @@ fn ladder_cell(state: &MotionState) -> (i32, i32, i32) {
         floor_f64(state.bbox.min[1]),
         floor_f64(state.position[2]),
     )
+}
+
+// fd.b(Leq;) checks material in an inclusive broad phase; its negative
+// lower-bound adjustment is present in the native implementation.
+fn any_liquid(scene: &Scene, area: Aabb) -> Result<bool, ViewError> {
+    let min = area.min.map(|v| floor_f64(v) - i32::from(v < 0.0));
+    let max = area.max.map(|v| floor_f64(v + 1.0));
+    for x in min[0]..max[0] {
+        for y in min[1]..max[1] {
+            for z in min[2]..max[2] {
+                if matches!(scene.block_at(x, y, z)?.id, 8..=11) {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
 }
 
 pub const TICK: Duration = Duration::from_nanos(50_000_000);
@@ -156,6 +174,19 @@ impl MotionController {
         let water_cells = scene.water_cells_in(self.state.bbox.expanded(1.0, 1.0, 1.0))?;
         let was_in_water =
             water_contact(&self.state, &water_cells).map_err(beta_view::ViewError::WaterMotion)?;
+        let mut lava_query_error = None;
+        let was_in_lava = crate::fire_runtime::lava_contact(&self.state, |x, y, z| {
+            match scene.block_at(x, y, z) {
+                Ok(block) => Some(block),
+                Err(error) => {
+                    lava_query_error = Some(error);
+                    None
+                }
+            }
+        });
+        if let Some(error) = lava_query_error {
+            return Err(error);
+        }
         let mut was_on_ladder = false;
         if was_in_water {
             let sneak_factor = if controls.sneak { 0.3_f32 } else { 1.0 };
@@ -170,6 +201,28 @@ impl MotionController {
                 &water_cells,
             )
             .map_err(beta_view::ViewError::WaterMotion)?;
+        } else if was_in_lava == Some(true) {
+            let sneak_factor = if controls.sneak { 0.3_f32 } else { 1.0 };
+            let mut query_error = None;
+            lava_living_step(
+                &mut self.state,
+                TravelInput {
+                    strafe: raw_strafe * sneak_factor,
+                    forward: raw_forward * sneak_factor,
+                    ..travel_input
+                },
+                &colliders,
+                |area| match any_liquid(scene, area) {
+                    Ok(found) => found,
+                    Err(error) => {
+                        query_error = Some(error);
+                        true
+                    }
+                },
+            );
+            if let Some(error) = query_error {
+                return Err(error);
+            }
         } else {
             let surface = scene.surface_below(self.state.bbox)?;
             let mut next = self.state;
@@ -566,6 +619,47 @@ mod tests {
             vec![],
         )
         .unwrap()
+    }
+
+    #[test]
+    fn lava_controller_uses_swim_drag_and_jump() {
+        let mut data = beta_core::chunk::ChunkData::new();
+        for x in 7..10 {
+            for y in 9..13 {
+                for z in 7..10 {
+                    data.set(
+                        x,
+                        y,
+                        z,
+                        beta_core::chunk::BlockData {
+                            id: 11,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        let scene = Scene::new(
+            beta_view::SceneBounds::new(0, 0, 1, 1).unwrap(),
+            vec![beta_view::SceneChunk { x: 0, z: 0, data }],
+            vec![],
+        )
+        .unwrap();
+        let mut motion = MotionController::new(MotionState::new([8.5, 10.0, 8.5]));
+        motion.state.velocity = [0.1, 0.0, 0.05];
+        ticks(
+            &mut motion,
+            &scene,
+            Controls {
+                jump: true,
+                ..Controls::default()
+            },
+            1,
+        );
+        assert_eq!(motion.state.velocity[0], 0.05);
+        assert_eq!(motion.state.velocity[1], f64::from(0.04_f32) * 0.5 - 0.02);
+        assert_eq!(motion.state.velocity[2], 0.025);
     }
 
     fn ticks(motion: &mut MotionController, scene: &Scene, input: Controls, count: usize) {
