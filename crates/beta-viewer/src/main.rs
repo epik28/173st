@@ -34,7 +34,7 @@ use beta_core::{
 use beta_view::{BlockMapping, Camera, Mesh, Scene, SceneChunk, Vertex, fluid::Mesh as FluidMesh};
 use beta_viewer::controller::{
     Controls, MotionController, MouseDeltaAccumulator, apply_native_mouse_delta,
-    controls_for_inventory,
+    controls_for_health, controls_for_inventory,
 };
 use beta_viewer::water_runtime::{CapturedSeedAction, WaterRuntime};
 use std::{
@@ -2892,7 +2892,10 @@ impl App {
         let dt = now.duration_since(self.last);
         self.last = now;
         if self.focused {
-            let controls = controls_for_inventory(self.controls, self.inventory_screen.is_open());
+            let controls = controls_for_health(
+                controls_for_inventory(self.controls, self.inventory_screen.is_open()),
+                i32::from(self.saved_health),
+            );
             self.controller.accumulate(dt);
             self.water_runtime.accumulate(dt);
             while self.water_runtime.ticks_due() > 0 {

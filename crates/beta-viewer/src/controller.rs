@@ -62,6 +62,20 @@ pub fn controls_for_inventory(controls: Controls, inventory_open: bool) -> Contr
     }
 }
 
+/// Dead living entities cannot supply movement or jump inputs; their physics
+/// continues and the separately tracked sneak flag is unchanged.
+#[must_use]
+pub fn controls_for_health(mut controls: Controls, health: i32) -> Controls {
+    if health <= 0 {
+        controls.forward = false;
+        controls.backward = false;
+        controls.left = false;
+        controls.right = false;
+        controls.jump = false;
+    }
+    controls
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct MouseDeltaAccumulator {
     residual_x: f64,
@@ -666,6 +680,38 @@ mod tests {
         for _ in 0..count {
             motion.accumulate(TICK);
             motion.tick(scene, input).unwrap();
+        }
+    }
+
+    #[test]
+    fn dead_player_inputs_match_native_living_tick() {
+        for row in include_str!("../../../tests/fixtures/death_input/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<_> = row.split('\t').collect();
+            let health: i32 = f[0].parse().unwrap();
+            let strafe: f32 = f[2].parse().unwrap();
+            let forward: f32 = f[3].parse().unwrap();
+            let controls = controls_for_health(
+                Controls {
+                    left: strafe > 0.0,
+                    right: strafe < 0.0,
+                    forward: forward > 0.0,
+                    backward: forward < 0.0,
+                    jump: f[1].parse().unwrap(),
+                    sneak: true,
+                },
+                health,
+            );
+            let actual_strafe =
+                (u8::from(controls.left) as f32 - u8::from(controls.right) as f32) * 0.98_f32;
+            let actual_forward =
+                (u8::from(controls.forward) as f32 - u8::from(controls.backward) as f32) * 0.98_f32;
+            assert_eq!(actual_strafe, f[4].parse().unwrap(), "{row}");
+            assert_eq!(actual_forward, f[5].parse().unwrap(), "{row}");
+            assert_eq!(controls.jump, f[6].parse().unwrap(), "{row}");
+            assert!(controls.sneak);
         }
     }
 
