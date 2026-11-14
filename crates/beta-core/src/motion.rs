@@ -574,7 +574,7 @@ pub fn travel_with_ladder_query(
         state.velocity[1] = 0.419_999_986_886_978_15;
     }
 
-    let acceleration_friction = ground_friction(state, colliders, surface);
+    let acceleration_friction = ground_friction(state, surface);
     let acceleration =
         0.162_771_36_f32 / (acceleration_friction * acceleration_friction * acceleration_friction);
     let ground_acceleration = if state.on_ground {
@@ -586,7 +586,7 @@ pub fn travel_with_ladder_query(
 
     // Native ls.a_ resolves both friction lookups before invoking sn.b(DDD).
     // Keep the drag surface tied to the pre-move support/bounding box.
-    let horizontal_friction = ground_friction(state, colliders, surface);
+    let horizontal_friction = ground_friction(state, surface);
     if on_ladder(state) {
         let max_horizontal = f64::from(0.15_f32);
         state.velocity[0] = state.velocity[0].clamp(-max_horizontal, max_horizontal);
@@ -611,34 +611,16 @@ pub fn travel_with_ladder_query(
     state.velocity[2] *= horizontal_drag;
 }
 
-fn ground_friction(state: &MotionState, colliders: &[Aabb], surface: Surface) -> f32 {
+fn ground_friction(state: &MotionState, surface: Surface) -> f32 {
     if !state.on_ground {
         return 0.91_f32;
     }
-
-    let mut friction = 0.546_000_06_f32;
-    let block_x = floor_f64(state.position[0]);
-    let block_y = floor_f64(state.bbox.min[1]).wrapping_sub(1);
-    let block_z = floor_f64(state.position[2]);
-    let voxel = Aabb::new(
-        [f64::from(block_x), f64::from(block_y), f64::from(block_z)],
-        [
-            f64::from(block_x) + 1.0,
-            f64::from(block_y) + 1.0,
-            f64::from(block_z) + 1.0,
-        ],
-    );
-    let found_block =
-        surface != Surface::Air && colliders.iter().any(|box_| box_.intersects(voxel));
-    if found_block {
-        let slipperiness = match surface {
-            Surface::Air => unreachable!("air has no slipperiness lookup"),
-            Surface::Stone => 0.6_f32,
-            Surface::Ice => 0.98_f32,
-        };
-        friction = slipperiness * 0.91_f32;
+    // The native world query checks the block ID, even for non-colliding blocks.
+    match surface {
+        Surface::Air => 0.546_000_06_f32,
+        Surface::Stone => 0.6_f32 * 0.91_f32,
+        Surface::Ice => 0.98_f32 * 0.91_f32,
     }
-    friction
 }
 
 #[allow(clippy::approx_constant)] // Native embeds the f32 literal 3.1415927.
@@ -780,6 +762,17 @@ mod tests {
         );
         assert_eq!(slide_disabled.bbox.min[1], 1.0);
         assert_eq!(slide_disabled.velocity[0], 0.0);
+    }
+
+    #[test]
+    fn native_ground_friction_is_based_on_sampled_block_not_colliders() {
+        let mut state = MotionState::new([0.5, 1.0, 0.5]);
+        state.on_ground = true;
+        assert_eq!(ground_friction(&state, Surface::Ice), 0.98_f32 * 0.91_f32);
+        assert_eq!(ground_friction(&state, Surface::Stone), 0.6_f32 * 0.91_f32);
+        assert_eq!(ground_friction(&state, Surface::Air), 0.546_000_06_f32);
+        state.on_ground = false;
+        assert_eq!(ground_friction(&state, Surface::Ice), 0.91_f32);
     }
 
     #[test]

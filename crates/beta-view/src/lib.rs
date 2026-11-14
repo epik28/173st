@@ -559,8 +559,7 @@ impl Scene {
         }
         let y = y as i32;
         let block = self.block(x, y, z)?;
-        let above = self.block(x, y + 1, z)?.id;
-        if block.id == 0 || !self.is_collision_cube(block.id, block.metadata, above) {
+        if block.id == 0 {
             Ok(beta_core::motion::Surface::Air)
         } else if block.id == 79 {
             Ok(beta_core::motion::Surface::Ice)
@@ -2219,6 +2218,32 @@ mod tests {
                 .vertices
                 .iter()
                 .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
+        );
+    }
+
+    #[test]
+    fn surface_lookup_uses_native_block_id_not_collision_shape() {
+        for line in include_str!("../../../tests/fixtures/slipperiness/native.tsv").lines() {
+            let fields: Vec<_> = line.split('\t').collect();
+            let id: u8 = fields[0].parse().unwrap();
+            let bits = u32::from_str_radix(fields[1], 16).unwrap();
+            let scene = blocks_scene(&[(0, 1, 0, id, 0)], vec![]);
+            let body = Aabb::new([0.2, 2.0, 0.2], [0.8, 3.8, 0.8]);
+            let expected = if bits == 0x3f7ae148 {
+                beta_core::motion::Surface::Ice
+            } else {
+                assert_eq!(bits, 0x3f19999a);
+                beta_core::motion::Surface::Stone
+            };
+            assert_eq!(scene.surface_below(body).unwrap(), expected, "id={id}");
+        }
+        // Standing on the lower half-slab samples the voxel below it in the native client.
+        let scene = blocks_scene(&[(0, 1, 0, 44, 0)], vec![]);
+        assert_eq!(
+            scene
+                .surface_below(Aabb::new([0.2, 1.5, 0.2], [0.8, 3.3, 0.8]))
+                .unwrap(),
+            beta_core::motion::Surface::Air
         );
     }
 
