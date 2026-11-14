@@ -430,6 +430,15 @@ impl Scene {
                         }
                         continue;
                     }
+                    if y >= y0 && matches!(block.id, 65 | 78) {
+                        if let Some(bounds) =
+                            thin_block_collision(block.id, block.metadata, x as i32, y, z as i32)
+                            && bounds.intersects(area)
+                        {
+                            result.push(bounds);
+                        }
+                        continue;
+                    }
                     if y >= y0 && matches!(block.id, 44 | 60 | 81) {
                         let bounds = partial_block_collision(block.id, x as i32, y, z as i32);
                         if bounds.intersects(area) {
@@ -1445,6 +1454,21 @@ impl Camera {
     }
 }
 
+fn thin_block_collision(id: u8, metadata: u8, x: i32, y: i32, z: i32) -> Option<Aabb> {
+    let (x, y, z) = (f64::from(x), f64::from(y), f64::from(z));
+    let mut min = [x, y, z];
+    let mut max = [x + 1.0, y + 1.0, z + 1.0];
+    match (id, metadata) {
+        (65, 2) => min[2] += 0.875,
+        (65, 3) => max[2] -= 0.875,
+        (65, 4) => min[0] += 0.875,
+        (65, 5) => max[0] -= 0.875,
+        (78, m) if m & 7 >= 3 => max[1] = y + 0.5,
+        _ => return None,
+    }
+    Some(Aabb::new(min, max))
+}
+
 fn partial_block_collision(id: u8, x: i32, y: i32, z: i32) -> Aabb {
     let (x, y, z) = (f64::from(x), f64::from(y), f64::from(z));
     match id {
@@ -2219,6 +2243,35 @@ mod tests {
                 .iter()
                 .any(|vertex| vertex.uv[0] >= (38 % 16) as f32 * TILE_SIZE / ATLAS_SIZE)
         );
+    }
+
+    #[test]
+    fn thin_block_collisions_match_native_and_are_queried() {
+        for line in include_str!("../../../tests/fixtures/thin_block_collision/native.tsv").lines()
+        {
+            let fields: Vec<_> = line.split('\t').collect();
+            let id: u8 = fields[0].parse().unwrap();
+            let metadata: u8 = fields[1].parse().unwrap();
+            let expected = if fields[2] == "none" {
+                None
+            } else {
+                let n: Vec<f64> = fields[2..].iter().map(|s| s.parse().unwrap()).collect();
+                Some(Aabb::new([n[0], n[1], n[2]], [n[3], n[4], n[5]]))
+            };
+            assert_eq!(
+                thin_block_collision(id, metadata, 0, 0, 0),
+                expected,
+                "id={id} metadata={metadata}"
+            );
+            let scene = blocks_scene(&[(0, 1, 0, id, metadata)], vec![]);
+            let query = Aabb::new([0.0, 1.0, 0.0], [1.0, 2.0, 1.0]);
+            let result = scene.colliders_in(query).unwrap();
+            assert_eq!(
+                result.len(),
+                usize::from(expected.is_some()),
+                "id={id} metadata={metadata}"
+            );
+        }
     }
 
     #[test]
