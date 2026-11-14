@@ -5,6 +5,40 @@ use beta_core::{
     items::{Inventory, ItemStack},
 };
 
+/// Targets whose native block interaction was observed to decline activation
+/// before the held food is used. Unknown block states remain unsupported.
+pub fn passive_target(target: Option<(u8, u8)>) -> bool {
+    match target {
+        None => true,
+        Some((id, 0)) => matches!(
+            id,
+            1 | 2
+                | 3
+                | 4
+                | 5
+                | 12
+                | 13
+                | 17
+                | 18
+                | 20
+                | 24
+                | 31
+                | 35
+                | 44
+                | 49
+                | 78
+                | 81
+                | 82
+                | 86
+                | 87
+                | 88
+                | 89
+                | 91
+        ),
+        _ => false,
+    }
+}
+
 /// Returns `None` for a non-food item or unsupported state. Updates are atomic.
 pub fn use_selected_food(inventory: &mut Inventory, health: &mut UnarmoredHealth) -> Option<()> {
     let index = usize::from(inventory.selected_hotbar());
@@ -30,6 +64,26 @@ pub fn use_selected_food(inventory: &mut Inventory, health: &mut UnarmoredHealth
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn passive_block_activation_before_food_matches_native() {
+        let mut count = 0;
+        for row in include_str!("../../../tests/fixtures/food_passive/native.tsv")
+            .lines()
+            .skip(1)
+        {
+            let f: Vec<u16> = row
+                .split('\t')
+                .map(|value| value.parse().unwrap())
+                .collect();
+            assert_eq!(passive_target(Some((f[0] as u8, 0))), f[2] == 0, "{row}");
+            assert_eq!((f[3], f[4], f[5]), (1, 14, 1), "{row}");
+            count += 1;
+        }
+        assert_eq!(count, 138);
+        assert!(passive_target(None));
+        assert!(!passive_target(Some((54, 0))));
+        assert!(!passive_target(Some((17, 1))));
+    }
     #[test]
     fn selected_slot_use_matches_native_controller() {
         for line in include_str!("../../../tests/fixtures/food/native_route.tsv")

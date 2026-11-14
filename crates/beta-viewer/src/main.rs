@@ -3606,11 +3606,11 @@ impl ApplicationHandler for App {
                     && beta_core::food::use_food(stack.id(), stack.count(), 20, 0, 20).is_some()
                 {
                     self.update_aimed_target();
-                    // Stone's native block activation returns false. Other
-                    // target types remain gated until their activation order
-                    // has been captured; a miss invokes the item directly.
+                    // Unknown block activation orders remain gated.
                     if (self.target_status == "no target"
-                        || self.aimed_hit.is_some_and(|hit| hit.id == 1))
+                        || self.aimed_hit.is_some_and(|hit| {
+                            food_runtime::passive_target(Some((hit.id, hit.metadata)))
+                        }))
                         && let Some(health) = &mut self.fall_health
                         && food_runtime::use_selected_food(&mut self.inventory, &mut health.health)
                             .is_some()
