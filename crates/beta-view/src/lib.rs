@@ -23,6 +23,7 @@ pub mod fluid;
 mod plant;
 pub use plant::tall_grass_biome_coords;
 mod cactus;
+mod crops;
 mod farmland;
 mod ladder;
 mod slab;
@@ -789,6 +790,19 @@ impl Scene {
                                         false,
                                     )?;
                                 }
+                                continue;
+                            }
+                            if block.id == 59 {
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                crops::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    source_minimum,
+                                    limits,
+                                )?;
                                 continue;
                             }
                             if block.id == 81 {
