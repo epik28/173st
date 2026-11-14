@@ -27,6 +27,7 @@ mod crops;
 mod farmland;
 mod fence;
 mod ladder;
+mod pressure_plate;
 mod rail;
 mod slab;
 mod snow;
@@ -839,6 +840,25 @@ impl Scene {
                                         false,
                                     )?;
                                 }
+                                continue;
+                            }
+                            if matches!(block.id, 70 | 72) {
+                                let below = self.block(wx, i32::from(y) - 1, wz)?;
+                                let below_above = self.block(wx, i32::from(y), wz)?.id;
+                                let visible =
+                                    !self.is_supported_cube(below.id, below.metadata, below_above);
+                                let source_minimum = emission_minimum
+                                    .as_deref_mut()
+                                    .map_or(0, |minimum| minimum(block.id));
+                                pressure_plate::append(
+                                    &mut mesh,
+                                    [wx, i32::from(y), wz],
+                                    block,
+                                    below,
+                                    visible,
+                                    source_minimum,
+                                    limits,
+                                )?;
                                 continue;
                             }
                             if block.id == 85 {
